@@ -37,8 +37,16 @@ function save() {
 
 function show() {
   let html = "";
+let search = document.getElementById("search").value.toLowerCase();
 
-  records.forEach((r, i) => {
+let total = 0;
+let paid = 0;
+let baki = 0;
+  records.forEach((r, i) => {if (!r.name.toLowerCase().includes(search)) return;
+
+total += r.total;
+paid += r.paid;
+baki += r.baki;
     html += `
       <div class="card">
         <h3>${r.name}</h3>
@@ -51,7 +59,12 @@ function show() {
         <button onclick="del(${i})">Delete</button>
       </div>
     `;
-  });
+  });document.getElementById("summary").innerHTML = `
+<h3>💰 कुल हिसाब</h3>
+<p>कुल राशि: ₹${total}</p>
+<p>जमा राशि: ₹${paid}</p>
+<p>बाकी राशि: ₹${baki}</p>
+`;
 
   document.getElementById("list").innerHTML = html;
 }
