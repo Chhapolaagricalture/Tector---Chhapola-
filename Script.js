@@ -1,5 +1,5 @@
 let records = JSON.parse(localStorage.getItem("records")) || [];
-
+let editIndex = -1;
 function save() {
   let name = document.getElementById("name").value;
   let work = document.getElementById("work").value;
@@ -15,7 +15,19 @@ function save() {
   let total = bigha * rate;
   let baki = total - paid;
 
-  records.push({
+ if (editIndex == -1) {
+    records.push({});} else {
+    records[editIndex] = {
+        name,
+        work,
+        bigha,
+        rate,
+        paid,
+        total,
+        baki
+    };
+    editIndex = -1;
+ }
     name,
     work,
     bigha,
