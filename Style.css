@@ -1,1 +1,73 @@
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#f4f4f4;
+}
 
+header{
+  background:#2e7d32;
+  color:#fff;
+  text-align:center;
+  padding:20px;
+}
+
+.container{
+  padding:15px;
+}
+
+input,select,button{
+  width:100%;
+  padding:12px;
+  margin:8px 0;
+  border:1px solid #ccc;
+  border-radius:8px;
+  box-sizing:border-box;
+  font-size:16px;
+}
+
+button{
+  background:#2e7d32;
+  color:white;
+  border:none;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+button:hover{
+  background:#1b5e20;
+}
+
+.card{
+  background:white;
+  margin-top:15px;
+  padding:15px;
+  border-radius:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,.2);
+}
+
+.total{
+  color:green;
+  font-weight:bold;
+}
+
+.balance{
+  color:red;
+  font-weight:bold;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:15px;
+}
+
+th,td{
+  border:1px solid #ddd;
+  padding:8px;
+  text-align:center;
+}
+
+th{
+  background:#2e7d32;
+  color:white;
+  }
