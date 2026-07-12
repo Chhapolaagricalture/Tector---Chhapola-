@@ -1,1 +1,109 @@
 
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chhapola Agriculture</title>
+<style>
+body{font-family:Arial;background:#f5f5f5;margin:0}
+header{background:#2e7d32;color:#fff;padding:15px;text-align:center}
+.container{padding:15px}
+input,select,button{
+width:100%;
+padding:10px;
+margin:8px 0;
+font-size:16px;
+box-sizing:border-box;
+}
+button{
+background:#2e7d32;
+color:white;
+border:none;
+border-radius:5px;
+}
+.card{
+background:#fff;
+padding:10px;
+margin-top:10px;
+border-radius:8px;
+box-shadow:0 2px 5px rgba(0,0,0,.2);
+}
+</style>
+</head>
+<body>
+
+<header>
+<h2>🚜 Chhapola Agriculture</h2>
+<p>Tractor Account System</p>
+</header>
+
+<div class="container">
+
+<input id="name" placeholder="किसान का नाम">
+
+<select id="work">
+<option>जुताई</option>
+<option>बुवाई</option>
+<option>रोटावेटर</option>
+<option>कल्टीवेटर</option>
+</select>
+
+<input id="bigha" type="number" placeholder="बीघा">
+
+<input id="rate" type="number" placeholder="रेट (₹/बीघा)">
+
+<input id="paid" type="number" placeholder="जमा राशि">
+
+<button onclick="save()">💾 हिसाब सेव करें</button>
+
+<div id="list"></div>
+
+</div>
+
+<script>
+let records=[];
+
+function save(){
+
+let name=document.getElementById("name").value;
+let work=document.getElementById("work").value;
+let bigha=Number(document.getElementById("bigha").value);
+let rate=Number(document.getElementById("rate").value);
+let paid=Number(document.getElementById("paid").value);
+
+let total=bigha*rate;
+let baki=total-paid;
+
+records.push({name,work,bigha,rate,total,paid,baki});
+
+show();
+
+}
+
+function show(){
+
+let html="";
+
+records.forEach(r=>{
+
+html+=`
+<div class="card">
+<b>${r.name}</b><br>
+काम : ${r.work}<br>
+बीघा : ${r.bigha}<br>
+कुल : ₹${r.total}<br>
+जमा : ₹${r.paid}<br>
+बाकी : ₹${r.baki}
+</div>
+`;
+
+});
+
+document.getElementById("list").innerHTML=html;
+
+}
+</script>
+
+</body>
+</html>
