@@ -44,60 +44,77 @@ function show() {
 
   records.forEach((r, i) => {
 
-    r.name = r.name.trim();
+    let key = r.name.trim().toLowerCase();
 
-    if (!r.name.toLowerCase().includes(search)) return;
+    if (!key.includes(search)) return;
 
-    if (!groups[r.name]) {
-      groups[r.name] = {
+    if (!groups[key]) {
+      groups[key] = {
         name: r.name,
         total: 0,
         paid: 0,
         baki: 0,
-        items: ""
+        rows: ""
       };
     }
 
-    groups[r.name].total += r.total;
-    groups[r.name].paid += r.paid;
-    groups[r.name].baki += r.baki;
+    groups[key].total += r.total;
+    groups[key].paid += r.paid;
+    groups[key].baki += r.baki;
 
-    groups[r.name].items += `
-      <hr>
-      <p>काम: ${r.work}</p>
-      <p>बीघा: ${r.bigha}</p>
-      <p>रेट: ₹${r.rate}</p>
-      <p>कुल: ₹${r.total}</p>
-      <p>जमा: ₹${r.paid}</p>
-      <p>बाकी: ₹${r.baki}</p>
-
-      <button onclick="edit(${i})">✏️ Edit</button>
-      <button onclick="share(${i})">📲 WhatsApp</button>
-      <button onclick="del(${i})">🗑 Delete</button>
+    groups[key].rows += `
+      <tr>
+        <td>${r.work}</td>
+        <td>${r.bigha}</td>
+        <td>₹${r.rate}</td>
+        <td>₹${r.total}</td>
+        <td>₹${r.paid}</td>
+        <td>₹${r.baki}</td>
+        <td>
+          <button onclick="edit(${i})">✏️</button>
+          <button onclick="share(${i})">📲</button>
+          <button onclick="del(${i})">🗑</button>
+        </td>
+      </tr>
     `;
   });
 
-  for (let name in groups) {
-    let g = groups[name];
+  for (let key in groups) {
+
+    let g = groups[key];
 
     html += `
       <div class="card">
         <h3>👨‍🌾 ${g.name}</h3>
 
-        ${g.items}
+        <table border="1" width="100%" cellspacing="0" cellpadding="6">
+          <tr>
+            <th>काम</th>
+            <th>बीघा</th>
+            <th>रेट</th>
+            <th>कुल</th>
+            <th>जमा</th>
+            <th>बाकी</th>
+            <th>Action</th>
+          </tr>
 
-        <hr>
-        <h4>📒 कुल हिसाब</h4>
-        <p><b>कुल राशि:</b> ₹${g.total}</p>
-        <p><b>जमा राशि:</b> ₹${g.paid}</p>
-        <p><b>बाकी राशि:</b> ₹${g.baki}</p>
-      </div>
+          ${g.rows}
+
+          <tr style="font-weight:bold;background:#e8f5e9;">
+            <td colspan="3">कुल हिसाब</td>
+            <td>₹${g.total}</td>
+            <td>₹${g.paid}</td>
+            <td>₹${g.baki}</td>
+            <td></td>
+          </tr>
+        </table>
+
+      </div><br>
     `;
   }
 
   document.getElementById("list").innerHTML = html;
 }
-
 function del(i) {
   records.splice(i, 1);
   localStorage.setItem("records", JSON.stringify(records));
