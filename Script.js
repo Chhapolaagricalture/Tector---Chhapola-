@@ -105,9 +105,7 @@ function edit(i){
 
 function share(i){
   let r = records[i];
-
-  let msg =
-`🚜 Chhapola Agriculture
+let msg = (`)🚜 Chhapola Agriculture
 
 👨‍🌾 किसान: ${r.name}
 🌾 काम: ${r.work}
@@ -115,7 +113,8 @@ function share(i){
 💰 रेट: ₹${r.rate}
 🧾 कुल: ₹${r.total}
 💵 जमा: ₹${r.paid}
-📌 बाकी: ₹${r.baki}`;
+📌 बाकी: ₹${r.baki}(`);
 
-  window.open("https://wa.me/?text=" + encodeURIComponent(msg));
+window.open("https://wa.me/?text=" + encodeURIComponent(msg));
+  ;
       }
