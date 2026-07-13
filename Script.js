@@ -33,26 +33,25 @@ function save() {
   document.getElementById("rate").value = "";
   document.getElementById("paid").value = "";
 
-  show();
-}
-
-function show() {
-    let search = document.getElementById("search").value.toLowerCase();
+  show()
+  function show() {
+  let search = document.getElementById("search").value.toLowerCase();
   let html = "";
   let groups = {};
 
   records.forEach((r, i) => {
+    r.name = r.name.trim();
 
     if (!r.name.toLowerCase().includes(search)) return;
+
     if (!groups[r.name]) {
-    groups[r.name] = {
+      groups[r.name] = {
         name: r.name,
         total: 0,
         paid: 0,
         baki: 0,
         items: ""
-    };
-    }
+      };
     }
 
     groups[r.name].total += r.total;
@@ -73,8 +72,8 @@ function show() {
       <button onclick="del(${i})">🗑 Delete</button>
     `;
   });
-    for (let name in groups) {
 
+  for (let name in groups) {
     let g = groups[name];
 
     html += `
@@ -93,8 +92,8 @@ function show() {
   }
 
   document.getElementById("list").innerHTML = html;
-    }
-function del(i) {
+}
+    function del(i) {
   records.splice(i, 1);
   localStorage.setItem("records", JSON.stringify(records));
   show();
