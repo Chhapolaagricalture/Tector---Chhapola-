@@ -72,10 +72,11 @@ function show() {
         <td>₹${r.baki}</td>
         <td>
   <div class="action">
-    <button onclick="edit(${i})">✏️</button>
-    <button onclick="share(${i})">📲</button>
-    <button onclick="del(${i})">🗑️</button>
-  </div>
+  <button onclick="edit(${i})">✏️</button>
+  <button onclick="share(${i})">📲</button>
+  <button onclick="pdf(${i})">📄</button>
+  <button onclick="del(${i})">🗑️</button>
+</div>
   </td>
       </tr>
     `;
