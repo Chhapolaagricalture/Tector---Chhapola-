@@ -255,7 +255,13 @@ y += 10;
   doc.text("Balance : " + baki, 10, y);
 
   y += 15;
-  doc.text("Mobile : 9079096875", 10, y);
+doc.text("Contact", 20, y);
+
+y += 10;
+doc.text("Chhapola Agriculture", 20, y);
+
+y += 10;
+doc.text("Mobile : 9079096875", 20, y);
 
   doc.save(farmer + ".pdf");
     }
