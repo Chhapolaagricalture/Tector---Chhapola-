@@ -34,47 +34,63 @@ function save() {
 
   show();
 }
-
 function show() {
-  let html = "";
-  let search = document.getElementById("search").value.toLowerCase();
 
-  let total = 0;
-  let paid = 0;
-  let baki = 0;
-    records.forEach((r, i) => {
+let search = document.getElementById("search").value.toLowerCase();
+let html = "";
+let groups = {};
+
+records.forEach((r, i) => {
+
     if (!r.name.toLowerCase().includes(search)) return;
 
-    total += r.total;
-    paid += r.paid;
-    baki += r.baki;
+    if (!groups[r.name]) {
+        groups[r.name] = {
+            total: 0,
+            paid: 0,
+            baki: 0,
+            items: ""
+        };
+    }
+
+    groups[r.name].total += r.total;
+    groups[r.name].paid += r.paid;
+    groups[r.name].baki += r.baki;
+
+    groups[r.name].items += `
+    <hr>
+    <p>काम : ${r.work}</p>
+    <p>बीघा : ${r.bigha}</p>
+    <p>रेट : ₹${r.rate}</p>
+    <p>कुल : ₹${r.total}</p>
+    <p>जमा : ₹${r.paid}</p>
+    <p>बाकी : ₹${r.baki}</p>
+
+    <button onclick="edit(${i})">✏️ Edit</button>
+    <button onclick="share(${i})">📲 WhatsApp</button>
+    <button onclick="del(${i})">🗑 Delete</button>
+    `;
+}for (let name in groups) {
+
+    let g = groups[name];
 
     html += `
     <div class="card">
-      <h3>${r.name}</h3>
-      <p>काम: ${r.work}</p>
-      <p>बीघा: ${r.bigha}</p>
-      <p>रेट: ₹${r.rate}</p>
-      <p class="total">कुल: ₹${r.total}</p>
-      <p>जमा: ₹${r.paid}</p>
-      <p class="balance">बाकी: ₹${r.baki}</p>
+        <h3>👨‍🌾 ${name}</h3>
 
-      <button onclick="edit(${i})">✏️ Edit</button>
-      <button onclick="share(${i})">📲 WhatsApp</button>
-      <button onclick="del(${i})">🗑 Delete</button>
-    </div>
-    `;
-  });
+        ${g.items}
 
-  document.getElementById("summary").innerHTML = `
-    <h3>💰 कुल हिसाब</h3>
-    <p>कुल राशि: ₹${total}</p>
-    <p>जमा राशि: ₹${paid}</p>
-    <p>बाकी राशि: ₹${baki}</p>
-  `;
-
-  document.getElementById("list").innerHTML = html;
+        <hr>
+        <h4>📒 कुल हिसाब</h4>
+        <p><b>कुल राशि:</b> ₹${g.total}</p>
+        <p><b>जमा राशि:</b> ₹${g.paid}</p>
+        <p><b>बाकी राशि:</b> ₹${g.baki}</p>
+    </div>`;
 }
+
+document.getElementById("list").innerHTML = html;
+
+    }
 function del(i) {
   records.splice(i, 1);
   localStorage.setItem("records", JSON.stringify(records));
