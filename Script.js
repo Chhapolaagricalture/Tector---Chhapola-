@@ -44,10 +44,17 @@ let work = document.getElementById("work").value;
 function show() {
   let search = document.getElementById("search").value.toLowerCase();
   let html = "";
+  let totalAmount = 0;
+let totalPaid = 0;
+let totalBaki = 0;
+let farmers = new Set();
   let groups = {};
 
   records.forEach((r, i) => {
-
+farmers.add(r.name.trim().toLowerCase());
+totalAmount += r.total;
+totalPaid += r.paid;
+totalBaki += r.baki;
     let key = r.name.trim().toLowerCase();
 
     if (!key.includes(search)) return;
@@ -123,7 +130,15 @@ function show() {
       </div><br>
     `;
   }
-
+document.getElementById("dashboard").innerHTML = `
+<div class="card">
+  <h3>📊 Dashboard</h3>
+  <p>👨‍🌾 Total Farmers: ${farmers.size}</p>
+  <p>💰 Total Amount: ₹${totalAmount}</p>
+  <p>💵 Total Paid: ₹${totalPaid}</p>
+  <p>❌ Total Balance: ₹${totalBaki}</p>
+</div>
+`;
   document.getElementById("list").innerHTML = html;
 }
 function del(i) {
