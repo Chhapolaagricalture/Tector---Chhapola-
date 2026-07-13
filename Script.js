@@ -71,10 +71,12 @@ function show() {
         <td>₹${r.paid}</td>
         <td>₹${r.baki}</td>
         <td>
-          <button onclick="edit(${i})">✏️</button>
-          <button onclick="share(${i})">📲</button>
-          <button onclick="del(${i})">🗑</button>
-        </td>
+  <div class="action">
+    <button onclick="edit(${i})">✏️</button>
+    <button onclick="share(${i})">📲</button>
+    <button onclick="del(${i})">🗑️</button>
+  </div>
+  </td>
       </tr>
     `;
   });
@@ -87,7 +89,7 @@ function show() {
       <div class="card">
         <h3>👨‍🌾 ${g.name}</h3>
 
-        <table border="1" width="100%" cellspacing="0" cellpadding="6">
+        <table>
           <tr>
             <th>काम</th>
             <th>बीघा</th>
