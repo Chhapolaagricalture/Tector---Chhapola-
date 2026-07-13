@@ -89,7 +89,7 @@ function show() {
       <div class="card">
         <h3>👨‍🌾 ${g.name}</h3>
 
-        <table>
+      <table style="width:100%; table-layout:fixed;">
           <tr>
             <th>काम</th>
             <th>बीघा</th>
