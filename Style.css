@@ -89,9 +89,7 @@ th{
     margin:0;
 }
 
-td:last-child{
-    width:130px;
-      }
+
 th:last-child,
 td:last-child{
     width:120px;
