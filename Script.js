@@ -93,6 +93,8 @@ function show() {
     html += `
       <div class="card">
         <h3>👨‍🌾 ${g.name}</h3>
+<p>📱 ${records.find(r => r.name.trim().toLowerCase() === key).mobile}</p>
+<p>📅 ${records.find(r => r.name.trim().toLowerCase() === key).date}</p>
 
       <div style="overflow-x:auto;">
 <table style="min-width:700px; border-collapse:collapse;">
