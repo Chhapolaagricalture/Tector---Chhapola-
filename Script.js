@@ -159,22 +159,73 @@ function pdf(i) {
   const { jsPDF } = window.jspdf;
   let doc = new jsPDF();
 
-  let r = records[i];
+  let farmer = records[i].name;
+
+  let total = 0;
+  let paid = 0;
+  let baki = 0;
+
+  let y = 20;
 
   doc.setFontSize(18);
-  doc.text("Chhapola Agriculture", 20, 20);
+  doc.text("Chhapola Agriculture", 20, y);
 
-  doc.setFontSize(12);
-  doc.text("Farmer : " + r.name, 20, 40);
-  doc.text("Work   : " + r.work, 20, 50);
-  doc.text("Bigha  : " + r.bigha, 20, 60);
-  doc.text("Rate   : Rs. " + r.rate, 20, 70);
-  doc.text("Total  : Rs. " + r.total, 20, 80);
-  doc.text("Paid   : Rs. " + r.paid, 20, 90);
-  doc.text("Balance: Rs. " + r.baki, 20, 100);
+  y += 10;
+  doc.setFontSize(14);
+  doc.text("Farmer : " + farmer, 20, y);
 
-  doc.text("Mobile : 9079096875", 20, 120);
+  y += 10;
 
-  doc.save(r.name + ".pdf");
-}
+  doc.setFontSize(11);
+
+  doc.text("Work", 10, y);
+  doc.text("Bigha", 50, y);
+  doc.text("Rate", 75, y);
+  doc.text("Total", 100, y);
+  doc.text("Paid", 130, y);
+  doc.text("Balance", 160, y);
+
+  y += 8;
+    records.forEach(r => {
+
+    if (r.name.trim().toLowerCase() === farmer.trim().toLowerCase()) {
+
+      doc.text(r.work, 10, y);
+      doc.text(String(r.bigha), 50, y);
+      doc.text(String(r.rate), 75, y);
+      doc.text(String(r.total), 100, y);
+      doc.text(String(r.paid), 130, y);
+      doc.text(String(r.baki), 160, y);
+
+      total += r.total;
+      paid += r.paid;
+      baki += r.baki;
+
+      y += 8;
+
+      // नया पेज अगर जगह खत्म हो जाए
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+    }
+
+  });
+
+  y += 10;
+
+  doc.setFontSize(13);
+  doc.text("Total Amount : " + total, 10, y);
+
+  y += 8;
+  doc.text("Paid Amount : " + paid, 10, y);
+
+  y += 8;
+  doc.text("Balance : " + baki, 10, y);
+
+  y += 15;
+  doc.text("Mobile : 9079096875", 10, y);
+
+  doc.save(farmer + ".pdf");
+    }
 show();
