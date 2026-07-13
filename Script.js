@@ -3,7 +3,9 @@ let records = JSON.parse(localStorage.getItem("records")) || [];
 function save() {
 
   let name = document.getElementById("name").value.trim();
-  let work = document.getElementById("work").value;
+let mobile = document.getElementById("mobile").value.trim();
+let date = document.getElementById("date").value;
+let work = document.getElementById("work").value;
   let bigha = Number(document.getElementById("bigha").value);
   let rate = Number(document.getElementById("rate").value);
   let paid = Number(document.getElementById("paid").value);
@@ -17,16 +19,18 @@ function save() {
   let baki = total - paid;
 
   records.push({
-    name,
-    work,
-    bigha,
-    rate,
-    paid,
-    total,
-    baki
-  });
-
-  localStorage.setItem("records", JSON.stringify(records));
+  name,
+  mobile,
+  date,
+  work,
+  bigha,
+  rate,
+  paid,
+  total,
+  baki
+});
+  
+    localStorage.setItem("records", JSON.stringify(records));
 
   document.getElementById("name").value = "";
   document.getElementById("work").value = "";
@@ -130,6 +134,8 @@ function edit(i) {
   let r = records[i];
 
   document.getElementById("name").value = r.name;
+  document.getElementById("mobile").value = "";
+  document.getElementById("date").value = "";
   document.getElementById("work").value = r.work;
   document.getElementById("bigha").value = r.bigha;
   document.getElementById("rate").value = r.rate;
