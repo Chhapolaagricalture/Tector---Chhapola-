@@ -89,3 +89,33 @@ function del(i) {
 }
 
 show();
+function edit(i){
+  let r = records[i];
+
+  document.getElementById("name").value = r.name;
+  document.getElementById("work").value = r.work;
+  document.getElementById("bigha").value = r.bigha;
+  document.getElementById("rate").value = r.rate;
+  document.getElementById("paid").value = r.paid;
+
+  records.splice(i,1);
+  localStorage.setItem("records", JSON.stringify(records));
+  show();
+}
+
+function share(i){
+  let r = records[i];
+
+  let msg =
+`🚜 Chhapola Agriculture
+
+👨‍🌾 किसान: ${r.name}
+🌾 काम: ${r.work}
+📏 बीघा: ${r.bigha}
+💰 रेट: ₹${r.rate}
+🧾 कुल: ₹${r.total}
+💵 जमा: ₹${r.paid}
+📌 बाकी: ₹${r.baki}`;
+
+  window.open("https://wa.me/?text=" + encodeURIComponent(msg));
+      }
