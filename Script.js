@@ -154,5 +154,27 @@ function share(i) {
 
   window.open("https://wa.me/?text=" + encodeURIComponent(msg));
 }
+function pdf(i) {
 
+  const { jsPDF } = window.jspdf;
+  let doc = new jsPDF();
+
+  let r = records[i];
+
+  doc.setFontSize(18);
+  doc.text("Chhapola Agriculture", 20, 20);
+
+  doc.setFontSize(12);
+  doc.text("Farmer : " + r.name, 20, 40);
+  doc.text("Work   : " + r.work, 20, 50);
+  doc.text("Bigha  : " + r.bigha, 20, 60);
+  doc.text("Rate   : Rs. " + r.rate, 20, 70);
+  doc.text("Total  : Rs. " + r.total, 20, 80);
+  doc.text("Paid   : Rs. " + r.paid, 20, 90);
+  doc.text("Balance: Rs. " + r.baki, 20, 100);
+
+  doc.text("Mobile : 9079096875", 20, 120);
+
+  doc.save(r.name + ".pdf");
+}
 show();
