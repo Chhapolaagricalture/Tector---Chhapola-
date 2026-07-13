@@ -56,9 +56,10 @@ button:hover{
 }
 
 table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:15px;
+    width:100%;
+    border-collapse:collapse;
+    margin-top:15px;
+    table-layout:auto;
 }
 
 th,td{
@@ -91,3 +92,7 @@ th{
 td:last-child{
     width:130px;
       }
+th:last-child,
+td:last-child{
+    width:120px;
+  }
