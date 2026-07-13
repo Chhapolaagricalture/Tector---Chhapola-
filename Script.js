@@ -184,7 +184,8 @@ function pdf(i) {
   let doc = new jsPDF();
 
   let farmer = records[i].name;
-
+  let mobile = records[i].mobile;
+  let date = records[i].date;
   let total = 0;
   let paid = 0;
   let baki = 0;
@@ -197,7 +198,13 @@ function pdf(i) {
   y += 10;
   doc.setFontSize(14);
   doc.text("Farmer : " + farmer, 20, y);
+y += 10;
+doc.text("Mobile : " + mobile, 20, y);
 
+y += 10;
+doc.text("Date : " + date, 20, y);
+
+y += 10;
   y += 10;
 
   doc.setFontSize(11);
