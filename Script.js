@@ -29,17 +29,21 @@ function save() {
   localStorage.setItem("records", JSON.stringify(records));
 
   document.getElementById("name").value = "";
+  document.getElementById("work").value = "";
   document.getElementById("bigha").value = "";
   document.getElementById("rate").value = "";
   document.getElementById("paid").value = "";
 
-  show()
-  function show() {
+  show();
+}
+
+function show() {
   let search = document.getElementById("search").value.toLowerCase();
   let html = "";
   let groups = {};
 
   records.forEach((r, i) => {
+
     r.name = r.name.trim();
 
     if (!r.name.toLowerCase().includes(search)) return;
@@ -93,7 +97,8 @@ function save() {
 
   document.getElementById("list").innerHTML = html;
 }
-    function del(i) {
+
+function del(i) {
   records.splice(i, 1);
   localStorage.setItem("records", JSON.stringify(records));
   show();
@@ -116,8 +121,7 @@ function edit(i) {
 function share(i) {
   let r = records[i];
 
-  let msg =
-`🚜 Chhapola Agriculture
+  let msg = `🚜 Chhapola Agriculture
 
 👨‍🌾 किसान: ${r.name}
 🌾 काम: ${r.work}
