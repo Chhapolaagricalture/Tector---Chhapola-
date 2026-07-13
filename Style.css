@@ -82,15 +82,15 @@ th{
 }
 
 .action button{
-    width:35px;
-    height:35px;
-    min-width:35px;
-    padding:0;
-    margin:0;
+    width:24px;
+height:24px;
+min-width:24px;
+font-size:14px;
+  padding:0;
+  margin:0;
 }
-
 
 th:last-child,
 td:last-child{
-    width:120px;
+    width:80px;
   }
