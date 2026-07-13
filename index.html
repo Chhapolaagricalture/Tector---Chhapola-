@@ -16,7 +16,10 @@
 </header>
 
 <div class="container">
-  <input id="search" type="text" placeholder="🔍 किसान खोजें" onkeyup="show()">
+  <div style="display:flex;gap:8px;">
+    <input id="search" type="text" placeholder="🔎 किसान खोजें">
+    <button onclick="show()">🔍 Search</button>
+</div>
 
 <div id="summary" class="card"></div>
 
