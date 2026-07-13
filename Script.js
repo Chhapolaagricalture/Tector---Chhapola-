@@ -55,7 +55,8 @@ let total = 0;
 let paid = 0;
 let baki = 0;
   records.forEach((r, i) => {if (!r.name.toLowerCase().includes(search)) return;
-
+<button onclick="edit(${i})">✏️ Edit</button>
+<button onclick="share(${i})">📱 WhatsApp</button>
 total += r.total;
 paid += r.paid;
 baki += r.baki;
