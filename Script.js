@@ -44,14 +44,13 @@ function show() {
   records.forEach((r, i) => {
 
     if (!r.name.toLowerCase().includes(search)) return;
-
-    if (!groups[r.name]) {
-      groups[r.name] = {
-        total: 0,
-        paid: 0,
-        baki: 0,
-        items: ""
-      };
+    groups[r.name] = {
+    name: r.name,
+    total: 0,
+    paid: 0,
+    baki: 0,
+    items: ""
+};
     }
 
     groups[r.name].total += r.total;
@@ -78,7 +77,7 @@ function show() {
 
     html += `
       <div class="card">
-        <h3>👨‍🌾 ${name}</h3>
+        <h3>👨‍🌾 ${g.name}</h3>
 
         ${g.items}
 
