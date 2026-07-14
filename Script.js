@@ -48,6 +48,7 @@ async function save() {
   document.getElementById("paid").value = "";
 
   alert("डेटा Firebase में सेव हो गया");
+show();
     }
 
 async function show() {
@@ -182,7 +183,7 @@ async function edit(i) {
 }
 
 function share(i) {
-  let r = records[i];
+  let r = window.records[i];
 
   let msg = `🚜 Chhapola Agriculture
 
@@ -197,7 +198,7 @@ function share(i) {
   window.open("https://wa.me/?text=" + encodeURIComponent(msg));
 }
 function pdf(i) {
-
+let r = window.records[i];
   const { jsPDF } = window.jspdf;
   let doc = new jsPDF();
 
@@ -235,7 +236,7 @@ y += 10;
   doc.text("Balance", 160, y);
 
   y += 8;
-    records.forEach(r => {
+   window.records.forEach(r => {
 
     if (r.name.trim().toLowerCase() === farmer.trim().toLowerCase()) {
 
