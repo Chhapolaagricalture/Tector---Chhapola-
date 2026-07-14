@@ -9,12 +9,29 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
-
 <div id="loginBox" class="card">
   <h2>🔐 Admin Login</h2>
-  <input type="password" id="password" placeholder="Password">
+
+  <input
+    type="email"
+    id="email"
+    placeholder="Enter Email"
+  >
+
+  <input
+    type="password"
+    id="password"
+    placeholder="Enter Password"
+  >
+
   <button onclick="login()">Login</button>
+
+  <br><br>
+
+  <a href="#" onclick="forgotPassword()">Forgot Password?</a>
 </div>
+ 
+
 <div id="mainApp" style="display:none;">
 
 <!-- यहाँ पूरी वेबसाइट का कोड रहेगा -->
