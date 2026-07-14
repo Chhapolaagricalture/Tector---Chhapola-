@@ -283,7 +283,9 @@ doc.text("Mobile : 9079096875", 20, y);
 
   doc.save(farmer + ".pdf");
     }
-show();
+window.onload = () => {
+  show();
+};
 window.save = save;
 window.show = show;
 window.del = del;
