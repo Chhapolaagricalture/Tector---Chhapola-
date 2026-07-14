@@ -7,7 +7,7 @@
 
 <link rel="stylesheet" href="Style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="script.js"></script>
+
 
 <header>
 <h2>🚜 Chhapola Agriculture</h2>
@@ -46,6 +46,26 @@
 <div id="list"></div>
 
 </div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDJiW2pdtRFOtz__jAhZl7tYd4rQmmlUwA",
+  authDomain: "chhapola-agriculture-e7313.firebaseapp.com",
+  projectId: "chhapola-agriculture-e7313",
+  storageBucket: "chhapola-agriculture-e7313.firebasestorage.app",
+  messagingSenderId: "717143487417",
+  appId: "1:717143487417:web:cabdec68e69ac794197c68",
+  measurementId: "G-YZPYMQEDMC"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+window.db = db;
+</script>
 
 <script src="Script.js"></script>
 
