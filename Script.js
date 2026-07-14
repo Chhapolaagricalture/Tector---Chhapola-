@@ -8,7 +8,6 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 const recordsRef = collection(window.db, "records");
-let records = JSON.parse(localStorage.getItem("records")) || [];
 
 async function save() {
 
@@ -51,7 +50,17 @@ async function save() {
   alert("डेटा Firebase में सेव हो गया");
     }
 
-function show() {
+async function show() {
+  const snapshot = await getDocs(recordsRef);
+
+let records = [];
+
+snapshot.forEach((doc) => {
+  records.push({
+    id: doc.id,
+    ...doc.data()
+  });
+});
   let search = document.getElementById("search").value.toLowerCase();
   let html = "";
   let totalAmount = 0;
@@ -149,27 +158,26 @@ document.getElementById("dashboard").innerHTML = `
   <p>❌ Total Balance: ₹${totalBaki}</p>
 </div>
 `;
+  window.records = records;
   document.getElementById("list").innerHTML = html;
 }
-function del(i) {
-  records.splice(i, 1);
-  localStorage.setItem("records", JSON.stringify(records));
+async function del(i) {
+  await deleteDoc(doc(window.db, "records", window.records[i].id));
   show();
 }
 
-function edit(i) {
-  let r = records[i];
+async function edit(i) {
+  let r = window.records[i];
 
   document.getElementById("name").value = r.name;
-  document.getElementById("mobile").value = "";
-  document.getElementById("date").value = "";
+  document.getElementById("mobile").value = r.mobile;
+  document.getElementById("date").value = r.date;
   document.getElementById("work").value = r.work;
   document.getElementById("bigha").value = r.bigha;
   document.getElementById("rate").value = r.rate;
   document.getElementById("paid").value = r.paid;
 
-  records.splice(i, 1);
-  localStorage.setItem("records", JSON.stringify(records));
+  await deleteDoc(doc(window.db, "records", r.id));
   show();
 }
 
