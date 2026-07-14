@@ -298,19 +298,25 @@ window.del = del;
 window.edit = edit;
 window.share = share;
 window.pdf = pdf;
-function login() {
-  localStorage.setItem("loggedIn", "true");
+async function login() {
+  const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
 
-  if (password === "12345") {
+  try {
+    await signInWithEmailAndPassword(window.auth, email, password);
+
     document.getElementById("loginBox").style.display = "none";
     document.getElementById("mainApp").style.display = "block";
-  } else {
-    alert("❌ गलत Password");
+
+    localStorage.setItem("loggedIn", "true");
+
+  } catch (error) {
+    alert("❌ " + error.message);
   }
 }
 
 window.login = login;
+ 
 function logout() {
   localStorage.removeItem("loggedIn");
   location.reload();
