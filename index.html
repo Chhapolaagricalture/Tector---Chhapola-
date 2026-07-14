@@ -84,10 +84,10 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   onAuthStateChanged,
-  signOut
-}
- 
- from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+  signOut,
+  updatePassword
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+  
 const firebaseConfig = {
   apiKey: "AIzaSyDJiW2pdtRFOtz__jAhZl7tYd4rQmmlUwA",
   authDomain: "chhapola-agriculture-e7313.firebaseapp.com",
@@ -108,7 +108,7 @@ window.signInWithEmailAndPassword = signInWithEmailAndPassword;
   window.sendPasswordResetEmail = sendPasswordResetEmail;
 window.onAuthStateChanged = onAuthStateChanged;
 window.signOut = signOut;
-
+window.updatePassword = updatePassword;
 </script>
 </div>
 <script type="module" src="Script.js"></script>
