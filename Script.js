@@ -340,3 +340,27 @@ async function forgotPassword() {
 }
 
 window.forgotPassword = forgotPassword;
+async function changePassword() {
+  const user = auth.currentUser;
+
+  if (!user) {
+    alert("❌ पहले Login करें");
+    return;
+  }
+
+  const newPassword = prompt("नया Password डालें");
+
+  if (!newPassword || newPassword.length < 6) {
+    alert("❌ Password कम से कम 6 अक्षर का होना चाहिए");
+    return;
+  }
+
+  try {
+    await updatePassword(user, newPassword);
+    alert("✅ Password बदल दिया गया");
+  } catch (e) {
+    alert("❌ " + e.message);
+  }
+}
+
+window.changePassword = changePassword;
