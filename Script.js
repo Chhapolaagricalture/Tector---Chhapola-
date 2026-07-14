@@ -285,6 +285,11 @@ doc.text("Mobile : 9079096875", 20, y);
   doc.save(farmer + ".pdf");
     }
 window.onload = () => {
+  if (localStorage.getItem("loggedIn") === "true") {
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("mainApp").style.display = "block";
+  }
+
   show();
 };
 window.save = save;
@@ -293,3 +298,22 @@ window.del = del;
 window.edit = edit;
 window.share = share;
 window.pdf = pdf;
+function login() {
+  localStorage.setItem("loggedIn", "true");
+  const password = document.getElementById("password").value;
+
+  if (password === "12345") {
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("mainApp").style.display = "block";
+  } else {
+    alert("❌ गलत Password");
+  }
+}
+
+window.login = login;
+function logout() {
+  localStorage.removeItem("loggedIn");
+  location.reload();
+}
+
+window.logout = logout;
