@@ -323,3 +323,20 @@ function logout() {
 }
 
 window.logout = logout;
+async function forgotPassword() {
+  const email = document.getElementById("email").value.trim();
+
+  if (!email) {
+    alert("पहले अपना Email डालें");
+    return;
+  }
+
+  try {
+    await sendPasswordResetEmail(auth, email);
+    alert("✅ Password Reset Email भेज दी गई है");
+  } catch (e) {
+    alert("❌ " + e.message);
+  }
+}
+
+window.forgotPassword = forgotPassword;
