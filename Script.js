@@ -1,11 +1,21 @@
+import {
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  updateDoc,
+  doc
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+const recordsRef = collection(window.db, "records");
 let records = JSON.parse(localStorage.getItem("records")) || [];
 
-function save() {
+async function save() {
 
   let name = document.getElementById("name").value.trim();
-let mobile = document.getElementById("mobile").value.trim();
-let date = document.getElementById("date").value;
-let work = document.getElementById("work").value;
+  let mobile = document.getElementById("mobile").value.trim();
+  let date = document.getElementById("date").value;
+  let work = document.getElementById("work").value;
   let bigha = Number(document.getElementById("bigha").value);
   let rate = Number(document.getElementById("rate").value);
   let paid = Number(document.getElementById("paid").value);
@@ -18,28 +28,28 @@ let work = document.getElementById("work").value;
   let total = bigha * rate;
   let baki = total - paid;
 
-  records.push({
-  name,
-  mobile,
-  date,
-  work,
-  bigha,
-  rate,
-  paid,
-  total,
-  baki
-});
-  
-    localStorage.setItem("records", JSON.stringify(records));
+  await addDoc(recordsRef, {
+    name,
+    mobile,
+    date,
+    work,
+    bigha,
+    rate,
+    paid,
+    total,
+    baki
+  });
 
   document.getElementById("name").value = "";
+  document.getElementById("mobile").value = "";
+  document.getElementById("date").value = "";
   document.getElementById("work").value = "";
   document.getElementById("bigha").value = "";
   document.getElementById("rate").value = "";
   document.getElementById("paid").value = "";
 
-  show();
-}
+  alert("डेटा Firebase में सेव हो गया");
+    }
 
 function show() {
   let search = document.getElementById("search").value.toLowerCase();
