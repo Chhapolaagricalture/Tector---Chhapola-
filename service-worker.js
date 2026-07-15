@@ -1,4 +1,4 @@
-const CACHE_NAME = "chhapola-agriculture-v1";
+const CACHE_NAME = "chhapola-agriculture-v2";
 
 const urlsToCache = [
   "./",
@@ -6,8 +6,8 @@ const urlsToCache = [
   "./Style.css",
   "./Script.js",
   "./manifest.json",
-  "./icon-192.png",
-  "./icon-512.png"
+  "./icon-192-1.png",
+  "./icon-512-1.png"
 ];
 
 self.addEventListener("install", (event) => {
