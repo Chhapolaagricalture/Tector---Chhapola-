@@ -159,6 +159,20 @@ document.getElementById("dashboard").innerHTML = `
   <p>❌ Total Balance: ₹${totalBaki}</p>
 </div>
 `;
+  document.getElementById("totalFarmers").innerText = farmers.size;
+document.getElementById("totalIncome").innerText = "₹" + totalAmount;
+document.getElementById("totalPending").innerText = "₹" + totalBaki;
+
+const today = new Date().toISOString().split("T")[0];
+let todayIncome = 0;
+
+records.forEach(r => {
+  if (r.date === today) {
+    todayIncome += Number(r.total || 0);
+  }
+});
+
+document.getElementById("todayIncome").innerText = "₹" + todayIncome;
   window.records = records;
   document.getElementById("list").innerHTML = html;
 }
