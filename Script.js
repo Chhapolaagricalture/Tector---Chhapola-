@@ -382,11 +382,27 @@ document.getElementById("work").addEventListener("change", function () {
 
   const work = this.value;
   const cropBox = document.getElementById("cropBox");
-
+const unitBox = document.getElementById("unitBox");
+const unitLabel = document.getElementById("unitLabel");
   if (work === "Thresher") {
-    cropBox.style.display = "block";
-  } else {
-    cropBox.style.display = "none";
-  }
 
+    cropBox.style.display = "block";
+    unitBox.style.display = "block";
+    unitLabel.innerHTML = "Hours";
+
+} else if (work === "Spray Machine") {
+
+    cropBox.style.display = "none";
+    unitBox.style.display = "block";
+    unitLabel.innerHTML = "Quantity";
+
+} else {
+
+    cropBox.style.display = "none";
+    unitBox.style.display = "none";
+
+  }
+  const cropBox = document.getElementById("cropBox");
+const unitBox = document.getElementById("unitBox");
+const unitLabel = document.getElementById("unitLabel");
 });
