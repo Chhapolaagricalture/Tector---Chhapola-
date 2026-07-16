@@ -94,3 +94,34 @@ th:last-child,
 td:last-child{
     width:80px;
   }
+.dashboard{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+gap:15px;
+margin:20px 0;
+}
+
+.card{
+background:#ffffff;
+border-radius:15px;
+padding:18px;
+text-align:center;
+box-shadow:0 4px 12px rgba(0,0,0,.12);
+transition:.3s;
+}
+
+.card:hover{
+transform:translateY(-4px);
+}
+
+.card h3{
+margin:0;
+font-size:16px;
+color:#2e7d32;
+}
+
+.card h2{
+margin-top:10px;
+font-size:26px;
+color:#111;
+}
