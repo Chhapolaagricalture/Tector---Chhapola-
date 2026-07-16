@@ -378,3 +378,15 @@ async function changePassword() {
 }
 
 window.changePassword = changePassword;
+document.getElementById("work").addEventListener("change", function () {
+
+  const work = this.value;
+  const cropBox = document.getElementById("cropBox");
+
+  if (work === "Thresher") {
+    cropBox.style.display = "block";
+  } else {
+    cropBox.style.display = "none";
+  }
+
+});
