@@ -18,7 +18,10 @@ async function save() {
   let bigha = Number(document.getElementById("bigha").value);
   let rate = Number(document.getElementById("rate").value);
   let paid = Number(document.getElementById("paid").value);
+let unit = Number(document.getElementById("unitValue").value);
 
+if (work === "Thresher" || work === "Spray Machine")
+    bigha = unit;
   if (!name || !bigha || !rate) {
     alert("सभी जानकारी भरें");
     return;
@@ -384,24 +387,24 @@ document.getElementById("work").addEventListener("change", function () {
   const cropBox = document.getElementById("cropBox");
 const unitBox = document.getElementById("unitBox");
 const unitLabel = document.getElementById("unitLabel");
- 
+ const bighaBox = document.getElementById("bigha");
   if (work === "Thresher") {
 
     cropBox.style.display = "block";
     unitBox.style.display = "block";
     unitLabel.innerHTML = "Hours";
-
+    bighaBox.style.display = "none";
 } else if (work === "Spray Machine") {
 
     cropBox.style.display = "none";
     unitBox.style.display = "block";
     unitLabel.innerHTML = "Quantity";
-
+    bighaBox.style.display = "none";
 } else {
 
     cropBox.style.display = "none";
     unitBox.style.display = "none";
-
+    bighaBox.style.display = "block";
   }
 
 });
