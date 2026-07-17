@@ -402,7 +402,5 @@ const unitLabel = document.getElementById("unitLabel");
     unitBox.style.display = "none";
 
   }
-  const cropBox = document.getElementById("cropBox");
-const unitBox = document.getElementById("unitBox");
-const unitLabel = document.getElementById("unitLabel");
+  
 });
