@@ -406,7 +406,7 @@ const unitLabel = document.getElementById("unitLabel");
 
 });
 document.getElementById("crop").addEventListener("change", function () {
-
+alert(this.value);
   const crop = this.value;
   const unitLabel = document.getElementById("unitLabel");
 
