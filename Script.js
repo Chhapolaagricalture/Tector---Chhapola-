@@ -403,4 +403,19 @@ const unitLabel = document.getElementById("unitLabel");
 
   }
   
+document.getElementById("crop").addEventListener("change", function () {
+
+    const crop = this.value;
+    const work = document.getElementById("work").value;
+
+    if (work !== "Thresher") return;
+
+    if (crop === "Bajra") {
+        document.getElementById("unitLabel").innerHTML = "Quintal";
+        document.getElementById("rate").value = 150;
+    } else {
+        document.getElementById("unitLabel").innerHTML = "Hours";
+        document.getElementById("rate").value = 1200;
+    }
+
 });
