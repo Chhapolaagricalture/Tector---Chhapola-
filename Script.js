@@ -403,19 +403,5 @@ const unitLabel = document.getElementById("unitLabel");
     unitBox.style.display = "none";
 
   }
-document.getElementById("work").addEventListener("change", function () {
 
-  const work = this.value;
-
-  document.getElementById("cropBox").style.display =
-    work === "Thresher" ? "block" : "none";
-
-  document.getElementById("unitBox").style.display =
-    (work === "Thresher" || work === "Spray Machine") ? "block" : "none";
-
-  if (work === "Spray Machine") {
-    document.getElementById("unitLabel").innerText = "Quantity";
-  } else {
-    document.getElementById("unitLabel").innerText = "Hours";
-  }
 });
