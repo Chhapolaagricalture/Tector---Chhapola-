@@ -403,7 +403,6 @@ const unitLabel = document.getElementById("unitLabel");
     unitBox.style.display = "none";
 
   }
-});
 document.getElementById("work").addEventListener("change", function () {
 
   const work = this.value;
