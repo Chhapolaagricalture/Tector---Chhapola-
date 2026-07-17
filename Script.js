@@ -379,7 +379,7 @@ async function changePassword() {
 
 window.changePassword = changePassword;
 document.getElementById("work").addEventListener("change", function () {
-alert(this.value);
+
   const work = this.value;
   const cropBox = document.getElementById("cropBox");
 const unitBox = document.getElementById("unitBox");
@@ -404,19 +404,19 @@ const unitLabel = document.getElementById("unitLabel");
 
   }
 });
-document.getElementById("crop").addEventListener("change", function () {
+document.getElementById("work").addEventListener("change", function () {
 
-    const crop = this.value;
-    const work = document.getElementById("work").value;
+  const work = this.value;
 
-    if (work !== "Thresher") return;
+  document.getElementById("cropBox").style.display =
+    work === "Thresher" ? "block" : "none";
 
-    if (crop === "Bajra") {
-        document.getElementById("unitLabel").innerHTML = "Quintal";
-        document.getElementById("rate").value = 150;
-    } else {
-        document.getElementById("unitLabel").innerHTML = "Hours";
-        document.getElementById("rate").value = 1200;
-    }
+  document.getElementById("unitBox").style.display =
+    (work === "Thresher" || work === "Spray Machine") ? "block" : "none";
 
+  if (work === "Spray Machine") {
+    document.getElementById("unitLabel").innerText = "Quantity";
+  } else {
+    document.getElementById("unitLabel").innerText = "Hours";
+  }
 });
