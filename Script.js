@@ -384,7 +384,7 @@ document.getElementById("work").addEventListener("change", function () {
   const cropBox = document.getElementById("cropBox");
 const unitBox = document.getElementById("unitBox");
 const unitLabel = document.getElementById("unitLabel");
-  alert("Work = " + work);
+ 
   if (work === "Thresher") {
 
     cropBox.style.display = "block";
@@ -402,6 +402,18 @@ const unitLabel = document.getElementById("unitLabel");
     cropBox.style.display = "none";
     unitBox.style.display = "none";
 
+  }
+
+});
+document.getElementById("crop").addEventListener("change", function () {
+
+  const crop = this.value;
+  const unitLabel = document.getElementById("unitLabel");
+
+  if (crop === "Bajra") {
+    unitLabel.innerHTML = "Quintal";
+  } else {
+    unitLabel.innerHTML = "Hours";
   }
 
 });
