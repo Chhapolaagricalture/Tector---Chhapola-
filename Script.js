@@ -402,7 +402,7 @@ const unitLabel = document.getElementById("unitLabel");
     unitBox.style.display = "none";
 
   }
-  
+});
 document.getElementById("crop").addEventListener("change", function () {
 
     const crop = this.value;
