@@ -384,7 +384,7 @@ document.getElementById("work").addEventListener("change", function () {
   const cropBox = document.getElementById("cropBox");
 const unitBox = document.getElementById("unitBox");
 const unitLabel = document.getElementById("unitLabel");
-  console.log(work, cropBox, unitBox, unitLabel);
+  alert("Work = " + work);
   if (work === "Thresher") {
 
     cropBox.style.display = "block";
