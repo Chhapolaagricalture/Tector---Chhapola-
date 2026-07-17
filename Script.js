@@ -379,11 +379,12 @@ async function changePassword() {
 
 window.changePassword = changePassword;
 document.getElementById("work").addEventListener("change", function () {
-
+alert(this.value);
   const work = this.value;
   const cropBox = document.getElementById("cropBox");
 const unitBox = document.getElementById("unitBox");
 const unitLabel = document.getElementById("unitLabel");
+  
   if (work === "Thresher") {
 
     cropBox.style.display = "block";
