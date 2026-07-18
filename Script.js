@@ -320,13 +320,16 @@ doc.text(String(r.total || "-"), 180, y);
   y += 10;
 
   doc.setFontSize(13);
-  doc.text("Total Amount : " + total, 10, y);
+y += 12;
+doc.setFontSize(12);
 
-  y += 8;
-  doc.text("Paid Amount : " + paid, 10, y);
+doc.text("Total Amount : ₹" + total, 10, y);
 
-  y += 8;
-  doc.text("Balance : " + baki, 10, y);
+y += 8;
+doc.text("Paid Amount : ₹" + paid, 10, y);
+
+y += 8;
+doc.text("Balance : ₹" + baki, 10, y);
 
   y += 15;
 doc.text("Contact", 20, y);
