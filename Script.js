@@ -335,6 +335,15 @@ window.edit = edit;
 window.share = share;
 window.pdf = pdf;
 async function login() {
+async function login() {
+    alert("Login function started");
+
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    ...
+}
+
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
 
