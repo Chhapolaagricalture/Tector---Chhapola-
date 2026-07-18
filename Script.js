@@ -22,8 +22,6 @@ async function save() {
   let date = document.getElementById("date").value;
   let work = document.getElementById("work").value;
   let crop = document.getElementById("crop").value;
-
-}
   let bigha = Number(document.getElementById("bigha").value);
   let rate = Number(document.getElementById("rate").value);
   let paid = Number(document.getElementById("paid").value);
