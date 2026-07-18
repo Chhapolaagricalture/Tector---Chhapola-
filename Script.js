@@ -17,8 +17,6 @@ async function save() {
   let work = document.getElementById("work").value;
   let crop = document.getElementById("crop").value;
 
-if (work === "Thresher") {
-    work = crop;
 }
   let bigha = Number(document.getElementById("bigha").value);
   let rate = Number(document.getElementById("rate").value);
