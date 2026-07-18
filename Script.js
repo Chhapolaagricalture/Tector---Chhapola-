@@ -125,12 +125,16 @@ totalBaki += r.baki;
 
     groups[key].rows += `
       <tr>
-        <td>${r.work}</td>
-        <td>${r.bigha}</td>
-        <td>₹${r.rate}</td>
-        <td>₹${r.total}</td>
-        <td>₹${r.paid}</td>
-        <td>₹${r.baki}</td>
+        <td>${r.date}</td>
+<td>${r.work}</td>
+<td>${r.crop || "-"}</td>
+<td>${r.unit || "-"}</td>
+<td>${r.time || "-"}</td>
+<td>${r.bigha || "-"}</td>
+<td>₹${r.rate}</td>
+<td>₹${r.total}</td>
+<td>₹${r.paid}</td>
+<td>₹${r.baki}</td>
         <td>
   <div class="action">
   <button onclick="edit(${i})">✏️</button>
@@ -156,19 +160,23 @@ totalBaki += r.baki;
       <div style="overflow-x:auto;">
 <table style="min-width:700px; border-collapse:collapse;">
           <tr>
-            <th>काम</th>
-            <th>बीघा</th>
-            <th>रेट</th>
-            <th>कुल</th>
-            <th>जमा</th>
-            <th>बाकी</th>
-            <th>Action</th>
+            <th>तारीख</th>
+<th>काम</th>
+<th>फसल</th>
+<th>यूनिट</th>
+<th>समय</th>
+<th>बीघा</th>
+<th>रेट</th>
+<th>कुल</th>
+<th>जमा</th>
+<th>बाकी</th>
+<th>Action</th>
           </tr>
 
           ${g.rows}
 
           <tr style="font-weight:bold;background:#e8f5e9;">
-            <td colspan="3">कुल हिसाब</td>
+            <td colspan="7">कुल हिसाब</td>
             <td>₹${g.total}</td>
             <td>₹${g.paid}</td>
             <td>₹${g.baki}</td>
