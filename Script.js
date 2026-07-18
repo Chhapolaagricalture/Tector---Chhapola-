@@ -26,7 +26,12 @@ async function save() {
   let rate = Number(document.getElementById("rate").value);
   let paid = Number(document.getElementById("paid").value);
 let unit = Number(document.getElementById("unitValue").value);
+let hours = document.getElementById("hours").value;
+let minutes = document.getElementById("minutes").value;
 
+let time = (hours || minutes)
+    ? `${hours || 0} घंटा ${minutes || 0} मिनट`
+    : "-";
 if (work === "Thresher" || work === "Spray Machine")
     bigha = unit;
   if (!name || !rate) {
@@ -54,12 +59,15 @@ if (work === "Thresher" || work === "Spray Machine") {
     mobile,
     date,
     work,
+    crop,
+    unit,
+    time,
     bigha,
     rate,
     paid,
     total,
     baki
-  });
+});
 
   document.getElementById("name").value = "";
   document.getElementById("mobile").value = "";
