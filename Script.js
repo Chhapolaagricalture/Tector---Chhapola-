@@ -406,7 +406,7 @@ const unitBox = document.getElementById("unitBox");
 const unitLabel = document.getElementById("unitLabel");
  const bighaBox = document.getElementById("bigha");
   if (work === "Thresher") {
-
+document.getElementById("timeBox").style.display = "block";
     cropBox.style.display = "block";
     unitBox.style.display = "block";
     unitLabel.innerHTML = "Hours";
@@ -422,6 +422,7 @@ const unitLabel = document.getElementById("unitLabel");
     cropBox.style.display = "none";
     unitBox.style.display = "none";
     bighaBox.style.display = "block";
+    document.getElementById("timeBox").style.display = "none";
   }
 
 });
