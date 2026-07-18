@@ -12,7 +12,7 @@ import {
   updateDoc,
   doc
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-
+alert("Script Loaded");
 const recordsRef = collection(window.db, "records");
 
 async function save() {
@@ -352,7 +352,6 @@ async function login() {
 }
 
 window.login = login;
- alert("Script Loaded");
 function logout() {
   localStorage.removeItem("loggedIn");
   location.reload();
