@@ -229,7 +229,13 @@ async function edit(i) {
   document.getElementById("bigha").value = r.bigha;
   document.getElementById("rate").value = r.rate;
   document.getElementById("paid").value = r.paid;
+document.getElementById("crop").value = r.crop || "";
+document.getElementById("unitValue").value = r.unit || "";
+document.getElementById("hours").value = "";
+document.getElementById("minutes").value = "";
 
+document.getElementById("work").dispatchEvent(new Event("change"));
+document.getElementById("crop").dispatchEvent(new Event("change"));
   await deleteDoc(doc(window.db, "records", r.id));
   show();
 }
@@ -449,7 +455,7 @@ document.getElementById("timeBox").style.display = "block";
 
 });
 document.getElementById("crop").addEventListener("change", function () {
-alert(this.value);
+
   const crop = this.value;
   const unitLabel = document.getElementById("unitLabel");
 
