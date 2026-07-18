@@ -297,7 +297,7 @@ doc.text(r.date || "-", 10, y);
 doc.text(r.work || "-", 35, y);
 doc.text(r.crop || "-", 60, y);
 doc.text(String(r.unit || "-"), 85, y);
-doc.text(r.hours || "-", 110, y);
+doc.text(r.time || "-", 110, y);
 doc.text(String(r.bigha || "-"), 135, y);
 doc.text(String(r.rate || "-"), 155, y);
 doc.text(String(r.total || "-"), 180, y);
