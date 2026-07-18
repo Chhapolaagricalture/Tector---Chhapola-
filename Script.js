@@ -25,10 +25,22 @@ let unit = Number(document.getElementById("unitValue").value);
 
 if (work === "Thresher" || work === "Spray Machine")
     bigha = unit;
-  if (!name || !(bigha || unit) || !rate) {
+  if (!name || !rate) {
     alert("सभी जानकारी भरें");
     return;
-  }
+}
+
+if (work === "Thresher" || work === "Spray Machine") {
+    if (!unit) {
+        alert("सभी जानकारी भरें");
+        return;
+    }
+} else {
+    if (!bigha) {
+        alert("सभी जानकारी भरें");
+        return;
+    }
+}
 
   let total = bigha * rate;
   let baki = total - paid;
