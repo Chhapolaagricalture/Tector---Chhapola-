@@ -25,7 +25,7 @@ let unit = Number(document.getElementById("unitValue").value);
 
 if (work === "Thresher" || work === "Spray Machine")
     bigha = unit;
-  if (!name || !bigha || !rate) {
+  if (!name || !(bigha || unit) || !rate) {
     alert("सभी जानकारी भरें");
     return;
   }
