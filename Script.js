@@ -279,25 +279,28 @@ y += 10;
   y += 10;
 
   doc.setFontSize(11);
-
-  doc.text("Work", 10, y);
-  doc.text("Bigha", 50, y);
-  doc.text("Rate", 75, y);
-  doc.text("Total", 100, y);
-  doc.text("Paid", 130, y);
-  doc.text("Balance", 160, y);
+doc.text("Date", 10, y);
+doc.text("Work", 35, y);
+doc.text("Crop", 60, y);
+doc.text("Unit", 85, y);
+doc.text("Hours", 110, y);
+doc.text("Bigha", 135, y);
+doc.text("Rate", 155, y);
+doc.text("Total", 180, y);
 
   y += 8;
    window.records.forEach(r => {
 
     if (r.name.trim().toLowerCase() === farmer.trim().toLowerCase()) {
 
-      doc.text(r.work, 10, y);
-      doc.text(String(r.bigha), 50, y);
-      doc.text(String(r.rate), 75, y);
-      doc.text(String(r.total), 100, y);
-      doc.text(String(r.paid), 130, y);
-      doc.text(String(r.baki), 160, y);
+doc.text(r.date || "-", 10, y);
+doc.text(r.work || "-", 35, y);
+doc.text(r.crop || "-", 60, y);
+doc.text(String(r.unit || "-"), 85, y);
+doc.text(r.hours || "-", 110, y);
+doc.text(String(r.bigha || "-"), 135, y);
+doc.text(String(r.rate || "-"), 155, y);
+doc.text(String(r.total || "-"), 180, y);
 
       total += r.total;
       paid += r.paid;
