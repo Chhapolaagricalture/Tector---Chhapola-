@@ -354,7 +354,7 @@ async function login() {
 }
 
 window.login = login;
- 
+ alert("Script Loaded");
 function logout() {
   localStorage.removeItem("loggedIn");
   location.reload();
