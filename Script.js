@@ -335,15 +335,6 @@ window.edit = edit;
 window.share = share;
 window.pdf = pdf;
 async function login() {
-async function login() {
-    alert("Login function started");
-
-    const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value;
-
-    ...
-}
-
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
 
@@ -354,7 +345,6 @@ async function login() {
     document.getElementById("mainApp").style.display = "block";
 
     localStorage.setItem("loggedIn", "true");
-
   } catch (error) {
     alert("❌ " + error.message);
   }
@@ -376,7 +366,7 @@ async function forgotPassword() {
   }
 
   try {
-    await sendPasswordResetEmail(auth, email);
+    await sendPasswordResetEmail(window.auth, email);
     alert("✅ Password Reset Email भेज दी गई है");
   } catch (e) {
     alert("❌ " + e.message);
@@ -385,7 +375,7 @@ async function forgotPassword() {
 
 window.forgotPassword = forgotPassword;
 async function changePassword() {
-  const user = auth.currentUser;
+  const user = window.auth.currentUser;
 
   if (!user) {
     alert("❌ पहले Login करें");
