@@ -291,7 +291,7 @@ doc.text("Date", 10, y);
 doc.text("Work", 35, y);
 doc.text("Crop", 60, y);
 doc.text("Unit", 85, y);
-doc.text("Hours", 110, y);
+doc.text("Time", 110, y);
 doc.text("Bigha", 135, y);
 doc.text("Rate", 155, y);
 doc.text("Total", 180, y);
@@ -353,7 +353,10 @@ doc.text("Chhapola Agriculture", 20, y);
 y += 10;
 doc.text("Mobile : 9079096875", 20, y);
 
-  doc.save(farmer + ".pdf");
+doc.setFont("helvetica", "normal");
+
+doc.save(farmer + ".pdf");
+
     }
 window.onload = () => {
   if (localStorage.getItem("loggedIn") === "true") {
