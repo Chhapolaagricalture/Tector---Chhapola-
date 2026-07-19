@@ -286,18 +286,20 @@ doc.text("Date : " + date, 20, y);
 y += 10;
   y += 10;
 
-  doc.setFontSize(11);
+doc.setFontSize(11);
+
 doc.text("Date", 10, y);
 doc.text("Work", 35, y);
 doc.text("Crop", 60, y);
 doc.text("Unit", 85, y);
 doc.text("Time", 105, y);
-doc.text("Bigha", 140, y);
-doc.text("Rate", 145, y);
-doc.text("Total", 165, y);
-doc.text("Paid", 185, y);
-doc.text("Balance", 215, y);
-  y += 8;
+doc.text("Bigha", 132, y);
+doc.text("Rate", 148, y);
+doc.text("Total", 166, y);
+doc.text("Paid", 184, y);
+doc.text("Balance", 205, y);
+
+y += 8;
    window.records.forEach(r => {
 
     if (r.name.trim().toLowerCase() === farmer.trim().toLowerCase()) {
@@ -306,17 +308,18 @@ doc.text(r.date || "-", 10, y);
 doc.text(r.work || "-", 35, y);
 doc.text(r.crop || "-", 60, y);
 doc.text(String(r.unit ?? "-"), 85, y);
+
 let pdfTime = (r.time || "-")
   .replace("घंटा", "h")
   .replace("घंटे", "h")
   .replace("मिनट", "m");
-      
+
 doc.text(pdfTime, 105, y);
-doc.text(String(r.bigha ?? "-"), 140, y);
-doc.text(String(r.rate ?? 0), 145, y);
-doc.text(String(r.total ?? 0), 165, y);
-doc.text(String(r.paid ?? 0), 185, y);
-doc.text(String(r.baki ?? 0), 215, y);
+doc.text(String(r.bigha ?? "-"), 132, y);
+doc.text(String(r.rate ?? 0), 148, y);
+doc.text(String(r.total ?? 0), 166, y);
+doc.text(String(r.paid ?? 0), 184, y);
+doc.text(String(r.baki ?? 0), 205, y);
      total += Number(r.total || 0);
       paid += Number(r.paid || 0);
       baki += Number(r.baki || 0);
@@ -324,7 +327,7 @@ doc.text(String(r.baki ?? 0), 215, y);
       y += 8;
 
       // नया पेज अगर जगह खत्म हो जाए
-      if (y > 270) {
+      if (y > 245) {
         doc.addPage();
         y = 20;
       }
