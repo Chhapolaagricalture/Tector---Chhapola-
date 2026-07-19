@@ -260,7 +260,7 @@ function share(i) {
 function pdf(i) {
 let r = window.records[i];
   const { jsPDF } = window.jspdf;
-  let doc = new jsPDF();
+  let doc = new jsPDF("l", "mm", "a4");
 
   let farmer = records[i].name;
   let mobile = records[i].mobile;
