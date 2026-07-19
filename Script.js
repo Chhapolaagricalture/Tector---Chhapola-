@@ -327,7 +327,7 @@ doc.text(String(r.baki ?? 0), 205, y);
       y += 8;
 
       // नया पेज अगर जगह खत्म हो जाए
-      if (y > 245) {
+      if (y > 270) {
         doc.addPage();
         y = 20;
       }
