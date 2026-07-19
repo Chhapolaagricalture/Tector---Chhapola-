@@ -34,22 +34,10 @@ let time = (hours || minutes)
     : "-";
 if (work === "Thresher" || work === "Spray Machine")
     bigha = unit;
-  if (!name || !rate) {
-    alert("सभी जानकारी भरें");
+  if (!name) {
+    alert("किसान का नाम भरें");
     return;
-}
-
-if (work === "Thresher" || work === "Spray Machine") {
-    if (!unit) {
-        alert("सभी जानकारी भरें");
-        return;
-    }
-} else {
-    if (!bigha) {
-        alert("सभी जानकारी भरें");
-        return;
-    }
-}
+  }
 
  let total = 0;
 
