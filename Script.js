@@ -296,7 +296,7 @@ doc.text("Bigha", 140, y);
 doc.text("Rate", 145, y);
 doc.text("Total", 165, y);
 doc.text("Paid", 185, y);
-doc.text("Balance", 205, y);
+doc.text("Balance", 215, y);
   y += 8;
    window.records.forEach(r => {
 
@@ -313,10 +313,10 @@ let pdfTime = (r.time || "-")
       
 doc.text(pdfTime, 105, y);
 doc.text(String(r.bigha ?? "-"), 140, y);
-doc.text(String(r.rate ?? 0), 160, y);
-doc.text(String(r.total ?? 0), 185, y);
+doc.text(String(r.rate ?? 0), 145, y);
+doc.text(String(r.total ?? 0), 165, y);
 doc.text(String(r.paid ?? 0), 185, y);
-doc.text(String(r.baki ?? 0), 205, y);
+doc.text(String(r.baki ?? 0), 215, y);
      total += Number(r.total || 0);
       paid += Number(r.paid || 0);
       baki += Number(r.baki || 0);
