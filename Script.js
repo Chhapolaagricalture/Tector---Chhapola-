@@ -51,8 +51,22 @@ if (work === "Thresher" || work === "Spray Machine") {
     }
 }
 
-  let total = bigha * rate;
-  let baki = total - paid;
+ let total = 0;
+
+if (work === "Thresher") {
+    if (crop === "Bajra") {
+        total = bigha * rate; // Quantal
+    } else {
+        let time = Number(hours || 0) + Number(minutes || 0) / 60;
+        total = time * rate;
+    }
+} else if (work === "Spray Machine") {
+    total = unit * rate;
+} else {
+    total = bigha * rate;
+}
+
+let baki = total - paid;
 
   await addDoc(recordsRef, {
     name,
