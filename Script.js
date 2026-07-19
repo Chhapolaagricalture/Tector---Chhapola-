@@ -291,10 +291,10 @@ doc.text("Date", 10, y);
 doc.text("Work", 35, y);
 doc.text("Crop", 60, y);
 doc.text("Unit", 85, y);
-doc.text("Time", 110, y);
-doc.text("Bigha", 135, y);
-doc.text("Rate", 155, y);
-doc.text("Total", 180, y);
+doc.text("Time", 105, y);
+doc.text("Bigha", 140, y);
+doc.text("Rate", 160, y);
+doc.text("Total", 185, y);
 
   y += 8;
    window.records.forEach(r => {
@@ -309,11 +309,11 @@ let pdfTime = (r.time || "-")
   .replace("घंटा", "h")
   .replace("घंटे", "h")
   .replace("मिनट", "m");
-
-doc.text(pdfTime, 110, y);
-doc.text(String(r.bigha ?? "-"), 135, y);
-doc.text(String(r.rate ?? 0), 155, y);
-doc.text(String(r.total ?? 0), 180, y);
+      
+doc.text(pdfTime, 105, y);
+doc.text(String(r.bigha ?? "-"), 140, y);
+doc.text(String(r.rate ?? 0), 160, y);
+doc.text(String(r.total ?? 0), 185, y);
 
      total += Number(r.total || 0);
       paid += Number(r.paid || 0);
