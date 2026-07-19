@@ -304,15 +304,20 @@ doc.text("Total", 180, y);
 doc.text(r.date || "-", 10, y);
 doc.text(r.work || "-", 35, y);
 doc.text(r.crop || "-", 60, y);
-doc.text(String(r.unit || "-"), 85, y);
-doc.text(r.time || "-", 110, y);
-doc.text(String(r.bigha || "-"), 135, y);
-doc.text(String(r.rate || "-"), 155, y);
-doc.text(String(r.total || "-"), 180, y);
+doc.text(String(r.unit ?? "-"), 85, y);
+let pdfTime = (r.time || "-")
+  .replace("घंटा", "h")
+  .replace("घंटे", "h")
+  .replace("मिनट", "m");
 
-      total += r.total;
-      paid += r.paid;
-      baki += r.baki;
+doc.text(pdfTime, 110, y);
+doc.text(String(r.bigha ?? "-"), 135, y);
+doc.text(String(r.rate ?? 0), 155, y);
+doc.text(String(r.total ?? 0), 180, y);
+
+     total += Number(r.total || 0);
+      paid += Number(r.paid || 0);
+      baki += Number(r.baki || 0);
 
       y += 8;
 
