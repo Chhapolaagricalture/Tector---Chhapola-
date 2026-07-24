@@ -342,13 +342,26 @@ doc.text(String(r.baki ?? 0), 205, y);
       paid += Number(r.paid || 0);
       baki += Number(r.baki || 0);
 
-      y += 8;
+    y += 8;
 
-      // नया पेज अगर जगह खत्म हो जाए
-      if (y > 230) {
-        doc.addPage();
-        y = 20;
-      }
+if (y >= 270) {
+    doc.addPage();
+    y = 20;
+
+    doc.setFontSize(11);
+    doc.text("Date", 10, y);
+    doc.text("Work", 35, y);
+    doc.text("Crop", 60, y);
+    doc.text("Unit", 85, y);
+    doc.text("Time", 105, y);
+    doc.text("Bigha", 132, y);
+    doc.text("Rate", 148, y);
+    doc.text("Total", 166, y);
+    doc.text("Paid", 184, y);
+    doc.text("Balance", 205, y);
+
+    y += 8;
+         }
     }
 
   });
@@ -360,7 +373,10 @@ y += 12;
 doc.setFontSize(12);
 
 doc.text("Total Amount : rs." + total, 10, y);
-
+if (y >= 240) {
+    doc.addPage();
+    y = 20;
+}
 y += 8;
 doc.text("Paid Amount : rs." + paid, 10, y);
 
