@@ -350,13 +350,13 @@ y += 8;
 doc.text("Balance : ₹" + baki, 10, y);
 
   y += 15;
-doc.text("Contact", 140, y);
+doc.text("Contact", 180, y);
 
 y += 10;
-doc.text("Chhapola Agriculture", 140, y);
+doc.text("Chhapola Agriculture", 180, y);
 
 y += 10;
-doc.text("Mobile : 9079096875", 140, y);
+doc.text("Mobile : 9079096875", 180, y);
 
 doc.setFont("helvetica", "normal");
 
