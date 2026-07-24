@@ -450,6 +450,22 @@ window.changePassword = changePassword;
 document.getElementById("work").addEventListener("change", function () {
 
   const work = this.value;
+  const rateInput = document.getElementById("rate");
+
+// Auto Rate
+if (work === "Hero") {
+    rateInput.value = 250;
+} else if (work === "Calti") {
+    rateInput.value = 250;
+} else if (work === "Morplau") {
+    rateInput.value = 500;
+} else if (work === "Display") {
+    rateInput.value = 500;
+} else if (work === "Spray Machine") {
+    rateInput.value = 800;
+} else if (work === "Thresher") {
+    rateInput.value = "";
+}
   const cropBox = document.getElementById("cropBox");
 const unitBox = document.getElementById("unitBox");
 const unitLabel = document.getElementById("unitLabel");
@@ -479,7 +495,16 @@ document.getElementById("crop").addEventListener("change", function () {
 
   const crop = this.value;
   const unitLabel = document.getElementById("unitLabel");
+const work = document.getElementById("work").value;
+const rateInput = document.getElementById("rate");
 
+if (work === "Thresher") {
+    if (crop === "Bajra") {
+        rateInput.value = 150;
+    } else {
+        rateInput.value = 1200;
+    }
+}
   if (crop === "Bajra") {
     unitLabel.innerHTML = "Quintal";
   } else {
