@@ -97,6 +97,8 @@ snapshot.forEach((doc) => {
   });
 });
   let search = document.getElementById("search").value.toLowerCase();
+  let fromDate = document.getElementById("fromDate").value;
+let toDate = document.getElementById("toDate").value;
   let html = "";
   let totalAmount = 0;
 let totalPaid = 0;
@@ -105,6 +107,8 @@ let farmers = new Set();
   let groups = {};
 
   records.forEach((r, i) => {
+    if (fromDate && r.date < fromDate) return;
+if (toDate && r.date > toDate) return;
 farmers.add(r.name.trim().toLowerCase());
 totalAmount += r.total;
 totalPaid += r.paid;
@@ -218,11 +222,15 @@ document.getElementById("todayIncome").innerText = "₹" + todayIncome;
   window.records = records;
   document.getElementById("list").innerHTML = html;
 }
+function clearDateFilter() {
+    document.getElementById("fromDate").value = "";
+    document.getElementById("toDate").value = "";
+    show();
+}
 async function del(i) {
   await deleteDoc(doc(window.db, "records", window.records[i].id));
   show();
 }
-
 async function edit(i) {
   let r = window.records[i];
 
