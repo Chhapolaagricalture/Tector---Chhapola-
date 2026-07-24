@@ -302,12 +302,24 @@ doc.text("Paid", 184, y);
 doc.text("Balance", 205, y);
 
 y += 8;
-   window.records.forEach(r => {
+   window.records
+.sort((a, b) =>
+  a.work === "Pending Balance"
+    ? -1
+    : b.work === "Pending Balance"
+    ? 1
+    : 0
+)
+.forEach(r => {
 
     if (r.name.trim().toLowerCase() === farmer.trim().toLowerCase()) {
 
 doc.text(r.date || "-", 10, y);
-doc.text(r.work || "-", 35, y);
+if (r.work === "Pending Balance") {
+    doc.text("पिछला बाकी", 35, y);
+} else {
+    doc.text(r.work || "-", 35, y);
+}
 doc.text(r.crop || "-", 60, y);
 doc.text(String(r.unit ?? "-"), 85, y);
 
