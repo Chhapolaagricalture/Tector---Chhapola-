@@ -467,6 +467,8 @@ if (work === "Hero") {
     rateInput.value = 800;
 } else if (work === "Thresher") {
     rateInput.value = "";
+}else if (work === "Pending Balance") {
+    rateInput.value = "";
 }
   const cropBox = document.getElementById("cropBox");
 const unitBox = document.getElementById("unitBox");
@@ -478,6 +480,12 @@ document.getElementById("timeBox").style.display = "block";
     unitBox.style.display = "block";
     unitLabel.innerHTML = "Hours";
     bighaBox.style.display = "none";
+    } else if (work === "Pending Balance") {
+
+    cropBox.style.display = "none";
+    unitBox.style.display = "none";
+    bighaBox.style.display = "none";
+    document.getElementById("timeBox").style.display = "none";
 } else if (work === "Spray Machine") {
 
     cropBox.style.display = "none";
