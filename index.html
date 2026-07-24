@@ -51,6 +51,20 @@
     <input id="search" type="text" placeholder="🔎 किसान खोजें">
     <button onclick="show()">🔍 Search</button>
 </div>
+  <div style="display:flex; gap:8px; align-items:center; margin:10px 0; flex-wrap:wrap;">
+    <label>From</label>
+    <input type="date" id="fromDate">
+
+    <label>To</label>
+    <input type="date" id="toDate">
+
+    <button onclick="show()">Filter</button>
+    <button onclick="
+        document.getElementById('fromDate').value='';
+        document.getElementById('toDate').value='';
+        show();
+    ">Clear</button>
+</div>
 <div class="dashboard">
 
   <div class="card">
