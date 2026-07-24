@@ -341,13 +341,14 @@ doc.text(String(r.baki ?? 0), 205, y);
      total += Number(r.total || 0);
       paid += Number(r.paid || 0);
       baki += Number(r.baki || 0);
+y += 8;
 
-    y += 8;
-
-if (y >= 270) {
+// अगर पेज भरने वाला है
+if (y > 260) {
     doc.addPage();
     y = 20;
 
+    // हर नए पेज पर हेडिंग दोबारा प्रिंट करें
     doc.setFontSize(11);
     doc.text("Date", 10, y);
     doc.text("Work", 35, y);
@@ -361,7 +362,8 @@ if (y >= 270) {
     doc.text("Balance", 205, y);
 
     y += 8;
-         }
+}
+
     }
 
   });
@@ -371,12 +373,12 @@ if (y >= 270) {
   doc.setFontSize(13);
 y += 12;
 doc.setFontSize(12);
-
-doc.text("Total Amount : rs." + total, 10, y);
-if (y >= 240) {
+if (y > 235) {
     doc.addPage();
     y = 20;
 }
+doc.text("Total Amount : rs." + total, 10, y);
+
 y += 8;
 doc.text("Paid Amount : rs." + paid, 10, y);
 
@@ -384,7 +386,7 @@ y += 8;
 doc.text("Balance : rs." + baki, 10, y);
 
   y += 15;
-if (y > 230) {
+if (y > 250) {
     doc.addPage();
     y = 20;
 }
