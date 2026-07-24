@@ -327,7 +327,7 @@ doc.text(String(r.baki ?? 0), 205, y);
       y += 8;
 
       // नया पेज अगर जगह खत्म हो जाए
-      if (y > 270) {
+      if (y > 230) {
         doc.addPage();
         y = 20;
       }
@@ -350,6 +350,11 @@ y += 8;
 doc.text("Balance : ₹" + baki, 10, y);
 
   y += 15;
+if (y > 230) {
+    doc.addPage();
+    y = 20;
+}
+
 doc.text("Contact", 180, y);
 
 y += 10;
