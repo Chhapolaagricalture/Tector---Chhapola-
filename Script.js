@@ -315,11 +315,7 @@ y += 8;
     if (r.name.trim().toLowerCase() === farmer.trim().toLowerCase()) {
 
 doc.text(r.date || "-", 10, y);
-if (r.work === "Pending Balance") {
-    doc.text("पिछला बाकी", 35, y);
-} else {
-    doc.text(r.work || "-", 35, y);
-}
+doc.text(r.work || "-", 35, y);
 doc.text(r.crop || "-", 60, y);
 doc.text(String(r.unit ?? "-"), 85, y);
 
