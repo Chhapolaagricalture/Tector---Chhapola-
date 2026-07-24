@@ -354,7 +354,8 @@ if (y > 230) {
     doc.addPage();
     y = 20;
 }
-
+doc.addPage();
+y = 20;
 doc.text("Contact", 180, y);
 
 y += 10;
