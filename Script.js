@@ -50,6 +50,8 @@ if (work === "Thresher") {
     }
 } else if (work === "Spray Machine") {
     total = unit * rate;
+} else if (work === "Pending Balance") {
+    total = rate;
 } else {
     total = bigha * rate;
 }
