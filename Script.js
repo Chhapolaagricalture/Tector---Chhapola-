@@ -368,15 +368,17 @@ if (y > 260) {
 
   });
 
-  y += 20;
-
-  doc.setFontSize(13);
-y += 12;
-doc.setFontSize(12);
-if (y > 235) {
+// Summary + Contact के लिए पहले से जगह बचाओ
+if (y > 180) {
     doc.addPage();
     y = 20;
 }
+
+y += 20;
+
+doc.setFontSize(13);
+y += 12;
+doc.setFontSize(12);
 doc.text("Total Amount : rs." + total, 10, y);
 
 y += 8;
