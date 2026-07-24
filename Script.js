@@ -457,6 +457,8 @@ if (work === "Hero") {
     rateInput.value = 250;
 } else if (work === "Calti") {
     rateInput.value = 250;
+} else if (work === "Mej (Pata)") {
+    rateInput.value = 150;
 } else if (work === "Morplau") {
     rateInput.value = 500;
 } else if (work === "Display") {
