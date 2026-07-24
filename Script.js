@@ -351,13 +351,13 @@ doc.text(String(r.baki ?? 0), 205, y);
 y += 12;
 doc.setFontSize(12);
 
-doc.text("Total Amount : ₹" + total, 10, y);
+doc.text("Total Amount : rs." + total, 10, y);
 
 y += 8;
-doc.text("Paid Amount : ₹" + paid, 10, y);
+doc.text("Paid Amount : rs." + paid, 10, y);
 
 y += 8;
-doc.text("Balance : ₹" + baki, 10, y);
+doc.text("Balance : rs." + baki, 10, y);
 
   y += 15;
 if (y > 230) {
