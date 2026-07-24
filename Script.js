@@ -105,7 +105,7 @@ let totalPaid = 0;
 let totalBaki = 0;
 let farmers = new Set();
   let groups = {};
-
+records.sort((a, b) => new Date(a.date) - new Date(b.date));
   records.forEach((r, i) => {
     if (fromDate && r.date < fromDate) return;
 if (toDate && r.date > toDate) return;
