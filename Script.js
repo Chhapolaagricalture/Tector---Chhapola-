@@ -366,7 +366,7 @@ if (y >= 270) {
 
   });
 
-  y += 10;
+  y += 20;
 
   doc.setFontSize(13);
 y += 12;
@@ -388,8 +388,6 @@ if (y > 230) {
     doc.addPage();
     y = 20;
 }
-doc.addPage();
-y = 20;
 doc.text("Contact", 180, y);
 
 y += 10;
