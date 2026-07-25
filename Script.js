@@ -226,8 +226,8 @@ document.getElementById("todayIncome").innerText = "₹" + todayIncome;
 function clearDateFilter() {
     document.getElementById("fromDate").value = "";
     document.getElementById("toDate").value = "";
-    show();
   showPaidReport();
+  show();
 }
 function showPaidReport() {
   let from = document.getElementById("fromDate").value;
@@ -273,7 +273,8 @@ function showPaidReport() {
     </table>
   `;
 
-  document.getElementById("paidReport").innerHTML = html;
+document.getElementById("paidReportBox").innerHTML = html;
+document.getElementById("paidReportBox").style.display = "block";
   window.paidReportHtml = html;
 }
 function downloadPaidReportPDF() {
