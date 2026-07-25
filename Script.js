@@ -276,6 +276,41 @@ function showPaidReport() {
   document.getElementById("paidReport").innerHTML = html;
   window.paidReportHtml = html;
 }
+function downloadPaidReportPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  let from = document.getElementById("fromDate").value || "Start";
+  let to = document.getElementById("toDate").value || "End";
+
+  doc.setFontSize(16);
+  doc.text("Payment Report", 10, 15);
+
+  doc.setFontSize(11);
+  doc.text("From: " + from + "   To: " + to, 10, 25);
+
+  let y = 40;
+
+  window.records
+    .filter(r => {
+      if (r.paid <= 0) return false;
+      if (from && r.date < from) return false;
+      if (to && r.date > to) return false;
+      return true;
+    })
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    .forEach(r => {
+      doc.text(`${r.date}   ${r.name}   ₹${r.paid}`, 10, y);
+      y += 8;
+
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+    });
+
+  doc.save("Payment_Report.pdf");
+  }
 async function del(i) {
   await deleteDoc(doc(window.db, "records", window.records[i].id));
   show();
