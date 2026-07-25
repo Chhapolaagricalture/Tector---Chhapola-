@@ -1,127 +1,776 @@
-body{
-  margin:0;
-  font-family:Arial,sans-serif;
-  background:#f4f4f4;
+/*==================================
+ CHHAPOLA AGRICULTURE
+ PREMIUM UI
+ PART 1
+==================================*/
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:'Poppins',sans-serif;
 }
+
+html{
+scroll-behavior:smooth;
+}
+
+body{
+
+background:#eef5ef;
+color:#222;
+overflow-x:hidden;
+
+}
+
+/* HEADER */
 
 header{
-  background:#2e7d32;
-  color:#fff;
-  text-align:center;
-  padding:20px;
+
+background:linear-gradient(135deg,#1b5e20,#43a047);
+
+padding:22px;
+
+text-align:center;
+
+color:#fff;
+
+border-radius:0 0 30px 30px;
+
+box-shadow:0 12px 25px rgba(0,0,0,.20);
+
+position:sticky;
+
+top:0;
+
+z-index:999;
+
 }
+
+header h1{
+
+font-size:30px;
+
+font-weight:700;
+
+letter-spacing:.5px;
+
+}
+
+header p{
+
+margin-top:8px;
+
+font-size:15px;
+
+opacity:.95;
+
+}
+
+/* CONTAINER */
 
 .container{
-  padding:15px;
+
+width:95%;
+
+max-width:1200px;
+
+margin:20px auto;
+
 }
 
-input,select,button{
-  width:100%;
-  padding:12px;
-  margin:8px 0;
-  border:1px solid #ccc;
-  border-radius:8px;
-  box-sizing:border-box;
-  font-size:16px;
-}
-
-button{
-  background:#2e7d32;
-  color:white;
-  border:none;
-  font-weight:bold;
-  cursor:pointer;
-}
-
-button:hover{
-  background:#1b5e20;
-}
+/* PREMIUM CARD */
 
 .card{
-  background:white;
-  margin-top:15px;
-  padding:15px;
-  border-radius:10px;
-  box-shadow:0 2px 8px rgba(0,0,0,.2);
-}
 
-.total{
-  color:green;
-  font-weight:bold;
-}
+background:#fff;
 
-.balance{
-  color:red;
-  font-weight:bold;
-}
+border-radius:22px;
 
-table{
-    width:100%;
-    border-collapse:collapse;
-    margin-top:15px;
-    table-layout:auto;
-}
+padding:20px;
 
-th,td{
-  border:1px solid #ddd;
-  padding:8px;
-  text-align:center;
-}
+margin-bottom:18px;
 
-th{
-  background:#2e7d32;
-  color:white;
-  }
-.action{
-    display:flex;
-    flex-direction:row;
-    justify-content:center;
-    align-items:center;
-    gap:5px;
-    flex-wrap:nowrap;
-}
+box-shadow:0 10px 25px rgba(0,0,0,.08);
 
-.action button{
-    width:24px;
-height:24px;
-min-width:24px;
-font-size:14px;
-  padding:0;
-  margin:0;
-}
+transition:.30s;
 
-th:last-child,
-td:last-child{
-    width:80px;
-  }
-.dashboard{
-display:grid;
-grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-gap:15px;
-margin:20px 0;
-}
-
-.card{
-background:#ffffff;
-border-radius:15px;
-padding:18px;
-text-align:center;
-box-shadow:0 4px 12px rgba(0,0,0,.12);
-transition:.3s;
 }
 
 .card:hover{
-transform:translateY(-4px);
+
+transform:translateY(-3px);
+
+box-shadow:0 14px 30px rgba(0,0,0,.12);
+
 }
 
-.card h3{
-margin:0;
-font-size:16px;
+/* TITLE */
+
+h2{
+
+font-size:24px;
+
 color:#2e7d32;
+
+margin-bottom:15px;
+
 }
 
-.card h2{
-margin-top:10px;
-font-size:26px;
-color:#111;
+h3{
+
+color:#2e7d32;
+
+margin-bottom:10px;
+
 }
+
+/* INPUTS */
+
+input,
+select,
+textarea{
+
+width:100%;
+
+padding:14px;
+
+margin-top:8px;
+
+margin-bottom:14px;
+
+border:1px solid #dcdcdc;
+
+border-radius:14px;
+
+background:#fafafa;
+
+font-size:15px;
+
+transition:.25s;
+
+}
+
+input:focus,
+select:focus,
+textarea:focus{
+
+outline:none;
+
+background:#fff;
+
+border-color:#43a047;
+
+box-shadow:0 0 10px rgba(67,160,71,.20);
+
+}
+
+/* LABEL */
+
+label{
+
+font-weight:600;
+
+color:#2e7d32;
+
+display:block;
+
+margin-top:8px;
+
+  }
+/*==================================
+ CHHAPOLA AGRICULTURE
+ PREMIUM UI
+ PART 2
+==================================*/
+
+/* ===== DASHBOARD ===== */
+
+.summary{
+
+display:grid;
+
+grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+
+gap:18px;
+
+margin-bottom:25px;
+
+}
+
+.summary .card{
+
+background:linear-gradient(135deg,#43a047,#66bb6a);
+
+color:#fff;
+
+text-align:center;
+
+padding:22px;
+
+border-radius:22px;
+
+box-shadow:0 12px 25px rgba(0,0,0,.15);
+
+}
+
+.summary .card h3{
+
+color:#fff;
+
+font-size:16px;
+
+margin-bottom:10px;
+
+font-weight:600;
+
+}
+
+.summary .card span,
+.summary .card h2{
+
+font-size:30px;
+
+font-weight:700;
+
+color:#fff;
+
+}
+
+/* ===== SEARCH & FILTER ===== */
+
+.search-section{
+
+background:#fff;
+
+padding:20px;
+
+border-radius:22px;
+
+box-shadow:0 10px 25px rgba(0,0,0,.08);
+
+margin-bottom:20px;
+
+}
+
+.search-section input,
+
+.search-section select{
+
+margin-bottom:12px;
+
+}
+
+/* ===== BUTTON ===== */
+
+button{
+
+background:linear-gradient(135deg,#2e7d32,#43a047);
+
+color:#fff;
+
+border:none;
+
+padding:13px 18px;
+
+border-radius:14px;
+
+cursor:pointer;
+
+font-size:15px;
+
+font-weight:600;
+
+transition:.25s;
+
+margin:5px;
+
+box-shadow:0 6px 16px rgba(0,0,0,.12);
+
+}
+
+button:hover{
+
+transform:translateY(-2px);
+
+background:linear-gradient(135deg,#1b5e20,#2e7d32);
+
+}
+
+/* ===== DIFFERENT BUTTON COLORS ===== */
+
+.saveBtn{
+
+background:linear-gradient(135deg,#2e7d32,#4caf50);
+
+}
+
+.editBtn{
+
+background:linear-gradient(135deg,#1565c0,#42a5f5);
+
+}
+
+.deleteBtn{
+
+background:linear-gradient(135deg,#c62828,#ef5350);
+
+}
+
+.pdfBtn{
+
+background:linear-gradient(135deg,#ef6c00,#ffa726);
+
+}
+
+.shareBtn{
+
+background:linear-gradient(135deg,#00a152,#4caf50);
+
+}
+
+/* ===== FILTER GRID ===== */
+
+.filter-grid{
+
+display:grid;
+
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+
+gap:15px;
+
+align-items:end;
+
+                     }
+/*==================================
+ CHHAPOLA AGRICULTURE
+ PREMIUM UI
+ PART 3
+==================================*/
+
+/* ===== ENTRY FORM ===== */
+
+.form-card{
+
+background:#ffffff;
+
+border-radius:24px;
+
+padding:25px;
+
+margin-top:20px;
+
+box-shadow:0 12px 28px rgba(0,0,0,.08);
+
+}
+
+.form-grid{
+
+display:grid;
+
+grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+
+gap:18px;
+
+}
+
+.form-card input,
+.form-card select{
+
+background:#fafafa;
+
+}
+
+/* ===== SAVE BUTTON ===== */
+
+.save-btn{
+
+width:100%;
+
+padding:15px;
+
+font-size:17px;
+
+font-weight:700;
+
+border-radius:16px;
+
+background:linear-gradient(135deg,#2e7d32,#43a047);
+
+box-shadow:0 8px 18px rgba(46,125,50,.30);
+
+}
+
+.save-btn:hover{
+
+transform:translateY(-3px);
+
+}
+
+/* ===== RECORD CARD ===== */
+
+.record{
+
+background:#fff;
+
+border-radius:22px;
+
+padding:20px;
+
+margin-bottom:20px;
+
+box-shadow:0 10px 22px rgba(0,0,0,.08);
+
+transition:.30s;
+
+}
+
+.record:hover{
+
+transform:translateY(-4px);
+
+}
+
+.record h3{
+
+font-size:20px;
+
+color:#1b5e20;
+
+margin-bottom:10px;
+
+}
+
+.record p{
+
+font-size:15px;
+
+line-height:28px;
+
+color:#555;
+
+}
+
+/* ===== ACTION BUTTONS ===== */
+
+.action-group{
+
+display:flex;
+
+flex-wrap:wrap;
+
+gap:8px;
+
+margin-top:15px;
+
+}
+
+.action-group button{
+
+flex:1;
+
+min-width:85px;
+
+}
+
+/* ===== PAID REPORT ===== */
+
+#paidReportBox{
+
+background:#fff;
+
+padding:22px;
+
+margin-top:20px;
+
+border-radius:22px;
+
+box-shadow:0 10px 22px rgba(0,0,0,.08);
+
+}
+
+#paidReportBox h3{
+
+color:#2e7d32;
+
+margin-bottom:15px;
+
+font-size:22px;
+
+}
+
+#paidReportBox table{
+
+margin-top:10px;
+
+}
+
+/* ===== PDF BUTTON ===== */
+
+.pdf-download{
+
+background:linear-gradient(135deg,#ef6c00,#fb8c00);
+
+font-weight:700;
+
+}
+/*==================================
+ CHHAPOLA AGRICULTURE
+ PREMIUM UI
+ PART 4
+==================================*/
+
+/* ===== TABLE ===== */
+
+table{
+
+width:100%;
+
+border-collapse:collapse;
+
+background:#fff;
+
+border-radius:22px;
+
+overflow:hidden;
+
+box-shadow:0 10px 25px rgba(0,0,0,.08);
+
+margin-top:18px;
+
+}
+
+thead{
+
+background:linear-gradient(135deg,#1b5e20,#43a047);
+
+}
+
+thead th{
+
+color:#fff;
+
+padding:15px;
+
+font-size:15px;
+
+font-weight:600;
+
+text-align:center;
+
+}
+
+tbody td{
+
+padding:14px;
+
+text-align:center;
+
+border-bottom:1px solid #ececec;
+
+font-size:14px;
+
+}
+
+tbody tr:nth-child(even){
+
+background:#f7faf7;
+
+}
+
+tbody tr:hover{
+
+background:#edf8ed;
+
+transition:.25s;
+
+}
+
+/* ===== TOTAL ROW ===== */
+
+.total-row{
+
+background:#dff5df !important;
+
+font-weight:bold;
+
+}
+
+/* ===== SCROLL BAR ===== */
+
+::-webkit-scrollbar{
+
+width:8px;
+height:8px;
+
+}
+
+::-webkit-scrollbar-thumb{
+
+background:#43a047;
+
+border-radius:20px;
+
+}
+
+::-webkit-scrollbar-track{
+
+background:#eef5ef;
+
+}
+
+/* ===== FOOTER ===== */
+
+footer{
+
+margin-top:35px;
+
+padding:20px;
+
+text-align:center;
+
+font-size:14px;
+
+color:#777;
+
+}
+
+/* ===== MOBILE ===== */
+
+@media(max-width:768px){
+
+header{
+
+padding:18px;
+
+}
+
+header h1{
+
+font-size:24px;
+
+}
+
+.container{
+
+width:96%;
+
+}
+
+.summary{
+
+grid-template-columns:1fr 1fr;
+
+gap:12px;
+
+}
+
+.card{
+
+padding:16px;
+
+}
+
+.form-grid{
+
+grid-template-columns:1fr;
+
+}
+
+.action-group{
+
+flex-direction:column;
+
+}
+
+button{
+
+width:100%;
+
+margin-top:8px;
+
+}
+
+table{
+
+display:block;
+
+overflow-x:auto;
+
+white-space:nowrap;
+
+}
+
+thead th{
+
+font-size:14px;
+
+}
+
+tbody td{
+
+font-size:13px;
+
+padding:12px;
+
+}
+
+}
+
+/* ===== PREMIUM ANIMATION ===== */
+
+.card,
+.record,
+.summary .card,
+button{
+
+transition:all .30s ease;
+
+}
+
+button:hover{
+
+transform:translateY(-2px) scale(1.02);
+
+}
+
+.record:hover,
+.card:hover{
+
+box-shadow:0 15px 30px rgba(0,0,0,.12);
+
+}
+
+/* ===== THEME COLORS ===== */
+
+.green{
+
+color:#2e7d32;
+
+}
+
+.bg-green{
+
+background:#2e7d32;
+
+color:#fff;
+
+}
+
+.bg-light{
+
+background:#f5fbf5;
+
+}
+
+.shadow{
+
+box-shadow:0 10px 25px rgba(0,0,0,.08);
+
+}
+
+.radius{
+
+border-radius:22px;
+
+  }
