@@ -226,6 +226,53 @@ function clearDateFilter() {
     document.getElementById("fromDate").value = "";
     document.getElementById("toDate").value = "";
     show();
+  showPaidReport();
+}
+function showPaidReport() {
+  let from = document.getElementById("fromDate").value;
+  let to = document.getElementById("toDate").value;
+
+  let html = `
+  <h3>💰 Payment Report</h3>
+  <table border="1" style="width:100%;border-collapse:collapse">
+    <tr>
+      <th>Date</th>
+      <th>Farmer</th>
+      <th>Paid</th>
+    </tr>
+  `;
+
+  let totalPaid = 0;
+
+  window.records
+    .filter(r => {
+      if (r.paid <= 0) return false;
+      if (from && r.date < from) return false;
+      if (to && r.date > to) return false;
+      return true;
+    })
+    .sort((a,b)=>new Date(a.date)-new Date(b.date))
+    .forEach(r=>{
+      totalPaid += Number(r.paid);
+
+      html += `
+      <tr>
+        <td>${r.date}</td>
+        <td>${r.name}</td>
+        <td>₹${r.paid}</td>
+      </tr>
+      `;
+    });
+
+  html += `
+      <tr style="font-weight:bold;background:#eee">
+        <td colspan="2">Total Paid</td>
+        <td>₹${totalPaid}</td>
+      </tr>
+    </table>
+  `;
+
+  document.getElementById("paidReport").innerHTML = html;
 }
 async function del(i) {
   await deleteDoc(doc(window.db, "records", window.records[i].id));
