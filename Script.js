@@ -642,3 +642,5 @@ if (work === "Thresher") {
   }
 
 });
+window.showPaidReport = showPaidReport;
+window.downloadPaidReportPDF = downloadPaidReportPDF;
