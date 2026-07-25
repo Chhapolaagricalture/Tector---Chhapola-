@@ -193,3 +193,28 @@ header{
 }
 
 }
+/* Dashboard One Row */
+.dashboard{
+    display:flex;
+    flex-wrap:nowrap;
+    gap:12px;
+    overflow-x:auto;
+    margin:20px 0;
+}
+
+.dashboard .card{
+    flex:1;
+    min-width:150px;
+    margin:0;
+    text-align:center;
+}
+
+.dashboard .card h2{
+    font-size:32px;
+    margin:10px 0;
+}
+
+.dashboard .card h3{
+    font-size:16px;
+    margin-bottom:8px;
+    }
