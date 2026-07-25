@@ -125,79 +125,73 @@ margin-top:10px;
 font-size:26px;
 color:#111;
 }
-/* ================= HEADER ================= */
+/* ===== Premium Header ===== */
 
 header{
-    background:linear-gradient(135deg,#0b5d1e,#2e7d32,#43a047);
-    color:#fff;
-    padding:18px 25px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background:linear-gradient(135deg,#0b5d1e,#2e7d32);
+    padding:18px 30px;
     border-radius:0 0 18px 18px;
-    box-shadow:0 8px 25px rgba(0,0,0,.18);
-    position:sticky;
-    top:0;
-    z-index:999;
-    text-align:left;
+    box-shadow:0 8px 20px rgba(0,0,0,.20);
+    color:#fff;
 }
 
-header h2{
+.header-left h2{
     margin:0;
-    font-size:34px;
+    font-size:36px;
     font-weight:800;
-    letter-spacing:.3px;
-    text-shadow:0 2px 5px rgba(0,0,0,.25);
 }
 
-header p{
-    margin:4px 0 0;
+.header-left p{
+    margin:5px 0 0;
     font-size:16px;
-    color:#e8f5e9;
-    opacity:.95;
+    color:#dff5df;
 }
 
-/* Logout + Change Password */
+.header-right{
+    display:flex;
+    gap:15px;
+}
 
-button[onclick="logout()"],
-button[onclick="changePassword()"]{
+.header-right button{
     width:auto;
     padding:12px 22px;
-    margin:12px 8px 15px 0;
-    border-radius:12px;
-    background:#0b5d1e;
+    background:transparent;
     color:#fff;
-    border:2px solid rgba(255,255,255,.25);
+    border:2px solid rgba(255,255,255,.6);
+    border-radius:12px;
     font-size:15px;
-    font-weight:700;
-    box-shadow:0 4px 10px rgba(0,0,0,.18);
-    transition:.25s;
+    font-weight:bold;
+    transition:.3s;
 }
 
-button[onclick="logout()"]:hover,
-button[onclick="changePassword()"]:hover{
-    background:#1b5e20;
-    transform:translateY(-2px);
+.header-right button:hover{
+    background:#fff;
+    color:#1b5e20;
 }
-
-/* Mobile */
 
 @media(max-width:768px){
 
 header{
+    flex-direction:column;
     text-align:center;
-    padding:18px;
+    gap:15px;
 }
 
-header h2{
-    font-size:26px;
+.header-left h2{
+    font-size:28px;
 }
 
-header p{
-    font-size:14px;
-}
-
-button[onclick="logout()"],
-button[onclick="changePassword()"]{
+.header-right{
     width:100%;
-    margin:8px 0;
+    justify-content:center;
+    flex-wrap:wrap;
 }
 
-  }
+.header-right button{
+    width:46%;
+}
+
+    }
