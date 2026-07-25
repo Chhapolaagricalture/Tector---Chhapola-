@@ -221,6 +221,7 @@ records.forEach(r => {
 document.getElementById("todayIncome").innerText = "₹" + todayIncome;
   window.records = records;
   document.getElementById("list").innerHTML = html;
+  showPaidReport();
 }
 function clearDateFilter() {
     document.getElementById("fromDate").value = "";
@@ -273,6 +274,7 @@ function showPaidReport() {
   `;
 
   document.getElementById("paidReport").innerHTML = html;
+  window.paidReportHtml = html;
 }
 async function del(i) {
   await deleteDoc(doc(window.db, "records", window.records[i].id));
