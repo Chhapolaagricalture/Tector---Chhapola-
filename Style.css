@@ -270,3 +270,26 @@ header{
         width:100%;
     }
 }
+/* ===== Part 2 : Add Farmer Section ===== */
+
+.section-title{
+    background:#fff;
+    margin-top:18px;
+    margin-bottom:10px;
+    padding:14px 18px;
+    border-radius:14px 14px 0 0;
+    font-size:22px;
+    font-weight:bold;
+    color:#1b5e20;
+    box-shadow:0 3px 12px rgba(0,0,0,.12);
+    border-left:6px solid #2e7d32;
+}
+
+input,
+select{
+    border-radius:10px;
+}
+
+button{
+    border-radius:10px;
+}
