@@ -79,23 +79,33 @@
     <input id="search" type="text" placeholder="🔎 किसान खोजें">
     <button onclick="show()">🔍 Search</button>
 </div>
- <div class="search-row">
-    <label>From</label>
+<div class="search-row">
+
+  <div class="field">
+    <label>From Date</label>
     <input type="date" id="fromDate">
+  </div>
 
-    <label>To</label>
+  <div class="field">
+    <label>To Date</label>
     <input type="date" id="toDate">
+  </div>
 
-    <button onclick="show()">Filter</button>
-    <button onclick="
-        document.getElementById('fromDate').value='';
-        document.getElementById('toDate').value='';
-        show();
-    ">Clear</button>
-    <button onclick="showPaidReport()">💵 Paid Report</button>
-    <button onclick="downloadPaidReportPDF()">📄 Payment PDF</button>
-    <div id="paidReportBox" style="display:none; margin-top:20px;"></div>
+  <button onclick="show()">🔍 Search</button>
+  <button onclick="show()">⏷ Filter</button>
+
+  <button onclick="
+    document.getElementById('fromDate').value='';
+    document.getElementById('toDate').value='';
+    show();
+  ">↻ Clear</button>
+
+  <button onclick="showPaidReport()">📊 Paid Report</button>
+  <button onclick="downloadPaidReportPDF()">📄 Payment PDF</button>
+
 </div>
+
+<div id="paidReportBox" style="display:none;margin-top:20px;"></div>
 
 <div id="summary" class="card"></div>
 
