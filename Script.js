@@ -230,6 +230,8 @@ function clearDateFilter() {
   show();
 }
 function showPaidReport() {
+  document.getElementById("paidReportBox").style.display = "block";
+document.getElementById("summary").style.display = "none";
   let from = document.getElementById("fromDate").value;
   let to = document.getElementById("toDate").value;
 
@@ -276,6 +278,10 @@ function showPaidReport() {
 document.getElementById("paidReportBox").innerHTML = html;
 document.getElementById("paidReportBox").style.display = "block";
   window.paidReportHtml = html;
+}
+function hidePaidReport() {
+    document.getElementById("paidReportBox").style.display = "none";
+    document.getElementById("summary").style.display = "block";
 }
 function downloadPaidReportPDF() {
   const { jsPDF } = window.jspdf;
