@@ -221,13 +221,14 @@ records.forEach(r => {
 document.getElementById("todayIncome").innerText = "₹" + todayIncome;
   window.records = records;
   document.getElementById("list").innerHTML = html;
-  showPaidReport();
+  
 }
 function clearDateFilter() {
     document.getElementById("fromDate").value = "";
     document.getElementById("toDate").value = "";
-  showPaidReport();
-  show();
+  document.getElementById("paidReportBox").style.display = "none";
+document.getElementById("summary").style.display = "block";
+show();
 }
 function showPaidReport() {
   document.getElementById("paidReportBox").style.display = "block";
