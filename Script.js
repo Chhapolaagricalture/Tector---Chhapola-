@@ -655,3 +655,211 @@ window.downloadPaidReportPDF = downloadPaidReportPDF;
 // अपनी Gemini API Key यहाँ डालें
 const GEMINI_API_KEY = " AQ.Ab8RN6II9Rb-6GwtBkrz3fTrNeN4pTPo96hdz0rA4dtj0kk0Rw "; 
 
+const scanBtn = document.getElementById("scan-btn");
+
+if (scanBtn) {
+  scanBtn.addEventListener("click", async () => {
+    const fileInput = document.getElementById("register-image");
+    const image = fileInput ? fileInput.files[0] : null;
+
+    if (!image) {
+      alert("कृपया पहले रजिस्टर के पन्ने की फोटो चुनें!");
+      return;
+    }
+
+    alert("AI पूरे पन्ने के रिकॉर्ड स्कैन कर रहा है, कृपया 5-10 सेकंड रुकें...");
+
+    const reader = new FileReader();
+    reader.readAsDataURL(image);
+
+    reader.onload = async () => {
+      const base64 = reader.result.split(",")[1];
+
+      // AI के लिए सटीक निर्देश (Shortcuts + Standard Mapping)
+      const prompt = `
+        You are an expert OCR and data extractor for Chhapola Agriculture tractor register.
+        Read the COMPLETE handwritten page and extract ALL farmer entries.
+
+        Rules:
+        1. Date is written on the right side/margin (e.g. -14/10/25). All farmers listed below belong to that same date until a new date appears. Format date as YYYY-MM-DD.
+        2. Short Codes to Work Type:
+           - BH = Hero
+           - BK = Calti
+           - BM = Morplau
+           - BD = Displau
+           - B / Bigha = Bigha unit
+           - दवाई टंकी = Spray Machine
+           - If Bajra is written with KIV: unit="KIV", work_type="Bajra"
+           - If only hours/time written: work_type="Thresher", unit="Hour"
+        3. Fractional numbers: 1½=1.5, 2½=2.5, 3½=3.5, 4½=4.5, 5½=5.5, 6½=6.5, 7½=7.5, 8½=8.5
+        4. If a line starts with ditto mark ( " ), repeat the PREVIOUS farmer's name.
+        5. Never guess or fabricate data.
+
+        Return ONLY a JSON Array containing entry objects:
+        [
+          {
+            "farmer_name": "Name in Hindi/English",
+            "work_date": "YYYY-MM-DD",
+            "mobile_number": "",
+            "work_type": "Hero | Calti | Morplau | Displau | Spray Machine | Bajra | Thresher",
+            "crop": "",
+            "unit": "",
+            "quantity": "Numeric value (e.g. 5, 2.5, 1.5)",
+            "paid_amount": "0"
+          }
+        ]
+      `;
+
+      try {
+        const response = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    { text: prompt },
+                    { inline_data: { mime_type: "image/jpeg", data: base64 } }
+                  ]
+                }
+              ]
+            })
+          }
+        );
+
+        const data = await response.json();
+
+        if (data.error) {
+          alert("API Error: " + data.error.message);
+          return;
+        }
+
+        if (!data.candidates || !data.candidates[0]) {
+          alert("AI Response नहीं मिला। कृपया साफ़ फोटो लें।");
+          return;
+        }
+
+        let rawText = data.candidates[0].content.parts[0].text;
+        console.log("Raw Response:", rawText);
+
+        // Markdown और फालतू कैरेक्टर्स हटाएँ
+        rawText = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+        const jsonMatch = rawText.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          alert("JSON डेटा नहीं मिल पाया!");
+          return;
+        }
+
+        let farmers = [];
+        try {
+          farmers = JSON.parse(jsonMatch[0]);
+        } catch (err) {
+          console.error("Parse Error:", err);
+          alert("JSON Parse Error! फोटो दोबारा लें।");
+          return;
+        }
+
+        if (!Array.isArray(farmers)) {
+          farmers = [farmers];
+        }
+
+        alert(`कुल ${farmers.length} किसान रिकॉर्ड मिले। ऑटो-इन्ट्री शुरू हो रही है...`);
+
+        // ==========================================
+        // AUTO FILL & SAVE LOOP FOR ALL FARMERS
+        // ==========================================
+        for (const farmer of farmers) {
+          // 1. Basic Fields (Name, Date, Mobile)
+          if (document.getElementById("name"))
+            document.getElementById("name").value = farmer.farmer_name || "";
+
+          if (document.getElementById("date"))
+            document.getElementById("date").value = farmer.work_date || "";
+
+          if (document.getElementById("mobile"))
+            document.getElementById("mobile").value = farmer.mobile_number || "";
+
+          // 2. Work Type Dropdown Change
+          const workBox = document.getElementById("work");
+          if (workBox && farmer.work_type) {
+            workBox.value = farmer.work_type;
+            workBox.dispatchEvent(new Event("change")); // Form UI update trigger
+            await new Promise((r) => setTimeout(r, 200)); // DOM Render Wait
+          }
+
+          // 3. Crop Field
+          if (document.getElementById("crop") && farmer.crop) {
+            document.getElementById("crop").value = farmer.crop;
+          }
+
+          const qty = parseFloat(farmer.quantity || 0);
+          let rate = 0;
+
+          // 4. Quantities & Rates Calculation
+          if (["Hero", "Calti", "Morplau", "Displau"].includes(farmer.work_type)) {
+            if (document.getElementById("bigha"))
+              document.getElementById("bigha").value = qty;
+
+            if (farmer.work_type === "Hero" || farmer.work_type === "Calti") rate = 250;
+            if (farmer.work_type === "Morplau" || farmer.work_type === "Displau") rate = 500;
+          } 
+          else if (farmer.work_type === "Spray Machine") {
+            if (document.getElementById("unitValue"))
+              document.getElementById("unitValue").value = qty;
+            rate = 800;
+          } 
+          else if (farmer.work_type === "Bajra") {
+            if (document.getElementById("crop"))
+              document.getElementById("crop").value = "Bajra";
+            if (document.getElementById("unitValue"))
+              document.getElementById("unitValue").value = qty;
+            rate = 150;
+          } 
+          else if (farmer.work_type === "Thresher") {
+            const h = Math.floor(qty);
+            const m = Math.round((qty - h) * 60);
+
+            if (document.getElementById("hours"))
+              document.getElementById("hours").value = h;
+            if (document.getElementById("minutes"))
+              document.getElementById("minutes").value = m;
+
+            rate = 1200;
+          }
+
+          // Rate Assignment
+          if (document.getElementById("rate")) {
+            document.getElementById("rate").value = rate;
+          }
+
+          // Paid Amount
+          if (document.getElementById("paid")) {
+            document.getElementById("paid").value = farmer.paid_amount || 0;
+          }
+
+          // Trigger Total Calculation Function if exists
+          if (typeof calculateTotal === "function") {
+            calculateTotal();
+          }
+
+          // Auto-Save Function
+          if (typeof save === "function") {
+            await save();
+            await new Promise((r) => setTimeout(r, 400)); // Database saving delay
+          }
+
+          console.log("Saved successfully:", farmer.farmer_name);
+        }
+
+        alert("सभी किसानों का डेटा सफ़लतापूर्वक भर कर सेव कर दिया गया है!");
+
+      } catch (err) {
+        console.error("Fetch/System Error:", err);
+        alert("सिस्टम एरर: " + err.message);
+      }
+    };
+  });
+}
