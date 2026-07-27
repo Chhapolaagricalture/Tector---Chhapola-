@@ -652,3 +652,110 @@ if (work === "Thresher") {
 });
 window.showPaidReport = showPaidReport;
 window.downloadPaidReportPDF = downloadPaidReportPDF;
+// अपनी Gemini API Key यहाँ डालें
+const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"; 
+
+const scanBtn = document.getElementById('scan-btn');
+
+if (scanBtn) {
+  scanBtn.addEventListener('click', async () => {
+    const fileInput = document.getElementById('register-image');
+    if (!fileInput.files[0]) {
+      alert("कृपया पहले रजिस्टर के पन्ने की फोटो चुनें!");
+      return;
+    }
+
+    alert("AI आपके शॉर्टकट समझ रहा है, 5 सेकंड रुकें...");
+
+    const reader = new FileReader();
+    reader.readAsDataURL(fileInput.files[0]);
+    
+    reader.onload = async () => {
+      const base64Data = reader.result.split(',')[1];
+      
+      const promptText = `
+        You are an expert OCR for an Indian agriculture register.
+        
+        Strict rules for mapping handwritten shortcuts:
+        1. B = Bigha (e.g. "5 B" or "5B" means 5 Bigha).
+        2. Work Types Mapping:
+           - "H" = Hero
+           - "K" = Kalti
+           - "M" = Morplau
+           - "D" = Displau
+           - "मेज" or "मेज़" = Mej (Pata)
+           - "दवाई टंकी" or "टंकी" = Spray Machine
+        3. Dates are written inside brackets/lines like "-14/10/25", "-15/10/25", "-16/10/25". Convert to format YYYY-MM-DD (e.g. 2025-10-15).
+        4. Extract the FIRST or MOST RECENT valid entry from the register page.
+
+        Return ONLY a JSON object with these exact keys:
+        {
+          "farmer_name": "Farmer full name",
+          "work_date": "YYYY-MM-DD",
+          "mobile_number": "Mobile number if found else empty",
+          "work_type": "Mapped Work Name (Hero, Kalti, Morplau, Displau, Mej, or Spray Machine)",
+          "bigha": "Number of bigha (only digits)",
+          "rate": "Rate if mentioned else empty",
+          "paid_amount": "Amount paid if mentioned else 0"
+        }
+        Do not use markdown formatting. Return raw JSON string only.
+      `;
+
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: promptText },
+                { inline_data: { mime_type: "image/jpeg", data: base64Data } }
+              ]
+            }]
+          })
+        });
+
+        const data = await response.json();
+        let text = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const res = JSON.parse(text);
+
+        // आपके फॉर्म में डेटा भरना
+        const inputs = document.querySelectorAll('input, select');
+        
+        // 1. किसान का नाम
+        if (res.farmer_name && inputs[0]) inputs[0].value = res.farmer_name;
+        
+        // 2. तारीख (Date)
+        if (res.work_date && inputs[1]) inputs[1].value = res.work_date;
+        
+        // 3. मोबाइल नंबर
+        if (res.mobile_number && inputs[2]) inputs[2].value = res.mobile_number;
+        
+        // 4. Select Work (ड्रॉपडाउन)
+        const selectWork = document.querySelector('select');
+        if (selectWork && res.work_type) {
+          for (let option of selectWork.options) {
+            if (option.text.toLowerCase().includes(res.work_type.toLowerCase()) || option.value.toLowerCase().includes(res.work_type.toLowerCase())) {
+              option.selected = true;
+              break;
+            }
+          }
+        }
+
+        // 5. बीघा
+        if (res.bigha && inputs[3]) inputs[3].value = res.bigha;
+
+        // 6. रेट
+        if (res.rate && inputs[4]) inputs[4].value = res.rate;
+
+        // 7. जमा राशि
+        if (res.paid_amount !== undefined && inputs[5]) inputs[5].value = res.paid_amount;
+
+        alert("रजिस्टर का डेटा फॉर्म में भर दिया गया है!");
+      } catch (err) {
+        console.error(err);
+        alert("फोटो पढ़ने में दिक्कत आई, कृपया साफ़ फोटो दोबारा अपलोड करें।");
+      }
+    };
+  });
+}
