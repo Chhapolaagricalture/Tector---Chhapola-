@@ -113,6 +113,16 @@ document.getElementById("paidReportBox").style.display = "none";
 <div class="section-title">
   👨‍🌾 नया किसान जोड़ें
 </div>
+<!-- AI Register Scanner Box -->
+<div style="background: #15803d; color: white; padding: 12px; border-radius: 10px; margin-bottom: 15px; font-family: sans-serif;">
+  <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">📷 AI रजिस्टर फोटो स्कैनर</div>
+  <div style="font-size: 11px; color: #dcfce7; margin-bottom: 8px;">रजिस्टर के पन्ने की फोटो चुनें, फॉर्म अपने-आप भर जाएगा।</div>
+  
+  <div style="display: flex; gap: 8px; align-items: center;">
+    <input type="file" id="register-image" accept="image/*" style="font-size: 11px; color: #f8fafc; width: 100%;">
+    <button type="button" id="scan-btn" style="background: #facc15; color: #0f172a; font-weight: bold; padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; white-space: nowrap;">स्कैन करें</button>
+  </div>
+</div>
 <input id="name" placeholder="किसान का नाम">
 <label>Date</label>
 <input type="date" id="date">
