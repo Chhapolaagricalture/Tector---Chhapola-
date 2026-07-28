@@ -653,7 +653,7 @@ if (work === "Thresher") {
 window.showPaidReport = showPaidReport;
 window.downloadPaidReportPDF = downloadPaidReportPDF;
 // अपनी Gemini API Key यहाँ डालें
-const GEMINI_API_KEY = "AQ.Ab8RN6II9Rb-6GwtBkrz3fTrNeN4pTPo96hdz0rA4dtj0kk0Rw"; 
+const GEMINI_API_KEY = "AQ.Ab8RN6KW6D3xZfnd_S192_3su0vhickehoexWbqNjSG--ARypw"; 
 
 const scanBtn = document.getElementById("scan-btn");
 
