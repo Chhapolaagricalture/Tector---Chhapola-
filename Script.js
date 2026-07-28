@@ -863,3 +863,60 @@ if (scanBtn) {
     };
   });
 }
+// =========================
+// VOICE ENTRY - PART 2
+// =========================
+
+const SpeechRecognition =
+window.SpeechRecognition ||
+window.webkitSpeechRecognition;
+
+if (!SpeechRecognition) {
+
+    alert("इस Browser में Voice Entry सपोर्ट नहीं है");
+
+} else {
+
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = "hi-IN";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    const voiceBtn = document.getElementById("voiceBtn");
+    const voiceStatus = document.getElementById("voiceStatus");
+
+    voiceBtn.addEventListener("click", () => {
+
+        voiceStatus.innerHTML = "🎤 बोलना शुरू करें...";
+
+        recognition.start();
+
+    });
+
+    recognition.onresult = (event) => {
+
+        const text =
+        event.results[0][0].transcript;
+
+        console.log(text);
+
+        voiceStatus.innerHTML =
+        "✅ आपने कहा : " + text;
+
+        // अगले Part में
+        // इसी text को पढ़कर
+        // Form Auto Fill करेंगे
+
+        window.voiceText = text;
+
+    };
+
+    recognition.onerror = (event) => {
+
+        voiceStatus.innerHTML =
+        "❌ Error : " + event.error;
+
+    };
+
+      }
