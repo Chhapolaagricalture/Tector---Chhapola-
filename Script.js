@@ -908,7 +908,131 @@ if (!SpeechRecognition) {
         // इसी text को पढ़कर
         // Form Auto Fill करेंगे
 
-        window.voiceText = text;
+        // =========================
+// VOICE ENTRY - PART 3A
+// =========================
+
+let voice = text.toLowerCase();
+
+// Hero
+if (voice.includes("hero")) {
+    document.getElementById("work").value = "Hero";
+}
+
+// Calti
+else if (voice.includes("calti")) {
+    document.getElementById("work").value = "Calti";
+}
+
+// Morplau
+else if (voice.includes("morplau")) {
+    document.getElementById("work").value = "Morplau";
+}
+
+// Display
+else if (voice.includes("display")) {
+    document.getElementById("work").value = "Display";
+}
+
+// Spray Machine
+else if (
+    voice.includes("spray") ||
+    voice.includes("दवाई")
+) {
+    document.getElementById("work").value = "Spray Machine";
+}
+
+// Thresher
+else if (
+    voice.includes("thresher") ||
+    voice.includes("थ्रेसर")
+) {
+    document.getElementById("work").value = "Thresher";
+}
+
+// Change Event
+document.getElementById("work")
+.dispatchEvent(new Event("change"));
+      // =========================
+// VOICE ENTRY - PART 3B
+// =========================
+
+// संख्या निकालो
+const numberMatch = voice.match(/\d+(\.\d+)?/);
+
+if (numberMatch) {
+
+    const qty = parseFloat(numberMatch[0]);
+
+    const work = document.getElementById("work").value;
+
+    if (["Hero","Calti","Morplau","Display"].includes(work)) {
+
+        document.getElementById("bigha").value = qty;
+
+    }
+
+    else if (work === "Spray Machine") {
+
+        document.getElementById("unitValue").value = qty;
+
+    }
+
+    else if (work === "Thresher") {
+
+        document.getElementById("hours").value = Math.floor(qty);
+
+        document.getElementById("minutes").value = 0;
+
+    }
+
+}
+
+// जमा राशि
+const paidMatch = voice.match(/(\d+)\s*(रुपये|रुपया|rs|rupees|जमा)/i);
+
+if (paidMatch) {
+
+    document.getElementById("paid").value = paidMatch[1];
+
+      }
+      // =========================
+// VOICE ENTRY - PART 3C
+// =========================
+
+// किसान का नाम निकालो
+let farmerName = voice;
+
+// काम के शब्द हटाओ
+farmerName = farmerName
+.replace(/hero/gi, "")
+.replace(/calti/gi, "")
+.replace(/morplau/gi, "")
+.replace(/display/gi, "")
+.replace(/spray machine/gi, "")
+.replace(/spray/gi, "")
+.replace(/दवाई/gi, "")
+.replace(/thresher/gi, "")
+.replace(/थ्रेसर/gi, "");
+
+// संख्या हटाओ
+farmerName = farmerName.replace(/\d+(\.\d+)?/g, "");
+
+// रुपये/जमा हटाओ
+farmerName = farmerName
+.replace(/रुपये|रुपया|जमा|rs|rupees/gi, "")
+.trim();
+
+// नाम भरो
+if (farmerName.length > 0) {
+    document.getElementById("name").value = farmerName;
+}
+
+// आज की तारीख अपने-आप भरो
+const today = new Date().toISOString().split("T")[0];
+document.getElementById("date").value = today;
+
+alert("✅ Voice Entry सफल रही। अब Save बटन दबाएँ।");
 
     };
 
