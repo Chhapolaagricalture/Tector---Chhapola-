@@ -1,4 +1,4 @@
-import {
+⁸import {
   getAuth,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
@@ -653,7 +653,7 @@ if (work === "Thresher") {
 window.showPaidReport = showPaidReport;
 window.downloadPaidReportPDF = downloadPaidReportPDF;
 // अपनी Gemini API Key यहाँ डालें
-const GEMINI_API_KEY = "AQ.Ab8RN6KW6D3xZfnd_S192_3su0vhickehoexWbqNjSG--ARypw"; 
+const GEMINI_API_KEY =promt("AQ.Ab8RN6I9lUW5_BecouakuYGZqOnrFbRONrsy0CVad5p8mS657A:") || "AQ.Ab8RN6I9lUW5_BecouakuYGZqOnrFbRONrsy0CVad5p8mS657A"; 
 
 const scanBtn = document.getElementById("scan-btn");
 
