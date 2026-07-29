@@ -228,6 +228,38 @@ window.updatePassword = updatePassword;
 </script>
 </div>
 <script type="module" src="Script.js"></script>
-  
+  <!-- AI ASSISTANT FLOATING WIDGET -->
+<div id="ai-assistant-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; font-family: sans-serif;">
+  <!-- गोल तैरता हुआ बटन -->
+  <button id="ai-toggle-btn" style="background: #10b981; color: white; border: none; border-radius: 50%; width: 60px; height: 60px; font-size: 26px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: transform 0.2s;">
+    🤖
+  </button>
+
+  <!-- चैट विंडो (शुरू में छुपी रहेगी) -->
+  <div id="ai-chat-box" style="display: none; position: absolute; bottom: 70px; right: 0; width: 320px; height: 420px; background: white; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.2); flex-direction: column; overflow: hidden; border: 1px solid #e5e7eb;">
+    
+    <!-- हेडर -->
+    <div style="background: #10b981; color: white; padding: 12px 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+      <span>🤖 AI मुंशी (असिस्टेंट)</span>
+      <button id="ai-close-btn" style="background: transparent; border: none; color: white; font-size: 18px; cursor: pointer;">✕</button>
+    </div>
+
+    <!-- चैट मैसेज एरिया -->
+    <div id="ai-messages" style="flex: 1; padding: 12px; overflow-y: auto; font-size: 14px; display: flex; flex-direction: column; gap: 8px; background: #f9fafb;">
+      <div style="background: #e5e7eb; padding: 8px 12px; border-radius: 8px; max-width: 85%; align-self: flex-start; color: #1f2937;">
+        रामराम! मैं आपका AI मुंशी हूँ। आप मुझसे पूछ सकते हैं जैसे: <b>"रामपाल का कितना बाकी है?"</b> या बोलकर भी पूछ सकते हैं!
+      </div>
+    </div>
+
+    <!-- इनपुट बॉक्स और बटन -->
+    <div style="padding: 8px; border-top: 1px solid #e5e7eb; display: flex; gap: 5px; background: white;">
+      <input type="text" id="ai-input" placeholder="यहाँ पूछें या बोलें..." style="flex: 1; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; outline: none; font-size: 14px;">
+      <button id="ai-mic-btn" style="background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 10px; cursor: pointer;">🎙️</button>
+      <button id="ai-send-btn" style="background: #10b981; color: white; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-weight: bold;">➢</button>
+    </div>
+
+  </div>
+</div>
+
 </body>
     </html>
