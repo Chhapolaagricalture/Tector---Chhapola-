@@ -1164,3 +1164,4 @@ document.addEventListener("DOMContentLoaded", () => {
     rec.onerror = () => { inputField.placeholder = "यहाँ पूछें या बोलें..."; };
   }
 });
+
