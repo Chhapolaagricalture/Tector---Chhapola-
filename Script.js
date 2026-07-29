@@ -1038,3 +1038,129 @@ alert("✅ Voice Entry सफल रही। अब Save बटन दबाए
     };
 
       }
+// ==========================================
+// AI ASSISTANT WIDGET LOGIC
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+  const toggleBtn = document.getElementById("ai-toggle-btn");
+  const closeBtn = document.getElementById("ai-close-btn");
+  const chatBox = document.getElementById("ai-chat-box");
+  const sendBtn = document.getElementById("ai-send-btn");
+  const micBtn = document.getElementById("ai-mic-btn");
+  const inputField = document.getElementById("ai-input");
+  const messagesContainer = document.getElementById("ai-messages");
+
+  if (!toggleBtn) return;
+
+  // चैट बॉक्स खोलना / बंद करना
+  toggleBtn.addEventListener("click", () => {
+    chatBox.style.display = chatBox.style.display === "none" || !chatBox.style.display ? "flex" : "none";
+  });
+  closeBtn.addEventListener("click", () => { chatBox.style.display = "none"; });
+
+  // मैसेज भेजने का फ़ंक्शन
+  async function handleSend(userText) {
+    const text = userText || inputField.value.trim();
+    if (!text) return;
+
+    // यूज़र का मैसेज दिखाएँ
+    appendMessage(text, "user");
+    if (!userText) inputField.value = "";
+
+    // वेटिंग मैसेज दिखाएँ
+    const loadingDiv = appendMessage("सोच रहा हूँ...", "ai");
+
+    // आपकी वेबसाइट के वर्तमान डेटा/फॉर्म का संदर्भ (Context) इकट्ठा करना
+    let currentData = "वेबसाइट पर वर्तमान जानकारी:\n";
+    const nameEl = document.getElementById("name");
+    const totalEl = document.getElementById("total") || document.getElementById("paid");
+    if (nameEl && nameEl.value) currentData += `वर्तमान किसान नाम: ${nameEl.value}\n`;
+
+    // AI के लिए प्रम्प्ट
+    const assistantPrompt = `
+      You are a helpful Gujarati/Hindi tractor account assistant (AI Munshi) for "Chhapola Agriculture".
+      Answer in polite and simple Hindi/Hinglish.
+      User asked: "${text}"
+      Context details: ${currentData}
+
+      Give a short, direct, and accurate answer in 2-3 sentences max.
+    `;
+
+    try {
+      const response = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-goog-api-key": GEMINI_API_KEY
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: assistantPrompt }] }]
+          })
+        }
+      );
+
+      const data = await response.json();
+      loadingDiv.remove();
+
+      if (data.candidates && data.candidates[0]) {
+        const aiAnswer = data.candidates[0].content.parts[0].text;
+        appendMessage(aiAnswer, "ai");
+      } else {
+        appendMessage("माफ़ कीजिएगा, जवाब देने में समस्या हुई।", "ai");
+      }
+    } catch (err) {
+      loadingDiv.remove();
+      appendMessage("एरर: " + err.message, "ai");
+    }
+  }
+
+  // मैसेज स्क्रीन पर दिखाने का हेल्प फ़ंक्शन
+  function appendMessage(text, sender) {
+    const msgDiv = document.createElement("div");
+    msgDiv.style.padding = "8px 12px";
+    msgDiv.style.borderRadius = "8px";
+    msgDiv.style.maxWidth = "85%";
+    msgDiv.style.fontSize = "13px";
+    msgDiv.style.lineHeight = "1.4";
+
+    if (sender === "user") {
+      msgDiv.style.background = "#10b981";
+      msgDiv.style.color = "white";
+      msgDiv.style.alignSelf = "flex-end";
+    } else {
+      msgDiv.style.background = "#e5e7eb";
+      msgDiv.style.color = "#1f2937";
+      msgDiv.style.alignSelf = "flex-start";
+    }
+
+    msgDiv.innerText = text;
+    messagesContainer.appendChild(msgDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    return msgDiv;
+  }
+
+  // बटन क्लिक और एंटर की (Enter Key) से भेजना
+  sendBtn.addEventListener("click", () => handleSend());
+  inputField.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") handleSend();
+  });
+
+  // वॉइस सपोर्ट (बोलकर पूछने के लिए)
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRecognition && micBtn) {
+    const rec = new SpeechRecognition();
+    rec.lang = "hi-IN";
+    micBtn.addEventListener("click", () => {
+      inputField.placeholder = "सुन रहा हूँ, बोलिए...";
+      rec.start();
+    });
+    rec.onresult = (e) => {
+      const spoken = e.results[0][0].transcript;
+      inputField.value = spoken;
+      handleSend(spoken);
+    };
+    rec.onerror = () => { inputField.placeholder = "यहाँ पूछें या बोलें..."; };
+  }
+});
