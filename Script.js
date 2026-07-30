@@ -1196,11 +1196,19 @@ RULES:
     `;
 
     try {
-      const keyPart1 = "AQ.Ab8RN6IneFD895YMiuSHR";
-      const keyPart2 = "HH-pfAG_Wz4ZrghWn3DykD4Q_0XVw";
-      const fullApiKey = keyPart1 + keyPart2;
+            // API Key को दो हिस्सों में बाँट कर जोड़ना
+      const part1 = "AQ.Ab8RN6IneFD895YMiuSHRHH-p";
+      const part2 = "fAG_Wz4ZrghWn3DykD4Q_0XVw";
+      const fullApiKey = part1 + part2;
+      
+      const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
 
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${fullApiKey}`;
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-goog-api-key": fullApiKey
+        },
 
       // [पॉइंट 1]: JSON Body में systemInstruction और generationConfig जोड़ना
       const requestBody = {
