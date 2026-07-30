@@ -1136,8 +1136,9 @@ RULES:
     `;
 
     try {
-      // फिक्स किया गया API यूआरएल (gemini-1.5-flash)
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      // फिक्स किया गया API यूआरएल (gemini-2.5-flash)
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
 
       const response = await fetch(apiUrl, {
         method: "POST",
