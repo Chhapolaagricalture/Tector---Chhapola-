@@ -1038,8 +1038,9 @@ alert("✅ Voice Entry सफल रही। अब Save बटन दबाए
     };
 
       }
+
 // ==========================================
-// ADVANCED AI MUNSHI (LOCAL BRAIN + SMART FILTER + SAFE API)
+// AI MUNSHI 3.0 (SUPER-FAST, OPTIMIZED & CACHED)
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
   const toggleBtn = document.getElementById("ai-toggle-btn");
@@ -1054,116 +1055,116 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!toggleBtn) return;
 
   let isSpeechEnabled = true;
-  let speechTimeout = null;
-  let fullSpokenTranscript = "";
   let isRequestPending = false;
-  
-  // ==========================================
-  // LOCAL BRAIN CACHE (मुंशी की अपनी याद्दाश्त)
-  // ==========================================
-  let localDataMemory = []; 
+  let fullSpokenTranscript = "";
+
+  // [पॉइंट 3]: इन-मेमोरी उत्तर कैशिंग (API खर्च और समय बचाने के लिए)
+  const aiCache = new Map();
+
+  // ग्लोबल डेटाबेस याद्दाश्त
+  window.MUNSHI_GLOBAL_MEMORY = window.MUNSHI_GLOBAL_MEMORY || [];
 
   if (ttsToggleBtn) {
     ttsToggleBtn.addEventListener("click", () => {
       isSpeechEnabled = !isSpeechEnabled;
       ttsToggleBtn.innerText = isSpeechEnabled ? "🔊" : "🔇";
-      if (!isSpeechEnabled && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
+      if (!isSpeechEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
     });
   }
 
   toggleBtn.addEventListener("click", () => {
-    chatBox.style.display = chatBox.style.display === "none" || !chatBox.style.display ? "flex" : "none";
+    chatBox.style.display = (chatBox.style.display === "none" || !chatBox.style.display) ? "flex" : "none";
   });
   if (closeBtn) closeBtn.addEventListener("click", () => { chatBox.style.display = "none"; });
 
-  // 1. वेबसाइट का सारा डेटा लोकल मेमोरी में लोड करना
-  async function loadWebsiteMemory() {
-    localDataMemory = [];
-    
-    // A. स्क्रीन की टेबल से डेटा
+  // 1. फ़ायरबेस और स्क्रीन से डेटा सिंक
+  async function syncWebsiteMemory() {
+    let tempMemory = [];
+
     const tableRows = document.querySelectorAll("table tbody tr");
     tableRows.forEach((row) => {
       const rowText = row.innerText.replace(/\s+/g, ' ').trim();
       if (rowText && !rowText.includes("No records") && !rowText.includes("कोई रिकॉर्ड नहीं")) {
-        localDataMemory.push(rowText);
+        tempMemory.push(rowText);
       }
     });
 
-    // B. फ़ायरबेस डेटाबेस से डेटा (सभी संभावित फ़ील्ड्स की जाँच के साथ)
     try {
       if (typeof db !== "undefined" && db.collection) {
-        const collectionsToSearch = ["entries", "farmers", "records", "data"];
+        const collectionsToSearch = ["entries", "farmers", "records", "data", "khata"];
         for (let col of collectionsToSearch) {
           const snapshot = await db.collection(col).get();
           if (!snapshot.empty) {
             snapshot.forEach((doc) => {
               const d = doc.data();
               const farmerName = d.name || d.farmer_name || d.farmerName || d.kisan || '';
-              const workType = d.work || d.work_type || d.workType || '';
+              const workType = d.work || d.work_type || d.workType || '-';
               const qty = d.bigha || d.quantity || d.hours || 0;
               const totalAmt = d.total || d.total_amount || d.amount || 0;
               const paidAmt = d.paid || d.paid_amount || d.deposit || 0;
               const recDate = d.date || d.entry_date || '';
 
-              const rec = `Name: ${farmerName}, Work: ${workType}, Bigha/Hours: ${qty}, Total: ₹${totalAmt}, Paid: ₹${paidAmt}, Date: ${recDate}`;
-              localDataMemory.push(rec);
+              if (farmerName || totalAmt > 0) {
+                tempMemory.push(`Farmer: ${farmerName}, Work: ${workType}, Bigha/Hours: ${qty}, Total: ₹${totalAmt}, Paid: ₹${paidAmt}, Date: ${recDate}`);
+              }
             });
-            break;
           }
         }
       }
     } catch (err) {
-      console.log("Firebase memory load fallback active:", err);
+      console.log("Memory load fallback:", err);
+    }
+
+    if (tempMemory.length > 0) {
+      window.MUNSHI_GLOBAL_MEMORY = tempMemory;
     }
   }
 
-  // पेज लोड होते ही लोकल दिमाग में डेटा भर लें
-  loadWebsiteMemory();
+  syncWebsiteMemory();
 
-  // 2. स्मार्ट फ़िल्टर (केवल सटीक किसान का डेटा AI के पास भेजना)
-  function getRelevantData(query) {
-    if (localDataMemory.length === 0) {
-      return { isMatched: false, data: "कोई रिकॉर्ड उपलब्ध नहीं है।" };
+  // [पॉइंट 2]: स्मार्ट लाइटवेइट रिकॉर्ड फ़िल्टर (केवल सम्बंधित 20-30 रिकॉर्ड भेजेगा)
+  function getFilteredMemory(query) {
+    if (window.MUNSHI_GLOBAL_MEMORY.length === 0) return "कोई रिकॉर्ड उपलब्ध नहीं है।";
+    
+    // अगर डेटाबेस छोटा (50 तक) है तो पूरा भेजें, अगर बड़ा है तो स्मार्ट मैच करें
+    if (window.MUNSHI_GLOBAL_MEMORY.length <= 50) {
+      return window.MUNSHI_GLOBAL_MEMORY.join("\n");
     }
 
-    const cleanQuery = query.toLowerCase().trim();
-
-    // सामान्य बातचीत के शब्दों को हटाकर केवल मुख्य खोज शब्द (नाम) निकालना
-    const fillerWords = ["का", "की", "के", "को", "में", "से", "का हिसाब", "हिसाब", "दिखाओ", "बताओ", "चाहिए", "किसान", "पेंडिंग", "बकाया", "ट्रैक्टर", "मुझे", "कृपया", "कुल"];
-    let nameQuery = cleanQuery;
-    fillerWords.forEach(word => {
-      nameQuery = nameQuery.replaceAll(word, "");
+    const clean = query.toLowerCase();
+    const words = clean.split(" ").filter(w => w.length > 2);
+    
+    let matched = window.MUNSHI_GLOBAL_MEMORY.filter(rec => {
+      const rLower = rec.toLowerCase();
+      return words.some(w => rLower.includes(w));
     });
 
-    const searchWords = nameQuery.split(" ").map(w => w.trim()).filter(w => w.length >= 2);
-
-    // अगर यूजर ने किसी का नाम पूछा है
-    if (searchWords.length > 0) {
-      const matchedRecords = localDataMemory.filter(record => {
-        const recLower = record.toLowerCase();
-        return searchWords.some(word => recLower.includes(word));
-      });
-
-      if (matchedRecords.length > 0) {
-        return { isMatched: true, data: matchedRecords.join("\n") };
-      } else {
-        // नाम पूछा गया लेकिन लोकल मेमोरी में नहीं मिला
-        return { isMatched: false, data: "NOT_FOUND" };
-      }
+    if (matched.length === 0) {
+      // अगर नाम मैच न हो तो हाल ही के 25 रिकॉर्ड्स भेजें
+      return window.MUNSHI_GLOBAL_MEMORY.slice(-25).join("\n");
     }
 
-    // अगर सामान्य सवाल है (बिना नाम के), तो केवल 5 हालिया रिकॉर्ड भेजें
-    return { isMatched: true, data: localDataMemory.slice(0, 5).join("\n") };
+    return matched.join("\n");
   }
 
-  // 3. AI हैंडलर
+  // 2. AI हैंडलर
   async function handleSend(userText) {
     if (isRequestPending) return;
 
     const text = userText || (inputField ? inputField.value.trim() : "");
     if (!text) return;
+
+    const cleanTextKey = text.toLowerCase().trim();
+
+    // [पॉइंट 3]: API CALL से पहले CACHE जाँचें
+    if (aiCache.has(cleanTextKey)) {
+      const cachedResponse = aiCache.get(cleanTextKey);
+      appendMessage(text, "user");
+      if (inputField) inputField.value = "";
+      appendMessage(cachedResponse, "ai");
+      speakText(cachedResponse);
+      return;
+    }
 
     isRequestPending = true;
     if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -1172,86 +1173,87 @@ document.addEventListener("DOMContentLoaded", () => {
     if (inputField) inputField.value = "";
 
     const loadingDiv = appendMessage("हिसाब देख रहा हूँ...", "ai");
-    
-    // पहले मेमोरी ताज़ा करें
-    await loadWebsiteMemory();
-    const filterResult = getRelevantData(text);
 
-    // अगर किसान का नाम पूछा था पर रिकॉर्ड में नहीं मिला
-    if (filterResult.data === "NOT_FOUND") {
-      loadingDiv.remove();
-      const notFoundAnswer = "माफ़ कीजिएगा, इस किसान का रिकॉर्ड फ़ाइल या डेटाबेस में नहीं मिला।";
-      appendMessage(notFoundAnswer, "ai");
-      speakText(notFoundAnswer);
-      isRequestPending = false;
-      return;
+    if (window.MUNSHI_GLOBAL_MEMORY.length === 0) {
+      await syncWebsiteMemory();
     }
 
-    const assistantPrompt = `
-You are "AI Munshi", smart voice assistant for "Chhapola Agriculture".
+    const filteredRecords = getFilteredMemory(text);
 
+    // [पॉइंट 6 & 7]: प्रॉम्प्ट में स्टाइल और स्पेलिंग रूल्स जोड़ना
+    const userPrompt = `
 USER QUERY: "${text}"
 
-RELEVANT RECORDS FOUND IN LOCAL MEMORY:
-${filterResult.data}
+FARMER RECORDS:
+${filteredRecords}
 
 RULES:
-1. Calculate Total, Paid, and Remaining Balance accurately ONLY for the asked farmer.
-2. If multiple entries for the same farmer exist, sum up Total and Paid to calculate final balance.
-3. Answer strictly in 2 short, polite Hindi sentences for clear Speech output.
+1. Ignore spaces and dots in names. Ignore spelling mistakes.
+2. Treat Hindi, Marwadi, and English pronunciation as same (e.g., Umed, उमेद, उम्मीद).
+3. Sum up Total and Paid accurately for the asked farmer and calculate Remaining Balance.
+4. If farmer does not exist, say: "राम-राम जी, इस किसान का रिकॉर्ड नहीं मिला।"
+5. Never use Markdown. Never use bullets. Reply in plain Hindi. Maximum 50 words.
     `;
 
     try {
-      // API Key को 2 सुरक्षित हिस्सों में जोड़ा गया है (GitHub Secret Scanner इसे डिलीट नहीं करेगा)
       const keyPart1 = "AQ.Ab8RN6IneFD895YMiuSHR";
       const keyPart2 = "HH-pfAG_Wz4ZrghWn3DykD4Q_0XVw";
       const fullApiKey = keyPart1 + keyPart2;
 
-      const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${fullApiKey}`;
+
+      // [पॉइंट 1]: JSON Body में systemInstruction और generationConfig जोड़ना
+      const requestBody = {
+        systemInstruction: {
+          parts: [{
+            text: "You are AI Munshi 3.0 of Chhapola Agriculture. Always answer in Hindi. Never guess data."
+          }]
+        },
+        generationConfig: {
+          temperature: 0.2,
+          topP: 0.8,
+          topK: 20,
+          maxOutputTokens: 180
+        },
+        contents: [{ parts: [{ text: userPrompt }] }]
+      };
 
       const response = await fetch(apiUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-goog-api-key": fullApiKey
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: assistantPrompt }] }]
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody)
       });
 
       const data = await response.json();
       loadingDiv.remove();
 
       if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        const aiAnswer = data.candidates[0].content.parts[0].text;
+        const aiAnswer = data.candidates[0].content.parts[0].text.trim();
+        
+        // [पॉइंट 3]: API के बाद परिणाम Cache में सेव करना
+        aiCache.set(cleanTextKey, aiAnswer);
+
         appendMessage(aiAnswer, "ai");
         speakText(aiAnswer);
-      } else if (data.error) {
-        console.error("Gemini API Error:", data.error);
-        appendMessage("सर्वर व्यस्त है, कृपया 10 सेकंड बाद पुनः प्रयास करें।", "ai");
       } else {
-        appendMessage("माफ़ कीजिएगा, रिकॉर्ड ढूँढने में दिक्कत हुई।", "ai");
+        appendMessage("माफ़ कीजिएगा, हिसाब समझने में दिक्कत हुई।", "ai");
       }
     } catch (err) {
       loadingDiv.remove();
       console.error("Fetch Error:", err);
-      appendMessage("कनेक्शन एरर: " + err.message, "ai");
+      appendMessage("कनेक्शन एरर: नेटवर्क जाँचें।", "ai");
     } finally {
       isRequestPending = false;
     }
   }
 
-  // 4. स्पीकर फ़ंक्शन (Text To Speech)
+  // 3. स्पीच (TTS)
   function speakText(text) {
     if (!isSpeechEnabled || !('speechSynthesis' in window)) return;
-
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "hi-IN";
     utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-
     window.speechSynthesis.speak(utterance);
   }
 
@@ -1287,13 +1289,13 @@ RULES:
     });
   }
 
-  // 5. स्मार्ट रिकॉर्डर (Speech Recognition)
+  // 4. वॉइस इनपुट (Single Execution Guard)
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SpeechRecognition && micBtn) {
     const rec = new SpeechRecognition();
     rec.lang = "hi-IN";
-    rec.continuous = true;
-    rec.interimResults = true;
+    rec.continuous = false;
+    rec.interimResults = false;
 
     micBtn.addEventListener("click", () => {
       fullSpokenTranscript = "";
@@ -1307,18 +1309,10 @@ RULES:
     });
 
     rec.onresult = (e) => {
-      let currentString = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        currentString += e.results[i][0].transcript;
+      if (e.results && e.results[0]) {
+        fullSpokenTranscript = e.results[0][0].transcript;
+        if (inputField) inputField.value = fullSpokenTranscript;
       }
-      
-      fullSpokenTranscript = currentString;
-      if (inputField) inputField.value = fullSpokenTranscript;
-
-      clearTimeout(speechTimeout);
-      speechTimeout = setTimeout(() => {
-        rec.stop();
-      }, 1800); 
     };
 
     rec.onend = () => {
@@ -1326,7 +1320,7 @@ RULES:
       micBtn.style.color = "black";
       if (inputField) inputField.placeholder = "यहाँ लिखें या माइक दबाएँ...";
       
-      if (fullSpokenTranscript.trim().length > 0) {
+      if (fullSpokenTranscript.trim().length > 0 && !isRequestPending) {
         handleSend(fullSpokenTranscript);
         fullSpokenTranscript = "";
       }
@@ -1339,4 +1333,5 @@ RULES:
     };
   }
 });
+
 
