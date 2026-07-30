@@ -1136,15 +1136,20 @@ RULES:
     `;
 
     try {
-      // फिक्स किया गया API यूआरएल (gemini-2.5-flash)
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      // आपके दिए गए cURL के अनुसार EXACT URL
+      const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
 
-
+      // आपके cURL के अनुसार EXACT Headers (X-goog-api-key के साथ)
       const response = await fetch(apiUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-goog-api-key": "AQ.Ab8RN6Lw-gc3WmJQUwKDa5D44XtC77a3jdRLYwt2Xx2g-X__jg"
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: assistantPrompt }] }]
+          contents: [{
+            parts: [{ text: assistantPrompt }]
+          }]
         })
       });
 
