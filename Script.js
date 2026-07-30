@@ -1038,7 +1038,6 @@ alert("✅ Voice Entry सफल रही। अब Save बटन दबाए
     };
 
       }
-
 // ==========================================
 // ADVANCED AI MUNSHI (LOCAL BRAIN + SMART FILTER + SAFE API)
 // ==========================================
@@ -1092,7 +1091,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // B. फ़ायरबेस डेटाबेस से डेटा
+    // B. फ़ायरबेस डेटाबेस से डेटा (सभी संभावित फ़ील्ड्स की जाँच के साथ)
     try {
       if (typeof db !== "undefined" && db.collection) {
         const collectionsToSearch = ["entries", "farmers", "records", "data"];
@@ -1101,7 +1100,14 @@ document.addEventListener("DOMContentLoaded", () => {
           if (!snapshot.empty) {
             snapshot.forEach((doc) => {
               const d = doc.data();
-              const rec = `Name: ${d.name || d.farmer_name || ''}, Work: ${d.work || d.work_type || ''}, Bigha/Hours: ${d.bigha || d.quantity || 0}, Total: ₹${d.total || 0}, Paid: ₹${d.paid || d.paid_amount || 0}, Date: ${d.date || ''}`;
+              const farmerName = d.name || d.farmer_name || d.farmerName || d.kisan || '';
+              const workType = d.work || d.work_type || d.workType || '';
+              const qty = d.bigha || d.quantity || d.hours || 0;
+              const totalAmt = d.total || d.total_amount || d.amount || 0;
+              const paidAmt = d.paid || d.paid_amount || d.deposit || 0;
+              const recDate = d.date || d.entry_date || '';
+
+              const rec = `Name: ${farmerName}, Work: ${workType}, Bigha/Hours: ${qty}, Total: ₹${totalAmt}, Paid: ₹${paidAmt}, Date: ${recDate}`;
               localDataMemory.push(rec);
             });
             break;
@@ -1116,24 +1122,40 @@ document.addEventListener("DOMContentLoaded", () => {
   // पेज लोड होते ही लोकल दिमाग में डेटा भर लें
   loadWebsiteMemory();
 
-  // 2. स्मार्ट फ़िल्टर (केवल काम का डेटा AI के पास भेजना)
+  // 2. स्मार्ट फ़िल्टर (केवल सटीक किसान का डेटा AI के पास भेजना)
   function getRelevantData(query) {
-    if (localDataMemory.length === 0) return "कोई रिकॉर्ड उपलब्ध नहीं है।";
+    if (localDataMemory.length === 0) {
+      return { isMatched: false, data: "कोई रिकॉर्ड उपलब्ध नहीं है।" };
+    }
 
     const cleanQuery = query.toLowerCase().trim();
-    const words = cleanQuery.split(" ").filter(w => w.length > 2);
 
-    // अगर नाम से पूछा गया है तो फ़िल्टर करें
-    const matchedRecords = localDataMemory.filter(record => {
-      const recLower = record.toLowerCase();
-      return words.some(word => recLower.includes(word));
+    // सामान्य बातचीत के शब्दों को हटाकर केवल मुख्य खोज शब्द (नाम) निकालना
+    const fillerWords = ["का", "की", "के", "को", "में", "से", "का हिसाब", "हिसाब", "दिखाओ", "बताओ", "चाहिए", "किसान", "पेंडिंग", "बकाया", "ट्रैक्टर", "मुझे", "कृपया", "कुल"];
+    let nameQuery = cleanQuery;
+    fillerWords.forEach(word => {
+      nameQuery = nameQuery.replaceAll(word, "");
     });
 
-    // अगर फ़िल्टर में रिकॉर्ड मिले तो सिर्फ वही भेजें, वरना पूरा डेटा (मैक्स 10)
-    if (matchedRecords.length > 0) {
-      return matchedRecords.join("\n");
+    const searchWords = nameQuery.split(" ").map(w => w.trim()).filter(w => w.length >= 2);
+
+    // अगर यूजर ने किसी का नाम पूछा है
+    if (searchWords.length > 0) {
+      const matchedRecords = localDataMemory.filter(record => {
+        const recLower = record.toLowerCase();
+        return searchWords.some(word => recLower.includes(word));
+      });
+
+      if (matchedRecords.length > 0) {
+        return { isMatched: true, data: matchedRecords.join("\n") };
+      } else {
+        // नाम पूछा गया लेकिन लोकल मेमोरी में नहीं मिला
+        return { isMatched: false, data: "NOT_FOUND" };
+      }
     }
-    return localDataMemory.slice(0, 10).join("\n");
+
+    // अगर सामान्य सवाल है (बिना नाम के), तो केवल 5 हालिया रिकॉर्ड भेजें
+    return { isMatched: true, data: localDataMemory.slice(0, 5).join("\n") };
   }
 
   // 3. AI हैंडलर
@@ -1151,9 +1173,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const loadingDiv = appendMessage("हिसाब देख रहा हूँ...", "ai");
     
-    // पहले मेमोरी ताज़ा करें और फिर सिर्फ प्रासंगिक डेटा निकालें
+    // पहले मेमोरी ताज़ा करें
     await loadWebsiteMemory();
-    const filteredRecords = getRelevantData(text);
+    const filterResult = getRelevantData(text);
+
+    // अगर किसान का नाम पूछा था पर रिकॉर्ड में नहीं मिला
+    if (filterResult.data === "NOT_FOUND") {
+      loadingDiv.remove();
+      const notFoundAnswer = "माफ़ कीजिएगा, इस किसान का रिकॉर्ड फ़ाइल या डेटाबेस में नहीं मिला।";
+      appendMessage(notFoundAnswer, "ai");
+      speakText(notFoundAnswer);
+      isRequestPending = false;
+      return;
+    }
 
     const assistantPrompt = `
 You are "AI Munshi", smart voice assistant for "Chhapola Agriculture".
@@ -1161,11 +1193,11 @@ You are "AI Munshi", smart voice assistant for "Chhapola Agriculture".
 USER QUERY: "${text}"
 
 RELEVANT RECORDS FOUND IN LOCAL MEMORY:
-${filteredRecords}
+${filterResult.data}
 
 RULES:
-1. Match farmer name flexibly (Hindi/English/Hinglish).
-2. Calculate Total, Paid, and Remaining Balance accurately.
+1. Calculate Total, Paid, and Remaining Balance accurately ONLY for the asked farmer.
+2. If multiple entries for the same farmer exist, sum up Total and Paid to calculate final balance.
 3. Answer strictly in 2 short, polite Hindi sentences for clear Speech output.
     `;
 
@@ -1210,7 +1242,7 @@ RULES:
     }
   }
 
-  // 4. स्पीकर फ़ंक्शन
+  // 4. स्पीकर फ़ंक्शन (Text To Speech)
   function speakText(text) {
     if (!isSpeechEnabled || !('speechSynthesis' in window)) return;
 
@@ -1255,7 +1287,7 @@ RULES:
     });
   }
 
-  // 5. स्मार्ट रिकॉर्डर
+  // 5. स्मार्ट रिकॉर्डर (Speech Recognition)
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SpeechRecognition && micBtn) {
     const rec = new SpeechRecognition();
