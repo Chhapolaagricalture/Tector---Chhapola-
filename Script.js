@@ -1039,7 +1039,7 @@ alert("✅ Voice Entry सफल रही। अब Save बटन दबाए
 
       }
 // ==========================================
-// AI ASSISTANT WIDGET LOGIC
+// POWERFUL AI MUNSHI (UPGRADED PROMPT & LOGIC)
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
   const toggleBtn = document.getElementById("ai-toggle-btn");
@@ -1052,38 +1052,103 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!toggleBtn) return;
 
-  // चैट बॉक्स खोलना / बंद करना
   toggleBtn.addEventListener("click", () => {
     chatBox.style.display = chatBox.style.display === "none" || !chatBox.style.display ? "flex" : "none";
   });
-  closeBtn.addEventListener("click", () => { chatBox.style.display = "none"; });
+  if (closeBtn) closeBtn.addEventListener("click", () => { chatBox.style.display = "none"; });
 
-  // मैसेज भेजने का फ़ंक्शन
+  // 1. स्क्रीन टेबल और फ़ायरबेस दोनों से संपूर्ण डेटा खींचना
+  async function fetchAllWebsiteData() {
+    let dataText = "=== WEBSITE & DATABASE ALL RECORDS ===\n";
+    let count = 0;
+
+    // A) स्क्रीन टेबल से डेटा खींचना
+    const tableRows = document.querySelectorAll("table tbody tr");
+    if (tableRows.length > 0) {
+      dataText += "[Screen Table Live Entries]:\n";
+      tableRows.forEach((row) => {
+        const rowText = row.innerText.replace(/\s+/g, ' ').trim();
+        if (rowText && !rowText.includes("No records") && !rowText.includes("कोई रिकॉर्ड नहीं")) {
+          count++;
+          dataText += `- Record ${count}: ${rowText}\n`;
+        }
+      });
+    }
+
+    // B) फ़ायरबेस (Firestore) से डेटा खींचना
+    try {
+      if (typeof db !== "undefined") {
+        const collectionsToSearch = ["entries", "farmers", "records", "data"];
+        for (let col of collectionsToSearch) {
+          if (db.collection) {
+            const snapshot = await db.collection(col).get();
+            if (!snapshot.empty) {
+              dataText += `\n[Firebase Collection: ${col}]:\n`;
+              snapshot.forEach((doc) => {
+                const d = doc.data();
+                count++;
+                dataText += `- Record ${count}: Name=${d.name || d.farmer_name || 'N/A'}, Work=${d.work || d.work_type || 'N/A'}, Bigha/Hours=${d.bigha || d.quantity || 0}, Total=₹${d.total || 0}, Paid=₹${d.paid || d.paid_amount || 0}, Date=${d.date || 'N/A'}\n`;
+              });
+              break;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.log("Firebase search fallback active:", err);
+    }
+
+    if (count === 0) {
+      dataText += "No data found in table or database currently.\n";
+    }
+
+    return dataText;
+  }
+
+  // 2. अपग्रेटेड सुपर-प्रोम्प्ट के साथ AI को निर्देश भेजना
   async function handleSend(userText) {
     const text = userText || inputField.value.trim();
     if (!text) return;
 
-    // यूज़र का मैसेज दिखाएँ
     appendMessage(text, "user");
     if (!userText) inputField.value = "";
 
-    // वेटिंग मैसेज दिखाएँ
-    const loadingDiv = appendMessage("सोच रहा हूँ...", "ai");
+    const loadingDiv = appendMessage("पूरा हिसाब चेक कर रहा हूँ...", "ai");
 
-    // आपकी वेबसाइट के वर्तमान डेटा/फॉर्म का संदर्भ (Context) इकट्ठा करना
-    let currentData = "वेबसाइट पर वर्तमान जानकारी:\n";
-    const nameEl = document.getElementById("name");
-    const totalEl = document.getElementById("total") || document.getElementById("paid");
-    if (nameEl && nameEl.value) currentData += `वर्तमान किसान नाम: ${nameEl.value}\n`;
+    const allData = await fetchAllWebsiteData();
 
-    // AI के लिए प्रम्प्ट
+    // ==========================================
+    // DEEP & POWERFUL SYSTEM PROMPT FOR GEMINI
+    // ==========================================
     const assistantPrompt = `
-      You are a helpful Gujarati/Hindi tractor account assistant (AI Munshi) for "Chhapola Agriculture".
-      Answer in polite and simple Hindi/Hinglish.
-      User asked: "${text}"
-      Context details: ${currentData}
+You are "AI Munshi" (एआई मुंशी), an expert financial accountant and manager for "Chhapola Agriculture" (a tractor & farm machinery service in India).
 
-      Give a short, direct, and accurate answer in 2-3 sentences max.
+YOUR ROLE & CHARACTER:
+- You are polite, highly accurate with numbers, helpful, and speak in clean everyday Hindi / Hinglish.
+- You understand Indian agricultural context, local terms (बीघा, कल्टी, मोरप्लाउ, हीरो, थ्रेशर, स्प्रे टंकी, बकाया, जमा, उधारी).
+
+AVAILABLE LIVE RECORDS:
+${allData}
+
+USER QUERY:
+"${text}"
+
+CRITICAL STEP-BY-STEP INSTRUCTIONS:
+1. SEARCH & MATCH: Carefully scan all the records listed above for any mention of the requested farmer, work, or amount. Accounts for phonetic spelling variations (e.g., "Rampal" vs "Ram pal" vs "रामपाल").
+2. MATHEMATICAL CALCULATION:
+   - Calculate Total Work Bill = Sum of all 'Total' or bill amounts for that farmer.
+   - Calculate Total Paid Amount = Sum of all 'Paid' amounts for that farmer.
+   - Calculate Remaining Balance (बाकी/बकाया) = (Total Work Bill) - (Total Paid Amount).
+3. IF DATA IS FOUND:
+   - Provide a direct, polite summary in Hindi.
+   - Example format: 
+     "रामपाल जी का कुल काम ₹[X] का हुआ है, जिसमें से ₹[Y] जमा हो चुके हैं। उनका कुल बकाया ₹[Z] है।"
+4. IF USER ASKS FOR WHATSAPP BILL:
+   - Write a neat, ready-to-copy WhatsApp message with breakdown of work and remaining balance.
+5. IF NO DATA EXISTS FOR THAT NAME:
+   - Polite reply: "माफ़ कीजिएगा, इस नाम का कोई रिकॉर्ड अभी नहीं मिला है। कृपया नाम सही से जाँचें।"
+
+Give a direct, concise response in 2-4 sentences max. Do not show internal thinking code to the user.
     `;
 
     try {
@@ -1108,22 +1173,23 @@ document.addEventListener("DOMContentLoaded", () => {
         const aiAnswer = data.candidates[0].content.parts[0].text;
         appendMessage(aiAnswer, "ai");
       } else {
-        appendMessage("माफ़ कीजिएगा, जवाब देने में समस्या हुई।", "ai");
+        appendMessage("माफ़ कीजिएगा, AI सर्विस से उत्तर नहीं मिल सका।", "ai");
       }
     } catch (err) {
       loadingDiv.remove();
-      appendMessage("एरर: " + err.message, "ai");
+      appendMessage("कनेक्शन एरर: " + err.message, "ai");
     }
   }
 
-  // मैसेज स्क्रीन पर दिखाने का हेल्प फ़ंक्शन
+  // 3. UI मैसेज फ़ंक्शन
   function appendMessage(text, sender) {
     const msgDiv = document.createElement("div");
     msgDiv.style.padding = "8px 12px";
     msgDiv.style.borderRadius = "8px";
     msgDiv.style.maxWidth = "85%";
     msgDiv.style.fontSize = "13px";
-    msgDiv.style.lineHeight = "1.4";
+    msgDiv.style.lineHeight = "1.5";
+    msgDiv.style.whiteSpace = "pre-wrap";
 
     if (sender === "user") {
       msgDiv.style.background = "#10b981";
@@ -1141,13 +1207,14 @@ document.addEventListener("DOMContentLoaded", () => {
     return msgDiv;
   }
 
-  // बटन क्लिक और एंटर की (Enter Key) से भेजना
-  sendBtn.addEventListener("click", () => handleSend());
-  inputField.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") handleSend();
-  });
+  if (sendBtn) sendBtn.addEventListener("click", () => handleSend());
+  if (inputField) {
+    inputField.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") handleSend();
+    });
+  }
 
-  // वॉइस सपोर्ट (बोलकर पूछने के लिए)
+  // 4. वॉइस इनपुट
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SpeechRecognition && micBtn) {
     const rec = new SpeechRecognition();
