@@ -1040,7 +1040,7 @@ alert("✅ Voice Entry सफल रही। अब Save बटन दबाए
       }
 
 // ==========================================
-// ADVANCED AI MUNSHI (SPEECH + HINGLISH + FULL PAUSE FIX)
+// ADVANCED AI MUNSHI (FIXED API & PROMPT)
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
   const toggleBtn = document.getElementById("ai-toggle-btn");
@@ -1054,152 +1054,129 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!toggleBtn) return;
 
-  let isSpeechEnabled = true; // स्पीकर बाय-डिफ़ॉल्ट चालू रहेगा
+  let isSpeechEnabled = true;
   let speechTimeout = null;
   let fullSpokenTranscript = "";
 
-  // स्पीकर चालू/बंद करने का बटन
   if (ttsToggleBtn) {
     ttsToggleBtn.addEventListener("click", () => {
       isSpeechEnabled = !isSpeechEnabled;
       ttsToggleBtn.innerText = isSpeechEnabled ? "🔊" : "🔇";
       if (!isSpeechEnabled && window.speechSynthesis) {
-        window.speechSynthesis.cancel(); // आवाज़ तुरंत बंद करें
+        window.speechSynthesis.cancel();
       }
     });
   }
 
-  // चैट बॉक्स खोलना / बंद करना
   toggleBtn.addEventListener("click", () => {
     chatBox.style.display = chatBox.style.display === "none" || !chatBox.style.display ? "flex" : "none";
   });
   if (closeBtn) closeBtn.addEventListener("click", () => { chatBox.style.display = "none"; });
 
-  // 1. स्क्रीन टेबल और फ़ायरबेस से डेटा खींचना
+  // 1. ऑन-स्क्रीन टेबल और डेटाबेस से डेटा साफ़ फ़ॉर्मैट में निकालना
   async function fetchAllWebsiteData() {
-    let dataText = "=== WEBSITE & DATABASE RECORDS ===\n";
-    let count = 0;
+    let records = [];
 
+    // टेबल से डेटा पढ़ना
     const tableRows = document.querySelectorAll("table tbody tr");
-    if (tableRows.length > 0) {
-      dataText += "[Screen Table Live Entries]:\n";
-      tableRows.forEach((row) => {
-        const rowText = row.innerText.replace(/\s+/g, ' ').trim();
-        if (rowText && !rowText.includes("No records") && !rowText.includes("कोई रिकॉर्ड नहीं")) {
-          count++;
-          dataText += `- Record ${count}: ${rowText}\n`;
-        }
-      });
-    }
+    tableRows.forEach((row, i) => {
+      const txt = row.innerText.replace(/\s+/g, " ").trim();
+      if (txt && !txt.includes("No records") && !txt.includes("कोई रिकॉर्ड नहीं")) {
+        records.push(`Record ${i + 1}: ${txt}`);
+      }
+    });
 
+    // फ़ायरबेस से डेटा पढ़ना
     try {
-      if (typeof db !== "undefined") {
-        const collectionsToSearch = ["entries", "farmers", "records", "data"];
-        for (let col of collectionsToSearch) {
-          if (db.collection) {
-            const snapshot = await db.collection(col).get();
-            if (!snapshot.empty) {
-              dataText += `\n[Firebase Collection: ${col}]:\n`;
-              snapshot.forEach((doc) => {
-                const d = doc.data();
-                count++;
-                dataText += `- Record ${count}: Name=${d.name || d.farmer_name || 'N/A'}, Work=${d.work || d.work_type || 'N/A'}, Bigha/Hours=${d.bigha || d.quantity || 0}, Total=₹${d.total || 0}, Paid=₹${d.paid || d.paid_amount || 0}, Date=${d.date || 'N/A'}\n`;
-              });
-              break;
-            }
+      if (typeof db !== "undefined" && db.collection) {
+        const collections = ["entries", "farmers", "records"];
+        for (let col of collections) {
+          const snapshot = await db.collection(col).get();
+          if (!snapshot.empty) {
+            snapshot.forEach((doc) => {
+              const d = doc.data();
+              records.push(`Firebase DB: Name=${d.name || d.farmer_name || 'N/A'}, Work=${d.work || d.work_type || 'N/A'}, Paid=₹${d.paid || d.paid_amount || 0}, Total=₹${d.total || 0}`);
+            });
+            break;
           }
         }
       }
-    } catch (err) {
-      console.log("Firebase search fallback active:", err);
+    } catch (e) {
+      console.log("Firebase search fallback:", e);
     }
 
-    if (count === 0) {
-      dataText += "No data found currently.\n";
-    }
-
-    return dataText;
+    return records.length > 0 ? records.join("\n") : "No records currently available.";
   }
 
-  // 2. AI को जवाब देने और बोलने के लिए कहना
+  // 2. Gemini API को सही मॉडल के साथ कॉल करना
   async function handleSend(userText) {
-    const text = userText || inputField.value.trim();
+    const text = userText || (inputField ? inputField.value.trim() : "");
     if (!text) return;
 
-    // पुराना बोलना बंद करें
     if (window.speechSynthesis) window.speechSynthesis.cancel();
 
     appendMessage(text, "user");
-    if (!userText) inputField.value = "";
+    if (inputField) inputField.value = "";
 
-    const loadingDiv = appendMessage("सोच रहा हूँ...", "ai");
+    const loadingDiv = appendMessage("हिसाब देख रहा हूँ...", "ai");
     const allData = await fetchAllWebsiteData();
 
     const assistantPrompt = `
-You are "AI Munshi", a bilingual smart voice & text assistant for "Chhapola Agriculture".
+You are "AI Munshi", a smart voice & text assistant for "Chhapola Agriculture" tractor business.
 
-USER ASKED: "${text}"
+USER QUERY: "${text}"
 
-LIVE DATABASE & TABLE RECORDS:
+CURRENT RECORDS DATA:
 ${allData}
 
-CRITICAL RULES:
-1. MULTI-LANGUAGE NAME SEARCH: Search farmer names flexibly across Hindi, English, and Hinglish (e.g., "Rampal", "rampal", "रामपाल", "राम पाल" are ALL the SAME person).
-2. CALCULATIONS: Strictly calculate Total Bill, Paid Amount, and Remaining Balance (Total - Paid).
-3. RESPONSE FORMAT: 
-   - Answer in simple, direct, polite Hindi / Hinglish.
-   - Keep answers clear and short (2-3 sentences) so it sounds great when read aloud by Text-to-Speech speaker.
+RULES:
+1. Flexible Search: Search farmer names flexibly across Hindi/English/Hinglish (e.g. Mahipal, mahipal, महिपाल, महिपाल ओला are the same).
+2. Math: Calculate Total Bill, Paid Amount, and Remaining Balance.
+3. Response: Answer directly in clear, polite Hindi (2-3 sentences max) so it sounds natural when spoken.
     `;
 
     try {
-      const response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-goog-api-key": GEMINI_API_KEY
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: assistantPrompt }] }]
-          })
-        }
-      );
+      // फिक्स किया गया API यूआरएल (gemini-1.5-flash)
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: assistantPrompt }] }]
+        })
+      });
 
       const data = await response.json();
       loadingDiv.remove();
 
-      if (data.candidates && data.candidates[0]) {
+      if (data.candidates && data.candidates[0] && data.candidates[0].content) {
         const aiAnswer = data.candidates[0].content.parts[0].text;
         appendMessage(aiAnswer, "ai");
-        
-        // AI के जवाब को बोलकर सुनाना (Text-to-Speech)
         speakText(aiAnswer);
+      } else if (data.error) {
+        console.error("Gemini API Error:", data.error);
+        appendMessage("API एरर: " + data.error.message, "ai");
       } else {
-        const errAnswer = "माफ़ कीजिएगा, जवाब देने में समस्या हुई।";
-        appendMessage(errAnswer, "ai");
-        speakText(errAnswer);
+        appendMessage("माफ़ कीजिएगा, रिकॉर्ड ढूँढने में दिक्कत हुई।", "ai");
       }
     } catch (err) {
       loadingDiv.remove();
+      console.error("Fetch Error:", err);
       appendMessage("कनेक्शन एरर: " + err.message, "ai");
     }
   }
 
-  // 3. जवाब को बोलकर सुनाने का फ़ंक्शन (Speaker)
+  // 3. उत्तर बोलकर सुनाने का फ़ंक्शन
   function speakText(text) {
     if (!isSpeechEnabled || !('speechSynthesis' in window)) return;
-
-    window.speechSynthesis.cancel(); // पुराना ऑडियो क्लियर करें
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "hi-IN"; // हिंदी उच्चारण
-    utterance.rate = 1.0;     // नॉर्मल बोलने की स्पीड
-    utterance.pitch = 1.0;
-
+    utterance.lang = "hi-IN";
+    utterance.rate = 1.0;
     window.speechSynthesis.speak(utterance);
   }
 
-  // UI में मैसेज जोड़ना
   function appendMessage(text, sender) {
     const msgDiv = document.createElement("div");
     msgDiv.style.padding = "8px 12px";
@@ -1232,19 +1209,21 @@ CRITICAL RULES:
     });
   }
 
-  // 4. आपकी पूरी बात सुनने वाला स्मार्ट वॉइस रिकॉर्डर (Smart Delay Fix)
+  // 4. वॉइस इनपुट
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SpeechRecognition && micBtn) {
     const rec = new SpeechRecognition();
     rec.lang = "hi-IN";
-    rec.continuous = true;      // बीच में रुके बिना पूरी बात सुनता रहेगा
-    rec.interimResults = true;  // आपकी बोलते समय की लाइव स्पीच पढ़ेगा
+    rec.continuous = true;
+    rec.interimResults = true;
 
     micBtn.addEventListener("click", () => {
       fullSpokenTranscript = "";
-      inputField.value = "";
-      inputField.placeholder = "सुन रहा हूँ, पूरी बात बोलिए...";
-      micBtn.style.background = "#ef4444"; // लाल रंग जब रिकॉर्ड कर रहा हो
+      if (inputField) {
+        inputField.value = "";
+        inputField.placeholder = "सुन रहा हूँ, बोलिए...";
+      }
+      micBtn.style.background = "#ef4444";
       micBtn.style.color = "white";
       rec.start();
     });
@@ -1254,21 +1233,19 @@ CRITICAL RULES:
       for (let i = e.resultIndex; i < e.results.length; i++) {
         currentString += e.results[i][0].transcript;
       }
-      
       fullSpokenTranscript = currentString;
-      inputField.value = fullSpokenTranscript;
+      if (inputField) inputField.value = fullSpokenTranscript;
 
-      // अगर आप बोलना बंद करते हैं, तो 1.8 सेकंड तक इंतज़ार करेगा (आपकी बात पूरी सुनने के लिए)
       clearTimeout(speechTimeout);
       speechTimeout = setTimeout(() => {
         rec.stop();
-      }, 1800); 
+      }, 1800);
     };
 
     rec.onend = () => {
       micBtn.style.background = "#f3f4f6";
       micBtn.style.color = "black";
-      inputField.placeholder = "यहाँ लिखें या माइक दबाएँ...";
+      if (inputField) inputField.placeholder = "यहाँ लिखें या माइक दबाएँ...";
       
       if (fullSpokenTranscript.trim().length > 0) {
         handleSend(fullSpokenTranscript);
@@ -1279,9 +1256,11 @@ CRITICAL RULES:
     rec.onerror = () => {
       micBtn.style.background = "#f3f4f6";
       micBtn.style.color = "black";
-      inputField.placeholder = "यहाँ लिखें या माइक दबाएँ...";
+      if (inputField) inputField.placeholder = "यहाँ लिखें या माइक दबाएँ...";
     };
   }
 });
+
+
 
 
