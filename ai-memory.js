@@ -1,137 +1,751 @@
 // ==========================================
-// RAJ AI MEMORY ENGINE
-// ai-memory.js
+// RAJ AI MEMORY ENGINE v1.0
+// Part 1 - Foundation
 // ==========================================
 
-// Global Memory
-window.RAJ_MEMORY = {
+"use strict";
+
+window.RAJ_AI = window.RAJ_AI || {};
+
+window.RAJ_AI.memory = {
+
+    version: "1.0",
+
+    initialized: false,
+
+    loading: false,
+
+    syncing: false,
+
+    lastSync: null,
+
+    totalRecords: 0,
+
+    totalFarmers: 0,
+
     records: [],
-    farmers: {},
-    lastSync: null
+
+    tableRecords: [],
+
+    firebaseRecords: [],
+
+    farmers: new Map(),
+
+    aliases: new Map(),
+
+    cache: new Map(),
+
+    statistics: {
+
+        totalAmount: 0,
+
+        totalPaid: 0,
+
+        totalBalance: 0
+
+    }
+
 };
 
-// Memory Sync
-async function syncRajMemory() {
+// ==========================================
+// CONFIG
+// ==========================================
 
-    let allRecords = [];
+window.RAJ_AI.config = {
 
-    // Table Data
-    const rows = document.querySelectorAll("table tbody tr");
+    autoSync: true,
 
-    rows.forEach(row => {
+    autoSyncTime: 30000,
 
-        const text = row.innerText.trim();
+    offlineCache: true,
 
-        if (
-            text &&
-            !text.includes("No records") &&
-            !text.includes("कोई रिकॉर्ड नहीं")
-        ) {
+    duplicateCleaner: true,
 
-            allRecords.push({
-                source: "table",
-                text: text
-            });
+    debug: false
+
+};
+
+// ==========================================
+// LOG
+// ==========================================
+
+function rajLog(...msg){
+
+    if(window.RAJ_AI.config.debug){
+
+        console.log("[RAJ AI]",...msg);
+
+    }
+
+}
+
+// ==========================================
+// SAVE CACHE
+// ==========================================
+
+function saveMemoryCache(){
+
+    if(!window.RAJ_AI.config.offlineCache) return;
+
+    try{
+
+        localStorage.setItem(
+
+            "RAJ_AI_MEMORY",
+
+            JSON.stringify({
+
+                records:window.RAJ_AI.memory.records,
+
+                statistics:window.RAJ_AI.memory.statistics,
+
+                lastSync:Date.now()
+
+            })
+
+        );
+
+    }catch(e){
+
+        rajLog(e);
+
+    }
+
+}
+
+// ==========================================
+// LOAD CACHE
+// ==========================================
+
+function loadMemoryCache(){
+
+    try{
+
+        const cache=localStorage.getItem("RAJ_AI_MEMORY");
+
+        if(!cache) return;
+
+        const data=JSON.parse(cache);
+
+        window.RAJ_AI.memory.records=data.records||[];
+
+        window.RAJ_AI.memory.statistics=data.statistics||{};
+
+    }catch(e){
+
+        rajLog(e);
+
+    }
+
+}
+
+// ==========================================
+// CLEAR MEMORY
+// ==========================================
+
+function clearRajMemory(){
+
+    window.RAJ_AI.memory.records=[];
+
+    window.RAJ_AI.memory.tableRecords=[];
+
+    window.RAJ_AI.memory.firebaseRecords=[];
+
+    window.RAJ_AI.memory.farmers.clear();
+
+    window.RAJ_AI.memory.aliases.clear();
+
+    window.RAJ_AI.memory.cache.clear();
+
+}
+
+// ==========================================
+// INIT
+// ==========================================
+
+async function initRajMemory(){
+
+    if(window.RAJ_AI.memory.initialized) return;
+
+    window.RAJ_AI.memory.loading=true;
+
+    loadMemoryCache();
+
+    window.RAJ_AI.memory.initialized=true;
+
+    window.RAJ_AI.memory.loading=false;
+
+    rajLog("Memory Ready");
+
+}
+
+// ==========================================
+// PUBLIC API
+// ==========================================
+
+window.initRajMemory=initRajMemory;
+
+window.clearRajMemory=clearRajMemory;
+
+window.saveMemoryCache=saveMemoryCache;
+
+window.loadMemoryCache=loadMemoryCache;￼Enter=======================================
+// RAJ AI MEMORY ENGINE v1.0
+// Part 1 - Foundation
+// ==========================================
+
+"use strict";
+
+window.RAJ_AI = window.RAJ_AI || {};
+
+window.RAJ_AI.memory = {
+
+    version: "1.0",
+
+    initialized: false,
+
+    loading: false,
+
+    syncing: false,
+
+    lastSync: null,
+
+    totalRecords: 0,
+
+    totalFarmers: 0,
+
+    records: [],
+
+    tableRecords: [],
+
+    firebaseRecords: [],
+
+    farmers: new Map(),
+
+    aliases: new Map(),
+
+    cache: new Map(),
+
+    statistics: {
+
+        totalAmount: 0,
+
+        totalPaid: 0,
+
+        totalBalance: 0
+
+    }
+
+};
+
+// ==========================================
+// CONFIG
+// ==========================================
+
+window.RAJ_AI.config = {
+
+    autoSync: true,
+
+    autoSyncTime: 30000,
+
+    offlineCache: true,
+
+    duplicateCleaner: true,
+
+    debug: false
+
+};
+
+// ==========================================
+// LOG
+// ==========================================
+
+function rajLog(...msg){
+
+    if(window.RAJ_AI.config.debug){
+
+        console.log("[RAJ AI]",...msg);
+
+    }
+
+}
+
+// ==========================================
+// SAVE CACHE
+// ==========================================
+
+function saveMemoryCache(){
+    // ==========================================
+// PART 2
+// TABLE + FIREBASE MEMORY
+// ==========================================
+
+// ---------- TABLE MEMORY ----------
+async function scanTableMemory() {
+
+    const records = [];
+
+    try {
+
+        const rows = document.querySelectorAll("table tbody tr");
+
+        rows.forEach(row => {
+
+            const text = row.innerText.replace(/\s+/g," ").trim();
+
+            if (
+                text &&
+                !text.includes("No records") &&
+                !text.includes("कोई रिकॉर्ड नहीं")
+            ) {
+
+                records.push({
+                    source:"table",
+                    text:text
+                });
+
+            }
+
+        });
+
+    } catch(e){
+
+        rajLog("Table Scan Error",e);
+
+    }
+
+    window.RAJ_AI.memory.tableRecords = records;
+
+    return records;
+
+}
+
+// ---------- FIREBASE MEMORY ----------
+async function scanFirebaseMemory(){
+
+    const records=[];
+
+    try{
+
+        if(typeof db==="undefined"){
+
+            return [];
 
         }
 
-    });
+        const collections=[
+            "entries",
+            "records",
+            "farmers",
+            "data",
+            "khata"
+        ];
 
-    // Firebase Data
-    try {
+        for(const col of collections){
 
-        if (typeof db !== "undefined") {
+            try{
 
-            const collections = [
-                "entries",
-                "farmers",
-                "records",
-                "data"
-            ];
+                const snapshot=await db.collection(col).get();
 
-            for (const col of collections) {
+                snapshot.forEach(doc=>{
 
-                const snapshot = await db.collection(col).get();
+                    const d=doc.data();
 
-                snapshot.forEach(doc => {
+                    records.push({
 
-                    const d = doc.data();
+                        source:"firebase",
 
-                    allRecords.push({
-
-                        source: "firebase",
+                        id:doc.id,
 
                         name:
-                            d.name ||
-                            d.farmer_name ||
-                            d.farmer ||
+                            d.name||
+                            d.farmer||
+                            d.farmer_name||
+                            d.farmerName||
+                            "",
+
+                        mobile:
+                            d.mobile||
                             "",
 
                         work:
-                            d.work ||
-                            d.work_type ||
+                            d.work||
+                            d.work_type||
                             "",
 
-                        bigha:
-                            d.bigha ||
-                            d.hours ||
-                            d.quantity ||
+                        crop:
+                            d.crop||
+                            "",
+
+                        quantity:
+                            d.quantity||
+                            d.hours||
+                            d.bigha||
+                            0,
+
+                        rate:
+                            d.rate||
                             0,
 
                         total:
-                            d.total || 0,
+                            d.total||
+                            0,
 
                         paid:
-                            d.paid || 0,
+                            d.paid||
+                            0,
+
+                        balance:
+                            d.balance||
+                            (
+                                (Number(d.total)||0)
+                                -
+                                (Number(d.paid)||0)
+                            ),
 
                         date:
-                            d.date || ""
+                            d.date||
+                            ""
 
                     });
 
                 });
 
+            }catch(e){
+
+                rajLog(col,e);
+
             }
 
         }
 
-    } catch (e) {
+    }catch(e){
 
-        console.log("Memory Sync Error", e);
+        rajLog(e);
 
     }
 
-    // Save
-    window.RAJ_MEMORY.records = allRecords;
+    window.RAJ_AI.memory.firebaseRecords=records;
 
-    // Farmer Index
-    let farmerIndex = {};
+    return records;
 
-    allRecords.forEach(r => {
+}
 
-        let name = (
-            r.name ||
-            r.text ||
-            ""
-        ).toLowerCase();
+// ---------- MERGE ----------
+function mergeRajMemory(){
 
-        if (!farmerIndex[name]) {
+    const all=[];
 
-            farmerIndex[name] = [];
+    all.push(...window.RAJ_AI.memory.tableRecords);
+
+    all.push(...window.RAJ_AI.memory.firebaseRecords);
+
+    window.RAJ_AI.memory.records=all;
+
+    window.RAJ_AI.memory.totalRecords=all.length;
+
+    saveMemoryCache();
+
+    return all;
+
+}
+
+// ---------- FULL SYNC ----------
+async function syncRajMemory(){
+
+    if(window.RAJ_AI.memory.syncing){
+
+        return;
+
+    }
+
+    window.RAJ_AI.memory.syncing=true;
+
+    await scanTableMemory();
+
+    await scanFirebaseMemory();
+
+    mergeRajMemory();
+
+    window.RAJ_AI.memory.lastSync=new Date();
+
+    window.RAJ_AI.memory.syncing=false;
+
+    rajLog("Memory Synced");
+
+}
+
+window.scanTableMemory=scanTableMemory;
+
+window.scanFirebaseMemory=scanFirebaseMemory;
+
+window.syncRajMemory=syncRajMemory;
+    // ==========================================
+// PART 3
+// FARMER INDEX + ALIAS + DUPLICATE CLEANER
+// ==========================================
+
+// Duplicate Cleaner
+function removeDuplicateRecords() {
+
+    const unique = new Map();
+
+    window.RAJ_AI.memory.records.forEach(record => {
+
+        const key = JSON.stringify(record);
+
+        if (!unique.has(key)) {
+
+            unique.set(key, record);
 
         }
 
-        farmerIndex[name].push(r);
+    });
+
+    window.RAJ_AI.memory.records = [...unique.values()];
+
+    window.RAJ_AI.memory.totalRecords =
+        window.RAJ_AI.memory.records.length;
+
+}
+
+// Normalize Name
+function normalizeFarmerName(name = "") {
+
+    return name
+        .toLowerCase()
+        .replace(/[^\u0900-\u097Fa-z0-9]/g, "")
+        .replace(/\s+/g, "");
+
+}
+
+// Alias Register
+function registerAlias(original, aliasList = []) {
+
+    const base = normalizeFarmerName(original);
+
+    aliasList.forEach(alias => {
+
+        window.RAJ_AI.memory.aliases.set(
+
+            normalizeFarmerName(alias),
+
+            base
+
+        );
 
     });
 
-    window.RAJ_MEMORY.farmers = farmerIndex;
+}
 
-    window.RAJ_MEMORY.lastSync = new Date();
+// Farmer Index
+function buildFarmerIndex() {
 
-    console.log(
-        "Raj Memory Updated",
-        allRecords.length
+    window.RAJ_AI.memory.farmers.clear();
+
+    window.RAJ_AI.memory.records.forEach(record => {
+
+        const rawName =
+            record.name ||
+            record.farmer ||
+            record.farmerName ||
+            record.text ||
+            "";
+
+        const name = normalizeFarmerName(rawName);
+
+        if (!window.RAJ_AI.memory.farmers.has(name)) {
+
+            window.RAJ_AI.memory.farmers.set(name, []);
+
+        }
+
+        window.RAJ_AI.memory.farmers
+            .get(name)
+            .push(record);
+
+    });
+
+    window.RAJ_AI.memory.totalFarmers =
+        window.RAJ_AI.memory.farmers.size;
+
+}
+
+// Default Alias
+function loadDefaultAliases() {
+
+    registerAlias("उमेद",[
+        "umed",
+        "umed",
+        "उम्मीद",
+        "umedji"
+    ]);
+
+    registerAlias("योगी",[
+        "yogi",
+        "योगीजी"
+    ]);
+
+    registerAlias("राम",[
+        "ram",
+        "raam"
+    ]);
+
+}
+
+// Statistics
+function calculateStatistics() {
+
+    let total = 0;
+
+    let paid = 0;
+
+    window.RAJ_AI.memory.records.forEach(r => {
+
+        total += Number(r.total || 0);
+
+        paid += Number(r.paid || 0);
+
+    });
+
+    window.RAJ_AI.memory.statistics = {
+
+        totalAmount: total,
+
+        totalPaid: paid,
+
+        totalBalance: total - paid
+
+    };
+
+}
+
+// Build All
+function buildRajIndexes() {
+
+    removeDuplicateRecords();
+
+    loadDefaultAliases();
+
+    buildFarmerIndex();
+
+    calculateStatistics();
+
+    saveMemoryCache();
+
+    rajLog("Indexes Ready");
+
+}
+
+// Public API
+window.buildRajIndexes = buildRajIndexes;
+
+window.normalizeFarmerName = normalizeFarmerName;
+    // ==========================================
+// PART 4
+// AUTO SYNC + MEMORY API
+// ==========================================
+
+// Refresh Memory
+async function refreshRajMemory() {
+
+    try {
+
+        await syncRajMemory();
+
+        buildRajIndexes();
+
+        saveMemoryCache();
+
+        rajLog("Memory Refreshed");
+
+    } catch (e) {
+
+        rajLog(e);
+
+    }
+
+}
+
+// Find Farmer
+function getFarmerRecords(name) {
+
+    if (!name) return [];
+
+    let key = normalizeFarmerName(name);
+
+    if (window.RAJ_AI.memory.aliases.has(key)) {
+
+        key = window.RAJ_AI.memory.aliases.get(key);
+
+    }
+
+    return window.RAJ_AI.memory.farmers.get(key) || [];
+
+}
+
+// Search
+function searchMemory(keyword) {
+
+    if (!keyword) return [];
+
+    const key = keyword.toLowerCase();
+
+    return window.RAJ_AI.memory.records.filter(r =>
+
+        JSON.stringify(r)
+
+        .toLowerCase()
+
+        .includes(key)
+
     );
 
-  }
+}
+
+// Get Statistics
+function getRajStatistics() {
+
+    return window.RAJ_AI.memory.statistics;
+
+}
+
+// Auto Sync
+function startRajAutoSync() {
+
+    if (!window.RAJ_AI.config.autoSync) return;
+
+    setInterval(async () => {
+
+        await refreshRajMemory();
+
+    }, window.RAJ_AI.config.autoSyncTime);
+
+}
+
+// Init
+window.addEventListener("load", async () => {
+
+    await initRajMemory();
+
+    await refreshRajMemory();
+
+    startRajAutoSync();
+
+});
+
+// Public API
+window.refreshRajMemory = refreshRajMemory;
+
+window.getFarmerRecords = getFarmerRecords;
+
+window.searchMemory = searchMemory;
+
+window.getRajStatistics = getRajStatistics;
+
+window.startRajAutoSync = startRajAutoSync;
+
+// ==========================================
+// END OF AI MEMORY ENGINE
+// ==========================================
+
