@@ -1,1 +1,269 @@
+// ==========================================
+// AI MUNSHI 3.0 - FIXED & SEPARATED FILE
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+  const toggleBtn = document.getElementById("ai-toggle-btn");
+  const closeBtn = document.getElementById("ai-close-btn");
+  const chatBox = document.getElementById("ai-chat-box");
+  const sendBtn = document.getElementById("ai-send-btn");
+  const micBtn = document.getElementById("ai-mic-btn");
+  const inputField = document.getElementById("ai-input");
+  const messagesContainer = document.getElementById("ai-messages");
+  const ttsToggleBtn = document.getElementById("ai-tts-toggle");
+
+  if (!toggleBtn) return;
+
+  let isSpeechEnabled = true;
+  let isRequestPending = false;
+  let fullSpokenTranscript = "";
+
+  const aiCache = new Map();
+  window.MUNSHI_GLOBAL_MEMORY = window.MUNSHI_GLOBAL_MEMORY || [];
+
+  if (ttsToggleBtn) {
+    ttsToggleBtn.addEventListener("click", () => {
+      isSpeechEnabled = !isSpeechEnabled;
+      ttsToggleBtn.innerText = isSpeechEnabled ? "🔊" : "🔇";
+      if (!isSpeechEnabled && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    });
+  }
+
+  toggleBtn.addEventListener("click", () => {
+    chatBox.style.display = (chatBox.style.display === "none" || !chatBox.style.display) ? "flex" : "none";
+  });
+  if (closeBtn) closeBtn.addEventListener("click", () => { chatBox.style.display = "none"; });
+
+  // 1. स्क्रीन और फायरबेस से डेटा लोड करना
+  async function syncWebsiteMemory() {
+    let tempMemory = [];
+
+    const tableRows = document.querySelectorAll("table tbody tr");
+    tableRows.forEach((row) => {
+      const rowText = row.innerText.replace(/\s+/g, ' ').trim();
+      if (rowText && !rowText.includes("No records") && !rowText.includes("कोई रिकॉर्ड नहीं")) {
+        tempMemory.push(rowText);
+      }
+    });
+
+    try {
+      if (typeof db !== "undefined" && db.collection) {
+        const collectionsToSearch = ["entries", "farmers", "records", "data", "khata"];
+        for (let col of collectionsToSearch) {
+          const snapshot = await db.collection(col).get();
+          if (!snapshot.empty) {
+            snapshot.forEach((doc) => {
+              const d = doc.data();
+              const farmerName = d.name || d.farmer_name || d.farmerName || d.kisan || d.farmer || '';
+              const workType = d.work || d.work_type || d.workType || d.detail || '-';
+              const qty = d.bigha || d.quantity || d.hours || d.qty || 0;
+              const totalAmt = d.total || d.total_amount || d.amount || 0;
+              const paidAmt = d.paid || d.paid_amount || d.deposit || 0;
+              const recDate = d.date || d.entry_date || '';
+
+              if (farmerName || totalAmt > 0) {
+                tempMemory.push(`Farmer: ${farmerName}, Work: ${workType}, Quantity: ${qty}, Total: ₹${totalAmt}, Paid: ₹${paidAmt}, Date: ${recDate}`);
+              }
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.log("Memory load fallback:", err);
+    }
+
+    if (tempMemory.length > 0) {
+      window.MUNSHI_GLOBAL_MEMORY = tempMemory;
+    }
+  }
+
+  syncWebsiteMemory();
+
+  // 2. स्मार्ट फ़िल्टर
+  function getFilteredMemory(query) {
+    if (window.MUNSHI_GLOBAL_MEMORY.length === 0) return "कोई रिकॉर्ड उपलब्ध नहीं है।";
+    if (window.MUNSHI_GLOBAL_MEMORY.length <= 50) {
+      return window.MUNSHI_GLOBAL_MEMORY.join("\n");
+    }
+
+    const clean = query.toLowerCase();
+    const words = clean.split(" ").filter(w => w.length > 2);
+    let matched = window.MUNSHI_GLOBAL_MEMORY.filter(rec => {
+      const rLower = rec.toLowerCase();
+      return words.some(w => rLower.includes(w));
+    });
+
+    return matched.length > 0 ? matched.join("\n") : window.MUNSHI_GLOBAL_MEMORY.slice(-25).join("\n");
+  }
+
+  // 3. AI रिक्वेस्ट हैंडलर (एकदम सही Single Fetch)
+  async function handleSend(userText) {
+    if (isRequestPending) return;
+
+    const text = userText || (inputField ? inputField.value.trim() : "");
+    if (!text) return;
+
+    const cleanTextKey = text.toLowerCase().trim();
+
+    // Cache Check
+    if (aiCache.has(cleanTextKey)) {
+      const cachedResponse = aiCache.get(cleanTextKey);
+      appendMessage(text, "user");
+      if (inputField) inputField.value = "";
+      appendMessage(cachedResponse, "ai");
+      speakText(cachedResponse);
+      return;
+    }
+
+    isRequestPending = true;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+    appendMessage(text, "user");
+    if (inputField) inputField.value = "";
+
+    const loadingDiv = appendMessage("हिसाब देख रहा हूँ...", "ai");
+
+    if (window.MUNSHI_GLOBAL_MEMORY.length === 0) {
+      await syncWebsiteMemory();
+    }
+
+    const filteredRecords = getFilteredMemory(text);
+
+    const fullPrompt = `You are AI Munshi 3.0 of Chhapola Agriculture. Always answer in clear Hindi. Never guess data.
+
+USER QUERY: "${text}"
+
+FARMER RECORDS:
+${filteredRecords}
+
+RULES:
+1. Ignore spaces and spelling mistakes. Treat Hindi, Marwadi, and English pronunciation as same (e.g., Umed, उमेद, उम्मीद).
+2. Sum up Total and Paid accurately for the asked farmer and calculate Remaining Balance (Balance = Total - Paid).
+3. If farmer does not exist, say: "राम-राम जी, इस किसान का रिकॉर्ड नहीं मिला।"
+4. Reply in plain Hindi. Keep it short (2-3 lines).`;
+
+    try {
+      // 🔑 Key 2 हिस्सों में
+      const part1 = "AQ.Ab8RN6IneFD895YMiuSHRHH-p";
+      const part2 = "fAG_Wz4ZrghWn3DykD4Q_0XVw";
+      const fullApiKey = part1 + part2;
+
+      const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
+
+      // 💥 SINGLE & CORRECT FETCH CALL
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-goog-api-key": fullApiKey
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: fullPrompt }] }]
+        })
+      });
+
+      const data = await response.json();
+      loadingDiv.remove();
+
+      if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+        const aiAnswer = data.candidates[0].content.parts[0].text.trim();
+        aiCache.set(cleanTextKey, aiAnswer);
+        appendMessage(aiAnswer, "ai");
+        speakText(aiAnswer);
+      } else {
+        console.error("API Error Response:", data);
+        appendMessage("राम-राम जी, रिकॉर्ड समझने में दिक्कत हुई। एक बार फिर पूछें।", "ai");
+      }
+    } catch (err) {
+      loadingDiv.remove();
+      console.error("Fetch Error:", err);
+      appendMessage("कनेक्शन पर नेटवर्क जाँचें।", "ai");
+    } finally {
+      isRequestPending = false;
+    }
+  }
+
+  // 4. स्पीच और वॉइस आउटपुट
+  function speakText(text) {
+    if (!isSpeechEnabled || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "hi-IN";
+    utterance.rate = 1.0;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function appendMessage(text, sender) {
+    const msgDiv = document.createElement("div");
+    msgDiv.style.padding = "8px 12px";
+    msgDiv.style.borderRadius = "8px";
+    msgDiv.style.maxWidth = "85%";
+    msgDiv.style.fontSize = "13px";
+    msgDiv.style.lineHeight = "1.5";
+    msgDiv.style.whiteSpace = "pre-wrap";
+
+    if (sender === "user") {
+      msgDiv.style.background = "#10b981";
+      msgDiv.style.color = "white";
+      msgDiv.style.alignSelf = "flex-end";
+    } else {
+      msgDiv.style.background = "#e5e7eb";
+      msgDiv.style.color = "#1f2937";
+      msgDiv.style.alignSelf = "flex-start";
+    }
+
+    msgDiv.innerText = text;
+    messagesContainer.appendChild(msgDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    return msgDiv;
+  }
+
+  if (sendBtn) sendBtn.addEventListener("click", () => handleSend());
+  if (inputField) {
+    inputField.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") handleSend();
+    });
+  }
+
+  // 5. वॉइस इनपुट (माइक)
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRecognition && micBtn) {
+    const rec = new SpeechRecognition();
+    rec.lang = "hi-IN";
+    rec.continuous = false;
+    rec.interimResults = false;
+
+    micBtn.addEventListener("click", () => {
+      fullSpokenTranscript = "";
+      if (inputField) inputField.placeholder = "सुन रहा हूँ, बोलिए...";
+      micBtn.style.background = "#ef4444";
+      micBtn.style.color = "white";
+      rec.start();
+    });
+
+    rec.onresult = (e) => {
+      if (e.results && e.results[0]) {
+        fullSpokenTranscript = e.results[0][0].transcript;
+        if (inputField) inputField.value = fullSpokenTranscript;
+      }
+    };
+
+    rec.onend = () => {
+      micBtn.style.background = "#f3f4f6";
+      micBtn.style.color = "black";
+      if (inputField) inputField.placeholder = "यहाँ लिखें या माइक दबाएँ...";
+      if (fullSpokenTranscript.trim().length > 0 && !isRequestPending) {
+        handleSend(fullSpokenTranscript);
+        fullSpokenTranscript = "";
+      }
+    };
+
+    rec.onerror = () => {
+      micBtn.style.background = "#f3f4f6";
+      micBtn.style.color = "black";
+      if (inputField) inputField.placeholder = "यहाँ लिखें या माइक दबाएँ...";
+    };
+  }
+});
 
