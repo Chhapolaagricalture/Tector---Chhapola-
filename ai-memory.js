@@ -190,11 +190,10 @@ window.clearRajMemory=clearRajMemory;
 window.saveMemoryCache=saveMemoryCache;
 
 window.loadMemoryCache=loadMemoryCache;
+// ==========================================
 // PART 2
 // TABLE + FIREBASE MEMORY
 // ==========================================
-
-// ---------- TABLE MEMORY ----------
 async function scanTableMemory() {
 
     const records = [];
