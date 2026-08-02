@@ -1,9 +1,55 @@
 // ==========================================
 // AI MUNSHI MAIN CONTROLLER v4.0
 // ==========================================
+window.RAJ_AI.munshi.context = {
 
+    farmer: null,
+
+    lastQuestion: "",
+
+    lastReply: "",
+
+    lastRecords: []
+
+};
+
+function updateMunshiContext(question, records = []) {
+
+    window.RAJ_AI.munshi.context.lastQuestion = question;
+
+    window.RAJ_AI.munshi.context.lastRecords = records;
+
+    if (records && records.length) {
+
+        const r = records[0];
+
+        window.RAJ_AI.munshi.context.farmer =
+            r.name || r.farmer || null;
+
+    }
+
+}
+
+function getCurrentFarmer() {
+
+    return window.RAJ_AI.munshi.context.farmer;
+
+}
+function resolveQuestionContext(question){
+
+    const farmer = getCurrentFarmer();
+
+    if(!farmer) return question;
+
+    let q = question;
+
+    q = q.replace(/\b(उसका|उसके|उसने|वो|वह|इस किसान|उस किसान)\b/gi, farmer);
+
+    return q;
+
+}
 async function askMunshi(question){
-
+question = resolveQuestionContext(question);
     const result = {
 
         success:false,
@@ -37,7 +83,7 @@ async function askMunshi(question){
             result.source = "memory";
 
             result.records = records;
-
+updateMunshiContext(question, records);
             return result;
 
         }
@@ -87,11 +133,40 @@ async function askMunshi(question){
         }catch(e){}
 
     }
+// 4. Core
+if (typeof processRajRequest === "function") {
 
-    // 4. Gemini
-    result.source = "gemini";
+    try {
 
-    return result;
+        const coreResult = await processRajRequest(question);
+
+        if (coreResult && coreResult.success) {
+
+            result.success = true;
+            result.source = "core";
+
+            if (coreResult.reply)
+                result.reply = coreResult.reply;
+
+            if (coreResult.records)
+                result.records = coreResult.records;
+
+            return result;
+
+        }
+
+    } catch (e) {
+
+        console.error(e);
+
+    }
+
+}
+
+// 5. Gemini
+result.source = "gemini";
+return result;
+
 
 }
 
