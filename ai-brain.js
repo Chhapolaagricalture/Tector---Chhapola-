@@ -805,7 +805,225 @@ askRajAI = async function(question){
 
 window.askRajAI = askRajAI;
 window.decideTask = decideTask;
+// ==========================================
+// PART 10
+// REAL MEMORY SEARCH (Firebase Records)
+// ==========================================
 
+function searchMemory(question) {
+
+    question = String(question || "").toLowerCase().trim();
+
+    if (!window.records || !window.records.length) {
+        return [];
+    }
+
+    return window.records.filter(r => {
+
+        const text = [
+            r.name,
+            r.mobile,
+            r.date,
+            r.work,
+            r.crop,
+            r.unit,
+            r.time
+        ].join(" ").toLowerCase();
+
+        return text.includes(question);
+
+    });
+
+}
+
+window.searchMemory = searchMemory;
+// ==========================================
+// PART 11
+// FARMER TOTAL / PAID / BALANCE
+// ==========================================
+
+function getFarmerSummary(name){
+
+    if(!window.records || !window.records.length){
+        return null;
+    }
+
+    const key = String(name).toLowerCase().trim();
+
+    let total = 0;
+    let paid = 0;
+    let baki = 0;
+    let count = 0;
+
+    window.records.forEach(r=>{
+
+        if(String(r.name).toLowerCase().includes(key)){
+
+            total += Number(r.total || 0);
+            paid += Number(r.paid || 0);
+            baki += Number(r.baki || 0);
+            count++;
+
+        }
+
+    });
+
+    if(count===0) return null;
+
+    return {
+
+        farmer:name,
+        records:count,
+        total,
+        paid,
+        baki
+
+    };
+
+}
+
+// ==========================================
+// AI Farmer Answer
+// ==========================================
+
+function farmerAnswer(question){
+
+    if(!window.records) return null;
+
+    for(const r of window.records){
+
+        if(
+            question.toLowerCase()
+            .includes(String(r.name).toLowerCase())
+        ){
+
+            const s = getFarmerSummary(r.name);
+
+            if(!s) return null;
+
+            return `👨‍🌾 किसान : ${r.name}
+
+📄 रिकॉर्ड : ${s.records}
+💰 कुल राशि : ₹${s.total}
+💵 जमा : ₹${s.paid}
+❌ बाकी : ₹${s.baki}`;
+
+        }
+
+    }
+
+    return null;
+
+}
+
+window.getFarmerSummary = getFarmerSummary;
+window.farmerAnswer = farmerAnswer;
+// ==========================================
+// PART 12
+// SMART QUESTION DETECTOR
+// ==========================================
+
+function processLocalQuestion(question){
+
+    question = String(question || "").toLowerCase().trim();
+
+    // 1. Farmer Summary
+    const farmer = farmerAnswer(question);
+    if(farmer) return farmer;
+
+    // 2. Today's Income
+    if(question.includes("आज") &&
+       (question.includes("कमाई") ||
+        question.includes("income"))){
+
+        const today =
+        new Date().toISOString().split("T")[0];
+
+        let total = 0;
+
+        (window.records || []).forEach(r=>{
+
+            if(r.date===today){
+
+                total += Number(r.total||0);
+
+            }
+
+        });
+
+        return `💰 आज की कुल कमाई : ₹${total}`;
+    }
+
+    // 3. Balance Report
+    if(question.includes("बाकी")){
+
+        let total = 0;
+
+        (window.records || []).forEach(r=>{
+
+            total += Number(r.baki||0);
+
+        });
+
+        return `❌ कुल बाकी : ₹${total}`;
+    }
+
+    // 4. Paid Report
+    if(question.includes("जमा")){
+
+        let total = 0;
+
+        (window.records || []).forEach(r=>{
+
+            total += Number(r.paid||0);
+
+        });
+
+        return `💵 कुल जमा : ₹${total}`;
+    }
+
+    // 5. Total Income
+    if(question.includes("कुल") &&
+       (question.includes("कमाई") ||
+        question.includes("आय"))){
+
+        let total = 0;
+
+        (window.records || []).forEach(r=>{
+
+            total += Number(r.total||0);
+
+        });
+
+        return `💰 कुल आय : ₹${total}`;
+    }
+
+    // 6. Date Search
+    const dateMatch =
+    question.match(/\d{4}-\d{2}-\d{2}/);
+
+    if(dateMatch){
+
+        const d = dateMatch[0];
+
+        const list =
+        (window.records||[])
+        .filter(r=>r.date===d);
+
+        if(list.length){
+
+            return list;
+
+        }
+
+        return "उस तारीख का कोई रिकॉर्ड नहीं मिला।";
+    }
+
+    return null;
+
+}
+
+window.processLocalQuestion = processLocalQuestion;
 // ==========================================
 // END OF BRAIN v1.1
 // ==========================================
