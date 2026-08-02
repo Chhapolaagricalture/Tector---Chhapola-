@@ -892,10 +892,10 @@ function farmerAnswer(question){
 
     for(const r of window.records){
 
-        if(
-            question.toLowerCase()
-            .includes(String(r.name).toLowerCase())
-        ){
+        const farmer = findFarmer(question);
+
+if(farmer && r.name === farmer)
+        {
 
             const s = getFarmerSummary(r.name);
 
