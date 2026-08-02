@@ -721,6 +721,159 @@ window.searchFarmerRecords = function(name){
 };
 
 autoBuildAliases();
+// ==========================================
+// PART 7
+// HINDI <-> ENGLISH NAME MATCH
+// ==========================================
+
+const HINDI_NAME_MAP = {
+
+    "उमेद":["umed","umeed","umedh","umait","उमैद","उम्मीद"],
+    "योगी":["yogi","yogi","योगीजी"],
+    "रामलाल":["ramlal","ram lal","राम लाल"],
+    "मोहन":["mohan","मोहनलाल"]
+
+};
+
+function matchHindiEnglishName(input,name){
+
+    input = normalizeFarmerName(input);
+    name  = normalizeFarmerName(name);
+
+    if(input===name) return true;
+
+    for(const key in HINDI_NAME_MAP){
+
+        const all=[key,...HINDI_NAME_MAP[key]];
+
+        const ok1=all.some(x=>normalizeFarmerName(x)===input);
+        const ok2=all.some(x=>normalizeFarmerName(x)===name);
+
+        if(ok1 && ok2) return true;
+    }
+
+    return false;
+}
+
+const oldSearch = window.searchFarmerRecords;
+
+window.searchFarmerRecords=function(name){
+
+    let result = oldSearch(name);
+
+    if(result.length) return result;
+
+    return window.RAJ_AI.memory.records.filter(r=>{
+
+        const farmer =
+            r.name ||
+            r.farmer ||
+            "";
+
+        return matchHindiEnglishName(name,farmer);
+
+    });
+
+};
+// ==========================================
+// PART 8
+// SELF LEARNING NAME ALIAS
+// ==========================================
+
+function learnFarmerName(inputName, originalName){
+
+    inputName = normalizeFarmerName(inputName);
+    originalName = normalizeFarmerName(originalName);
+
+    if(!inputName || !originalName) return;
+
+    window.RAJ_AI.search.aliases.set(inputName, originalName);
+
+    try{
+
+        localStorage.setItem(
+            "raj_ai_aliases",
+            JSON.stringify(
+                [...window.RAJ_AI.search.aliases.entries()]
+            )
+        );
+
+    }catch(e){}
+
+}
+
+function loadLearnedAliases(){
+
+    try{
+
+        const data = localStorage.getItem("raj_ai_aliases");
+
+        if(!data) return;
+
+        JSON.parse(data).forEach(([k,v])=>{
+
+            window.RAJ_AI.search.aliases.set(k,v);
+
+        });
+
+    }catch(e){}
+
+}
+
+loadLearnedAliases();
+
+window.learnFarmerName = learnFarmerName;
+
+// ==========================================
+// PART 9
+// AI SMART FARMER SEARCH
+// ==========================================
+
+const oldSearchAI = window.searchAI;
+
+window.searchAI = function(query){
+
+    let result = oldSearchAI(query);
+
+    if(result.length) return result;
+
+    result = window.searchFarmerRecords(query);
+
+    if(result.length){
+
+        const farmer =
+            result[0].name ||
+            result[0].farmer ||
+            "";
+
+        learnFarmerName(query, farmer);
+    }
+
+    return result;
+
+};
+
+// Search Index Refresh
+const oldRefresh = window.refreshSearchEngine;
+
+window.refreshSearchEngine = function(){
+
+    oldRefresh();
+
+    autoBuildAliases();
+
+};
+
+// Rebuild after page load
+window.addEventListener("load",()=>{
+
+    setTimeout(()=>{
+
+        autoBuildAliases();
+
+    },3000);
+
+});
 
 // ==========================================
 // END OF SEARCH ENGINE
