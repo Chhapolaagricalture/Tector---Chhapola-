@@ -69,6 +69,60 @@ question = resolveQuestionContext(question);
 
     window.RAJ_AI.munshi.lastQuestion =
         question;
+    // ==========================================
+// PART 13
+// LOCAL AI FIRST
+// ==========================================
+
+// 1. Local AI (सबसे पहले)
+if (typeof processLocalQuestion === "function") {
+
+    const localReply = processLocalQuestion(question);
+
+    if (localReply) {
+
+        result.success = true;
+        result.source = "local";
+
+        if (Array.isArray(localReply)) {
+
+            result.records = localReply;
+
+        } else {
+
+            result.reply = localReply;
+
+        }
+
+        updateMunshiContext(
+            question,
+            result.records || []
+        );
+
+        return result;
+
+    }
+
+}
+
+// 2. Memory Search
+if (typeof searchMemory === "function") {
+
+    const records = searchMemory(question);
+
+    if (records && records.length) {
+
+        result.success = true;
+        result.source = "memory";
+        result.records = records;
+
+        updateMunshiContext(question, records);
+
+        return result;
+
+    }
+
+}
 
     // 1. Memory
     if(typeof searchMemory==="function"){
