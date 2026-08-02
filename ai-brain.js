@@ -483,7 +483,332 @@ window.askRajAI = askRajAI;
 window.refreshBrain = refreshBrain;
 
 window.getBrainHealth = getBrainHealth;
+// ==========================================
+// PART 5
+// FARMER CONTEXT + NAME EXTRACTOR
+// ==========================================
 
+// Last Farmer Memory
+window.RAJ_AI.brain.lastFarmer = "";
+
+// Extract Farmer Name
+function extractFarmerName(question){
+
+    question = String(question || "").trim();
+
+    if(typeof searchFarmerRecords === "function"){
+
+        const words = question.split(/\s+/);
+
+        for(const word of words){
+
+            const result = searchFarmerRecords(word);
+
+            if(result && result.length){
+
+                window.RAJ_AI.brain.lastFarmer = word;
+
+                return word;
+
+            }
+
+        }
+
+    }
+
+    if(
+        question.includes("उसका") ||
+        question.includes("उसकी") ||
+        question.includes("वो") ||
+        question.includes("same")
+    ){
+
+        return window.RAJ_AI.brain.lastFarmer;
+
+    }
+
+    return "";
+
+}
+
+// Smart Farmer Search
+function getFarmerRecords(question){
+
+    const farmer = extractFarmerName(question);
+
+    if(!farmer) return [];
+
+    if(typeof searchFarmerRecords === "function"){
+
+        return searchFarmerRecords(farmer);
+
+    }
+
+    return [];
+
+}
+
+// Public API
+window.extractFarmerName = extractFarmerName;
+window.getFarmerRecords = getFarmerRecords;
+// ==========================================
+// PART 6
+// SMART BRAIN ROUTER
+// ==========================================
+
+// Old Think Backup
+const oldThink = think;
+
+// Override Think
+think = async function(question){
+
+    const farmerRecords = getFarmerRecords(question);
+
+    if(farmerRecords.length){
+
+        return {
+
+            question,
+
+            farmer: window.RAJ_AI.brain.lastFarmer,
+
+            records: farmerRecords,
+
+            analysis:
+                typeof buildDashboardAnalysis==="function"
+                ? buildDashboardAnalysis(farmerRecords)
+                : {}
+
+        };
+
+    }
+
+    return await oldThink(question);
+
+};
+
+// Update Public
+window.think = think;
+// ==========================================
+// PART 7
+// SMART ANSWER ENGINE
+// ==========================================
+
+function buildFarmerReply(question, records){
+
+    if(!records || !records.length){
+
+        return "रिकॉर्ड नहीं मिला।";
+
+    }
+
+    const q = String(question).toLowerCase();
+
+    let total = 0;
+    let paid = 0;
+    let pending = 0;
+
+    records.forEach(r=>{
+
+        total += Number(r.total || 0);
+        paid += Number(r.paid || 0);
+        pending += Number(r.balance || r.pending || 0);
+
+    });
+
+    if(q.includes("बाकी") || q.includes("balance")){
+
+        return `कुल बाकी ₹${pending}`;
+
+    }
+
+    if(q.includes("जमा") || q.includes("paid")){
+
+        return `कुल जमा ₹${paid}`;
+
+    }
+
+    if(
+        q.includes("कुल") ||
+        q.includes("हिसाब") ||
+        q.includes("income")
+    ){
+
+        return `कुल ₹${total} | जमा ₹${paid} | बाकी ₹${pending}`;
+
+    }
+
+    return `${records.length} रिकॉर्ड मिले।`;
+
+}
+
+// Override Reply
+const oldSmartReply = smartReply;
+
+smartReply = function(question, result){
+
+    if(result.records && result.records.length){
+
+        return buildFarmerReply(question, result.records);
+
+    }
+
+    return oldSmartReply(question, result);
+
+};
+
+window.smartReply = smartReply;
+// ==========================================
+// PART 8
+// NATURAL LANGUAGE COMMAND ENGINE
+// ==========================================
+
+function detectIntent(question){
+
+    const q = String(question || "").toLowerCase();
+
+    if(q.includes("आज"))
+        return "TODAY";
+
+    if(q.includes("कल"))
+        return "YESTERDAY";
+
+    if(q.includes("महीना") || q.includes("month"))
+        return "MONTH";
+
+    if(q.includes("गेहूं") || q.includes("gehu"))
+        return "GEHU";
+
+    if(q.includes("चना") || q.includes("chana"))
+        return "CHANA";
+
+    if(q.includes("बाजरा") || q.includes("bajra"))
+        return "BAJRA";
+
+    if(q.includes("थ्रेसर") || q.includes("thresher"))
+        return "THRESHER";
+
+    if(q.includes("स्प्रे") || q.includes("spray"))
+        return "SPRAY";
+
+    if(q.includes("हीरो") || q.includes("hero"))
+        return "HERO";
+
+    if(q.includes("कल्टी") || q.includes("calti"))
+        return "CALTI";
+
+    return "GENERAL";
+
+}
+
+// Backup
+const oldBuildReply = buildFarmerReply;
+
+// Override
+buildFarmerReply = function(question, records){
+
+    const intent = detectIntent(question);
+
+    if(intent==="THRESHER"){
+
+        records = records.filter(r=>r.work==="Thresher");
+
+    }
+
+    if(intent==="SPRAY"){
+
+        records = records.filter(r=>r.work==="Spray Machine");
+
+    }
+
+    if(intent==="HERO"){
+
+        records = records.filter(r=>r.work==="Hero");
+
+    }
+
+    if(intent==="CALTI"){
+
+        records = records.filter(r=>r.work==="Calti");
+
+    }
+
+    return oldBuildReply(question, records);
+
+};
+
+window.detectIntent = detectIntent;
+window.buildFarmerReply = buildFarmerReply;
+// ==========================================
+// PART 9
+// AI MASTER DECISION ENGINE
+// ==========================================
+
+function decideTask(question){
+
+    const q = String(question || "").toLowerCase();
+
+    if(
+        q.includes("बाकी") ||
+        q.includes("जमा") ||
+        q.includes("हिसाब") ||
+        q.includes("किसान")
+    ){
+        return "FARMER_SEARCH";
+    }
+
+    if(
+        q.includes("थ्रेसर") ||
+        q.includes("spray") ||
+        q.includes("hero") ||
+        q.includes("calti")
+    ){
+        return "WORK_SEARCH";
+    }
+
+    if(
+        q.includes("आज") ||
+        q.includes("कल") ||
+        q.includes("महीना")
+    ){
+        return "DATE_SEARCH";
+    }
+
+    return "GENERAL";
+}
+
+const oldAskRajAI = askRajAI;
+
+askRajAI = async function(question){
+
+    const task = decideTask(question);
+
+    const result = await think(question);
+
+    return {
+
+        success: true,
+
+        task: task,
+
+        reply: smartReply(question, result),
+
+        records: result.records || [],
+
+        analysis: result.analysis || {},
+
+        context: buildBrainContext(question, result)
+
+    };
+
+};
+
+window.askRajAI = askRajAI;
+window.decideTask = decideTask;
+
+// ==========================================
+// END OF BRAIN v1.1
+// ==========================================
 // ==========================================
 // END OF RAJ AI BRAIN
 // ==========================================
