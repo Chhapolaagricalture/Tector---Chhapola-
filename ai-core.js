@@ -277,27 +277,152 @@ async function processRajRequest(request){
 // ---------- Dispatcher ----------
 async function dispatchRajTask(request){
 
-    if(typeof think==="function"){
+    const intent = detectIntent(request);
+    const priority = getModulePriority(intent);
 
-        return await think(request);
+    for(const module of priority){
+
+        try{
+
+            switch(module){
+
+                case "memory":
+
+                    if(typeof searchMemory==="function"){
+
+                        const records = searchMemory(request);
+
+                        if(records && records.length){
+
+                            return{
+                                success:true,
+                                source:"memory",
+                                records:records
+                            };
+
+                        }
+
+                    }
+
+                    break;
+
+                case "search":
+
+                    if(typeof searchFarmerRecords==="function"){
+
+                        const records =
+                            await searchFarmerRecords(request);
+
+                        if(records && records.length){
+
+                            return{
+                                success:true,
+                                source:"search",
+                                records:records
+                            };
+
+                        }
+
+                    }
+
+                    break;
+
+                case "analysis":
+
+                    if(typeof analyzeQuestion==="function"){
+
+                        const reply =
+                            await analyzeQuestion(request);
+
+                        if(reply){
+
+                            return{
+                                success:true,
+                                source:"analysis",
+                                reply:reply
+                            };
+
+                        }
+
+                    }
+
+                    break;
+
+                case "brain":
+
+                    if(typeof think==="function"){
+
+                        const result =
+                            await think(request);
+
+                        if(result && result.success){
+
+                            return result;
+
+                        }
+
+                    }
+
+                    break;
+
+                case "scanner":
+
+                    if(typeof startScanner==="function"){
+
+                        return{
+                            success:true,
+                            source:"scanner"
+                        };
+
+                    }
+
+                    break;
+
+                case "voice":
+
+                    if(typeof startVoiceRecognition==="function"){
+
+                        return{
+                            success:true,
+                            source:"voice"
+                        };
+
+                    }
+
+                    break;
+
+                case "learning":
+
+                    if(typeof learnRajAI==="function"){
+
+                        return{
+                            success:true,
+                            source:"learning"
+                        };
+
+                    }
+
+                    break;
+
+            }
+
+        }catch(e){
+
+            console.error(e);
+
+        }
 
     }
 
-    if(typeof askRajAI==="function"){
-
-        return await askRajAI(request);
-
-    }
-
-    return {
+    return{
 
         success:false,
-
-        message:"Brain Not Available"
+        source:"gemini"
 
     };
 
-}
+                    }
+
 
 // ---------- Refresh ----------
 async function refreshCoreModules(){
@@ -437,6 +562,61 @@ window.startCoreAutoRefresh =
 
 window.refreshCore =
     refreshCore;
+// ==========================================
+// PART 5
+// INTENT DETECTOR + PRIORITY ENGINE
+// ==========================================
+
+function detectIntent(text){
+
+    text = (text || "").toLowerCase();
+
+    if(/scan|scanner|फोटो|स्कैन/.test(text))
+        return "scanner";
+
+    if(/voice|mic|बोल|आवाज/.test(text))
+        return "voice";
+
+    if(/सीख|learn|remember|याद/.test(text))
+        return "learning";
+
+    if(/बाकी|balance|total|कुल|हिसाब|payment|paid/.test(text))
+        return "analysis";
+
+    if(/किसान|farmer|name|नाम/.test(text))
+        return "search";
+
+    return "brain";
+}
+
+function getModulePriority(intent){
+
+    switch(intent){
+
+        case "search":
+            return ["memory","search","brain","gemini"];
+
+        case "analysis":
+            return ["memory","analysis","brain","gemini"];
+
+        case "scanner":
+            return ["scanner","brain","gemini"];
+
+        case "voice":
+            return ["voice","brain","gemini"];
+
+        case "learning":
+            return ["learning","brain","gemini"];
+
+        default:
+            return ["brain","gemini"];
+
+    }
+
+}
+
+window.detectIntent = detectIntent;
+window.getModulePriority = getModulePriority;
 
 // ==========================================
 // END OF RAJ AI CORE
