@@ -1,17 +1,16 @@
 // ==========================================
 // AI MUNSHI MAIN CONTROLLER v4.0
 // ==========================================
+window.RAJ_AI = window.RAJ_AI || {};
+window.RAJ_AI.munshi = window.RAJ_AI.munshi || {};
+
 window.RAJ_AI.munshi.context = {
-
     farmer: null,
-
     lastQuestion: "",
-
     lastReply: "",
-
     lastRecords: []
-
 };
+
 
 function updateMunshiContext(question, records = []) {
 
