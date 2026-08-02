@@ -543,6 +543,184 @@ window.voiceSearch=voiceSearch;
 window.ocrSearch=ocrSearch;
 
 window.refreshSearchEngine=refreshSearchEngine;
+// ==========================================
+// PART 5
+// FARMER NAME ENGINE
+// ==========================================
+
+// Normalize Farmer Name
+function normalizeFarmerName(name = ""){
+
+    return name
+        .toLowerCase()
+        .replace(/[^\u0900-\u097Fa-z0-9]/g,"")
+        .trim();
+
+}
+
+// Register Alias
+function registerFarmerAlias(mainName, aliases = []){
+
+    const base = normalizeFarmerName(mainName);
+
+    aliases.forEach(alias=>{
+
+        window.RAJ_AI.search.aliases.set(
+
+            normalizeFarmerName(alias),
+
+            base
+
+        );
+
+    });
+
+}
+
+// Default Alias
+function loadFarmerAliases(){
+
+    registerFarmerAlias("उमेद",[
+        "umed",
+        "umed",
+        "umde",
+        "उम्मीद",
+        "उमेदजी",
+        "umedji"
+    ]);
+
+    registerFarmerAlias("योगी",[
+        "yogi",
+        "योगीजी"
+    ]);
+
+}
+
+// Resolve Name
+function resolveFarmerName(name){
+
+    let key = normalizeFarmerName(name);
+
+    if(window.RAJ_AI.search.aliases.has(key)){
+
+        key = window.RAJ_AI.search.aliases.get(key);
+
+    }
+
+    return key;
+
+}
+
+// Smart Farmer Search
+function searchFarmerRecords(name){
+
+    const key = resolveFarmerName(name);
+
+    return universalSearch(key);
+
+}
+
+loadFarmerAliases();
+
+window.searchFarmerRecords = searchFarmerRecords;
+// ==========================================
+// PART 6
+// AUTO ALIAS BUILDER
+// ==========================================
+
+function autoBuildAliases(){
+
+    if(!window.RAJ_AI.memory || !window.RAJ_AI.memory.records) return;
+
+    window.RAJ_AI.memory.records.forEach(record=>{
+
+        const name =
+            record.name ||
+            record.farmer ||
+            record.farmerName ||
+            "";
+
+        if(!name) return;
+
+        const base = normalizeFarmerName(name);
+
+        const variants = [
+
+            name,
+
+            name.toLowerCase(),
+
+            name.replace(/\s+/g,""),
+
+            name.replace(/जी$/,""),
+
+            name.replace(/ji$/i,""),
+
+            base
+
+        ];
+
+        variants.forEach(v=>{
+
+            window.RAJ_AI.search.aliases.set(
+                normalizeFarmerName(v),
+                base
+            );
+
+        });
+
+    });
+
+}
+
+// ==========================================
+// PHONETIC MATCH
+// ==========================================
+
+function phoneticMatch(a,b){
+
+    a = normalizeFarmerName(a);
+    b = normalizeFarmerName(b);
+
+    a = a.replace(/ph/g,"f")
+         .replace(/bh/g,"b")
+         .replace(/dh/g,"d")
+         .replace(/th/g,"t")
+         .replace(/sh/g,"s");
+
+    b = b.replace(/ph/g,"f")
+         .replace(/bh/g,"b")
+         .replace(/dh/g,"d")
+         .replace(/th/g,"t")
+         .replace(/sh/g,"s");
+
+    return isSimilar(a,b);
+
+}
+
+// Override Farmer Search
+window.searchFarmerRecords = function(name){
+
+    const key = resolveFarmerName(name);
+
+    let records = universalSearch(key);
+
+    if(records.length) return records;
+
+    return window.RAJ_AI.memory.records.filter(r=>{
+
+        const farmer =
+            r.name ||
+            r.farmer ||
+            "";
+
+        return phoneticMatch(farmer,name);
+
+    });
+
+};
+
+autoBuildAliases();
 
 // ==========================================
 // END OF SEARCH ENGINE
