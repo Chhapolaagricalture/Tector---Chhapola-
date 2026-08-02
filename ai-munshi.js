@@ -1,4 +1,101 @@
 // ==========================================
+// AI MUNSHI MAIN CONTROLLER v4.0
+// ==========================================
+
+async function askMunshi(question){
+
+    const result = {
+
+        success:false,
+
+        source:null,
+
+        reply:"",
+
+        records:[]
+
+    };
+
+    // Save Context
+    window.RAJ_AI = window.RAJ_AI || {};
+
+    window.RAJ_AI.munshi =
+        window.RAJ_AI.munshi || {};
+
+    window.RAJ_AI.munshi.lastQuestion =
+        question;
+
+    // 1. Memory
+    if(typeof searchMemory==="function"){
+
+        const records = searchMemory(question);
+
+        if(records && records.length){
+
+            result.success = true;
+
+            result.source = "memory";
+
+            result.records = records;
+
+            return result;
+
+        }
+
+    }
+
+    // 2. Analysis
+    if(typeof analyzeQuestion==="function"){
+
+        try{
+
+            const r = await analyzeQuestion(question);
+
+            if(r){
+
+                result.success = true;
+
+                result.source = "analysis";
+
+                result.reply = r;
+
+                return result;
+
+            }
+
+        }catch(e){}
+
+    }
+
+    // 3. Brain
+    if(typeof think==="function"){
+
+        try{
+
+            const r = await think(question);
+
+            if(r){
+
+                result.success = true;
+
+                result.source = "brain";
+
+                return r;
+
+            }
+
+        }catch(e){}
+
+    }
+
+    // 4. Gemini
+    result.source = "gemini";
+
+    return result;
+
+}
+
+// ==========================================
 // AI MUNSHI 3.0 - FIXED & SEPARATED FILE
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
@@ -129,7 +226,37 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const filteredRecords = getFilteredMemory(text);
+const munshiResult = await askMunshi(text);
 
+if (munshiResult.success) {
+
+    loadingDiv.remove();
+
+    let reply = "";
+
+    if (munshiResult.reply) {
+
+        reply = munshiResult.reply;
+
+    } else if (munshiResult.records && munshiResult.records.length) {
+
+        reply = JSON.stringify(munshiResult.records, null, 2);
+
+    } else {
+
+        reply = "रिकॉर्ड मिल गया।";
+
+    }
+
+    appendMessage(reply, "ai");
+
+    speakText(reply);
+
+    isRequestPending = false;
+
+    return;
+
+                              }
     const fullPrompt = `You are AI Munshi 3.0 of Chhapola Agriculture. Always answer in clear Hindi. Never guess data.
 
 USER QUERY: "${text}"
