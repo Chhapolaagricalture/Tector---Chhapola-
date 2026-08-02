@@ -94,6 +94,58 @@ function findFarmer(question){
 }
 
 window.findFarmer = findFarmer;
+// ==========================================
+// PART 15
+// SMART RECORD SEARCH
+// ==========================================
+
+function normalizeText(text){
+
+    return String(text || "")
+        .toLowerCase()
+        .replace(/[^\u0900-\u097fa-z0-9]/g,"");
+
+}
+
+function searchMemory(question){
+
+    if(!window.records) return [];
+
+    const q = normalizeText(question);
+
+    // Date Search
+    const dateMatch = question.match(/\d{1,2}[\/-]\d{1,2}[\/-]\d{4}/);
+
+    if(dateMatch){
+
+        const d = dateMatch[0]
+            .replace(/\//g,"-")
+            .split("-");
+
+        const iso = `${d[2]}-${d[1].padStart(2,"0")}-${d[0].padStart(2,"0")}`;
+
+        return window.records.filter(r=>r.date===iso);
+    }
+
+    // Farmer Search
+    const farmer = findFarmer(question);
+
+    if(farmer){
+
+        return window.records.filter(r=>r.name===farmer);
+
+    }
+
+    // General Search
+    return window.records.filter(r=>{
+
+        return normalizeText(JSON.stringify(r)).includes(q);
+
+    });
+
+}
+
+window.searchMemory = searchMemory;
 
 function resolveQuestionContext(question){
 
