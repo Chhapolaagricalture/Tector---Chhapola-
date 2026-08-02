@@ -34,6 +34,67 @@ function getCurrentFarmer() {
     return window.RAJ_AI.munshi.context.farmer;
 
 }
+// ==========================================
+// PART 14
+// SMART FARMER FINDER
+// ==========================================
+
+function normalizeName(text){
+
+    return String(text || "")
+        .toLowerCase()
+        .replace(/[^\u0900-\u097Fa-z0-9 ]/g,"")
+        .replace(/\s+/g," ")
+        .trim();
+
+}
+
+function findFarmer(question){
+
+    if(!window.records || !window.records.length){
+        return null;
+    }
+
+    const q = normalizeName(question);
+
+    let best = null;
+    let score = 0;
+
+    const farmers = [...new Set(
+        window.records.map(r => r.name)
+    )];
+
+    farmers.forEach(name=>{
+
+        const n = normalizeName(name);
+
+        let s = 0;
+
+        const words = n.split(" ");
+
+        words.forEach(w=>{
+
+            if(q.includes(w)) s += 2;
+
+            if(w.includes(q) || q.includes(w)) s++;
+
+        });
+
+        if(s > score){
+
+            score = s;
+            best = name;
+
+        }
+
+    });
+
+    return best;
+
+}
+
+window.findFarmer = findFarmer;
+
 function resolveQuestionContext(question){
 
     const farmer = getCurrentFarmer();
