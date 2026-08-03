@@ -480,19 +480,24 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const filteredRecords = getFilteredMemory(text);
-const munshiResult = await askMunshi(text);
 
-    // --- यहाँ से पेस्ट करें ---
+        let munshiResult = null;
+    try {
+        if (typeof askMunshi === "function") {
+            munshiResult = await askMunshi(text);
+        }
+    } catch(e) { console.log(e); }
+
     let reply = "";
     let foundInLocal = false;
 
-    if (munshiResult.reply) {
-      reply = munshiResult.reply;
-      foundInLocal = true;
-    } else if (munshiResult.records && munshiResult.records.length) {
-      const records = munshiResult.records;
-      reply = records.map(r => {
-        return `👨‍🌾 किसान: ${r.name || r.farmer || "अज्ञात"}
+    if (munshiResult && munshiResult.reply) {
+        reply = munshiResult.reply;
+        foundInLocal = true;
+    } else if (munshiResult && munshiResult.records && munshiResult.records.length) {
+        const records = munshiResult.records;
+        reply = records.map(r => {
+            return `👨‍🌾 किसान: ${r.name || r.farmer || "अज्ञात"}
 📅 दिनांक: ${r.date || "-"}
 🚜 कार्य: ${r.work || "-"}
 🌾 फसल: ${r.crop || "-"}
@@ -500,25 +505,20 @@ const munshiResult = await askMunshi(text);
 💰 कुल: ₹${r.total || 0}
 💵 जमा: ₹${r.paid || 0}
 ❌ बाकी: ₹${r.balance || (r.total - r.paid) || 0}`;
-      }).join("\n\n");
-      foundInLocal = true;
+        }).join("\n\n");
+        foundInLocal = true;
     }
 
-    // अगर लोकल रिकॉर्ड्स (खाता/टेबल) में जवाब मिल गया, सिर्फ तभी स्क्रीन पर दिखाकर रुकें
     if (foundInLocal && reply) {
-      loadingDiv.remove();
-      aiCache.set(cleanTextKey, reply);
-      appendMessage(reply, "ai");
-      speakText(reply);
-      isRequestPending = false;
-      return; 
+        loadingDiv.remove();
+        aiCache.set(cleanTextKey, reply);
+        appendMessage(reply, "ai");
+        speakText(reply);
+        isRequestPending = false;
+        return;
     }
 
-    // अगर लोकल में रिकॉर्ड नहीं मिला, तो कोड बिना अटके नीचे आपके Gemini API Fetch पर चला जाएगा!
-    // --- यहाँ तक पेस्ट करें ---
 
-
-                              }
     const fullPrompt = `You are AI Munshi 3.0 of Chhapola Agriculture. Always answer in clear Hindi. Never guess data.
 
 USER QUERY: "${text}"
