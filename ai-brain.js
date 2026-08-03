@@ -164,7 +164,7 @@ let records = [];
 
         records,
 
-        analysis
+        analysis:null
 
     };
 
