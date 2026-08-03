@@ -85,7 +85,7 @@ function initBrain(){
         typeof syncRajMemory === "function";
 
     window.RAJ_AI.brain.searchReady =
-        typeof searchMemory === "function";
+    typeof searchAI === "function";
 
     window.RAJ_AI.brain.languageReady =
         typeof processLanguage === "function";
@@ -152,15 +152,12 @@ async function think(question){
     window.RAJ_AI.brain.statistics.lastQuestion = question;
 
     
+let processed = question;
+let records = [];
 
-    // Analysis
-    let analysis = null;
-
-    if(typeof buildDashboardAnalysis === "function"){
-
-        analysis = buildDashboardAnalysis(records);
-
-    }
+if (typeof searchAI === "function") {
+    records = searchAI(processed);
+}
 
     window.RAJ_AI.brain.thinking = false;
 
@@ -401,11 +398,6 @@ async function askRajAI(question){
 function refreshBrain(){
 
 
-    if(typeof refreshLearningEngine==="function")
-        refreshLearningEngine();
-
-    if(typeof refreshAnalysis==="function")
-        refreshAnalysis();
 
     brainLog("Brain Refreshed");
 
