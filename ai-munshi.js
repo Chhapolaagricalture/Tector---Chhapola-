@@ -114,6 +114,19 @@ function searchMemory(question){
     const q = normalizeText(question);
 
     // Date Search
+question = question
+    .replace(/जून/gi,"06")
+    .replace(/जनवरी/gi,"01")
+    .replace(/फरवरी/gi,"02")
+    .replace(/मार्च/gi,"03")
+    .replace(/अप्रैल/gi,"04")
+    .replace(/मई/gi,"05")
+    .replace(/जुलाई/gi,"07")
+    .replace(/अगस्त/gi,"08")
+    .replace(/सितम्बर|सितंबर/gi,"09")
+    .replace(/अक्टूबर/gi,"10")
+    .replace(/नवंबर/gi,"11")
+    .replace(/दिसंबर/gi,"12");
     const dateMatch = question.match(/\d{1,2}[\/-]\d{1,2}[\/-]\d{4}/);
 
     if(dateMatch){
