@@ -482,25 +482,30 @@ document.addEventListener("DOMContentLoaded", () => {
     const filteredRecords = getFilteredMemory(text);
 const munshiResult = await askMunshi(text);
 
-if (munshiResult.success) {
+if (munshiResult.reply) {
 
-    loadingDiv.remove();
+    reply = munshiResult.reply;
 
-    let reply = "";
+} else if (munshiResult.records && munshiResult.records.length) {
 
-    if (munshiResult.reply) {
+    const records = munshiResult.records;
 
-        reply = munshiResult.reply;
+    reply = records.map(r => {
+        return `👨‍🌾 किसान: ${r.name}
+📅 दिनांक: ${r.date}
+🚜 कार्य: ${r.work}
+🌾 फसल: ${r.crop || "-"}
+📏 मात्रा: ${r.bigha || r.unit || 0}
+💰 कुल: ₹${r.total}
+💵 जमा: ₹${r.paid}
+❌ बाकी: ₹${r.balance}`;
+    }).join("\n\n");
 
-    } else if (munshiResult.records && munshiResult.records.length) {
+} else {
 
-        reply = JSON.stringify(munshiResult.records, null, 2);
+    reply = "रिकॉर्ड मिल गया।";
 
-    } else {
-
-        reply = "रिकॉर्ड मिल गया।";
-
-    }
+}
 
     appendMessage(reply, "ai");
 
