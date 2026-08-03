@@ -414,11 +414,16 @@ async function dispatchRajTask(request){
 
     }
 
-    return{
+    
 
-        success:false,
-        source:"gemini"
+            // अगर कोई लोकल मॉड्यूल काम न करे, तो सीधे AI Munshi चलाएँ
+    if (typeof askMunshi === "function") {
+        return await askMunshi(request);
+    }
 
+    return {
+        success: false,
+        source: "gemini"
     };
 
                     }
