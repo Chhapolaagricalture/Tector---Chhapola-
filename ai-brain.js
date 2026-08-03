@@ -151,32 +151,7 @@ async function think(question){
 
     window.RAJ_AI.brain.statistics.lastQuestion = question;
 
-    // Language
-    let processed = question;
-
-    if(typeof processLanguage === "function"){
-
-        const result = processLanguage(question);
-
-        processed = result.message || question;
-
-    }
-
-    // Learning
-    if(typeof autoLearn === "function"){
-
-        autoLearn(processed);
-
-    }
-
-    // Memory Search
-    let records = [];
-
-    if(typeof searchMemory === "function"){
-
-        records = searchMemory(processed);
-
-    }
+    
 
     // Analysis
     let analysis = null;
@@ -425,8 +400,6 @@ async function askRajAI(question){
 // ---------- Refresh ----------
 function refreshBrain(){
 
-    if(typeof refreshRajMemory==="function")
-        refreshRajMemory();
 
     if(typeof refreshLearningEngine==="function")
         refreshLearningEngine();
