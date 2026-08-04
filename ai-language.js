@@ -417,7 +417,407 @@ window.processVoice = processVoice;
 window.refreshLanguageEngine = refreshLanguageEngine;
 
 window.formatReply = formatReply;
+// ==========================================
+// PART 5
+// SMART SPELLING ENGINE
+// ==========================================
 
+// Clean Text
+function cleanText(text=""){
+
+    return String(text)
+        .normalize("NFC")
+        .replace(/[^\u0900-\u097Fa-zA-Z0-9\s]/g," ")
+        .replace(/\s+/g," ")
+        .trim();
+
+}
+
+// Similar Score
+function similarity(a,b){
+
+    if(typeof levenshtein==="function"){
+
+        const d = levenshtein(a,b);
+
+        const max = Math.max(a.length,b.length);
+
+        return 1-(d/max);
+
+    }
+
+    return 0;
+
+}
+
+// Smart Spelling
+function correctSpelling(text=""){
+
+    text = cleanText(text);
+
+    const words = text.split(" ");
+
+    const result=[];
+
+    words.forEach(word=>{
+
+        let best = word;
+
+        let score = 0;
+
+        window.RAJ_AI.language.dictionary.forEach((value,key)=>{
+
+            const s = similarity(word.toLowerCase(),key.toLowerCase());
+
+            if(s>score){
+
+                score=s;
+
+                best=value;
+
+            }
+
+        });
+
+        if(score>0.75){
+
+            result.push(best);
+
+        }else{
+
+            result.push(word);
+
+        }
+
+    });
+
+    return result.join(" ");
+
+}
+
+// Public
+window.cleanText = cleanText;
+window.correctSpelling = correctSpelling;
+// ==========================================
+// PART 6
+// AUTO DICTIONARY BUILDER
+// ==========================================
+
+function buildDynamicDictionary(){
+
+    const dict = window.RAJ_AI.language.dictionary;
+
+    dict.clear();
+
+    if(!window.RAJ_AI.memory || !window.RAJ_AI.memory.records){
+
+        return;
+
+    }
+
+    window.RAJ_AI.memory.records.forEach(record=>{
+
+        Object.values(record).forEach(value=>{
+
+            if(!value) return;
+
+            value = String(value).trim();
+
+            if(value.length<2) return;
+
+            dict.set(
+                value.toLowerCase(),
+                value
+            );
+
+        });
+
+    });
+
+}
+
+function refreshLanguageDictionary(){
+
+    buildDynamicDictionary();
+
+}
+
+window.buildDynamicDictionary = buildDynamicDictionary;
+window.refreshLanguageDictionary = refreshLanguageDictionary;
+// ==========================================
+// PART 7
+// AI SMART SPELLING ENGINE
+// ==========================================
+
+// Find Best Match
+function findBestWord(word=""){
+
+    word = normalizeLanguageText(word);
+
+    const dict = window.RAJ_AI.language.dictionary;
+
+    let bestWord = word;
+    let bestScore = 999;
+
+    dict.forEach((value,key)=>{
+
+        if(typeof levenshtein !== "function") return;
+
+        const score = levenshtein(word,key);
+
+        if(score < bestScore){
+
+            bestScore = score;
+            bestWord = value;
+
+        }
+
+    });
+
+    if(bestScore <= 2){
+
+        return bestWord;
+
+    }
+
+    return word;
+
+}
+
+// AI Spell Correction
+function aiCorrectSentence(text=""){
+
+    text = cleanText(text);
+
+    const words = text.split(/\s+/);
+
+    const result = words.map(word=>{
+
+        return findBestWord(word);
+
+    });
+
+    return result.join(" ");
+
+}
+
+// Update Process
+const oldProcessVoice = processVoiceText;
+
+processVoiceText = function(text){
+
+    text = oldProcessVoice(text);
+
+    text = aiCorrectSentence(text);
+
+    return text;
+
+};
+
+// OCR Update
+const oldOCR = correctOCRText;
+
+correctOCRText = function(text){
+
+    text = oldOCR(text);
+
+    text = aiCorrectSentence(text);
+
+    return text;
+
+};
+
+// Public API
+window.findBestWord = findBestWord;
+window.aiCorrectSentence = aiCorrectSentence;
+window.processVoiceText = processVoiceText;
+window.correctOCRText = correctOCRText;
+// ==========================================
+// PART 8
+// MULTI LANGUAGE UNDERSTANDING
+// ==========================================
+
+// Detect Mixed Language
+function detectLanguageType(text=""){
+
+    text = normalizeLanguageText(text);
+
+    const hasHindi = /[\u0900-\u097F]/.test(text);
+    const hasEnglish = /[a-z]/i.test(text);
+
+    if(hasHindi && hasEnglish) return "mixed";
+
+    if(hasHindi) return "hindi";
+
+    if(hasEnglish) return "english";
+
+    return "unknown";
+
+}
+
+// Hinglish -> Hindi
+function convertHinglish(text=""){
+
+    const words = text.split(/\s+/);
+
+    return words.map(word=>{
+
+        word = findBestWord(word);
+
+        word = normalizeWord(word);
+
+        return word;
+
+    }).join(" ");
+
+}
+
+// Marwadi Cleaner
+function normalizeLocalLanguage(text=""){
+
+    return text
+        .replace(/mharo/gi,"म्हारो")
+        .replace(/mhari/gi,"म्हारी")
+        .replace(/thane/gi,"थाने")
+        .replace(/mane/gi,"मने")
+        .replace(/kitno/gi,"कितना")
+        .replace(/ketro/gi,"कितना")
+        .replace(/koni/gi,"नहीं");
+
+}
+
+// Final Language Cleaner
+function understandLanguage(text=""){
+
+    text = cleanText(text);
+
+    text = normalizeLocalLanguage(text);
+
+    text = convertHinglish(text);
+
+    return text;
+
+}
+
+// Override Process Language
+const oldLanguageProcess = processLanguage;
+
+processLanguage = function(text){
+
+    text = understandLanguage(text);
+
+    const result = oldLanguageProcess(text);
+
+    result.languageType = detectLanguageType(text);
+
+    result.cleanedText = text;
+
+    return result;
+
+};
+
+// Public API
+window.detectLanguageType = detectLanguageType;
+window.convertHinglish = convertHinglish;
+window.normalizeLocalLanguage = normalizeLocalLanguage;
+window.understandLanguage = understandLanguage;
+window.processLanguage = processLanguage;
+// ==========================================
+// PART 9
+// SELF LEARNING LANGUAGE
+// ==========================================
+
+// Learn New Word
+function learnLanguageWord(input, correct){
+
+    input = normalizeLanguageText(input);
+    correct = normalizeLanguageText(correct);
+
+    if(!input || !correct) return;
+
+    window.RAJ_AI.language.dictionary.set(input, correct);
+
+    try{
+
+        localStorage.setItem(
+
+            "raj_ai_language_dictionary",
+
+            JSON.stringify(
+
+                [...window.RAJ_AI.language.dictionary.entries()]
+
+            )
+
+        );
+
+    }catch(e){}
+
+}
+
+// Load Learned Words
+function loadLearnedLanguage(){
+
+    try{
+
+        const data = localStorage.getItem(
+
+            "raj_ai_language_dictionary"
+
+        );
+
+        if(!data) return;
+
+        JSON.parse(data).forEach(([k,v])=>{
+
+            window.RAJ_AI.language.dictionary.set(k,v);
+
+        });
+
+    }catch(e){}
+
+}
+
+// Auto Learn Sentence
+function autoLearnSentence(text=""){
+
+    text = cleanText(text);
+
+    text.split(/\s+/).forEach(word=>{
+
+        word = normalizeLanguageText(word);
+
+        if(word.length<2) return;
+
+        if(!window.RAJ_AI.language.dictionary.has(word)){
+
+            window.RAJ_AI.language.dictionary.set(word, word);
+
+        }
+
+    });
+
+}
+
+// Update Process
+const oldLanguageProcessor = processLanguage;
+
+processLanguage = function(text){
+
+    autoLearnSentence(text);
+
+    return oldLanguageProcessor(text);
+
+};
+
+// Load Learned Data
+loadLearnedLanguage();
+
+// Public API
+window.learnLanguageWord = learnLanguageWord;
+window.loadLearnedLanguage = loadLearnedLanguage;
+window.autoLearnSentence = autoLearnSentence;
+window.processLanguage = processLanguage;
 // ==========================================
 // END OF LANGUAGE ENGINE
 // ==========================================
