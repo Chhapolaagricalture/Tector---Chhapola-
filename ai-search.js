@@ -549,14 +549,6 @@ window.refreshSearchEngine=refreshSearchEngine;
 // ==========================================
 
 // Normalize Farmer Name
-function normalizeFarmerName(name = ""){
-
-    return name
-        .toLowerCase()
-        .replace(/[^\u0900-\u097Fa-z0-9]/g,"")
-        .trim();
-
-}
 
 // Register Alias
 function registerFarmerAlias(mainName, aliases = []){
