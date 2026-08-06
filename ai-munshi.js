@@ -178,43 +178,7 @@ if (typeof processLocalQuestion === "function") {
 
 }
 
-// 2. Memory Search
-if (typeof searchMemory === "function") {
 
-    const records = searchMemory(question);
-
-    if (records && records.length) {
-
-        result.success = true;
-        result.source = "memory";
-        result.records = records;
-
-        updateMunshiContext(question, records);
-
-        return result;
-
-    }
-
-}
-
-    // 1. Memory
-    if(typeof searchMemory==="function"){
-
-        const records = searchMemory(question);
-
-        if(records && records.length){
-
-            result.success = true;
-
-            result.source = "memory";
-
-            result.records = records;
-updateMunshiContext(question, records);
-            return result;
-
-        }
-
-    }
 
     // 2. Analysis
     if(typeof analyzeQuestion==="function"){
