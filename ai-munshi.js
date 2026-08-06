@@ -106,7 +106,7 @@ function normalizeText(text){
         .replace(/[^\u0900-\u097fa-z0-9]/g,"");
 
 }
-
+window.normalizeText = normalizeText;
 function resolveQuestionContext(question){
 
     const farmer = getCurrentFarmer();
@@ -177,7 +177,21 @@ if (typeof processLocalQuestion === "function") {
     }
 
 }
+if (typeof window.searchMemory === "function") {
 
+    const records = window.searchMemory(question);
+
+    if (records && records.length) {
+
+        result.success = true;
+        result.source = "memory";
+        result.records = records;
+
+        updateMunshiContext(question, records);
+
+        return result;
+    }
+}
 
 
     // 2. Analysis
