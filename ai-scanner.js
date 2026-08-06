@@ -239,41 +239,68 @@ compressScannerImage;
 // OCR + GEMINI + PARSER
 // ==========================================
 
-// ---------- Build Prompt ----------
-function buildScannerPrompt(imageBase64){
+function buildScannerPrompt() {
 
-    return `
-You are Raj AI Scanner.
+return `
+You are an expert OCR for Chhapola Agriculture tractor register.
 
-Extract ALL tractor ledger records from this image.
+Read COMPLETE page.
 
-Return ONLY JSON.
-
-Fields:
-
-date
-farmer
-mobile
-work
-crop
-quantity
-unit
-rate
-total
-paid
-balance
-remarks
+Extract ALL farmer entries.
 
 Rules:
 
-1. Never skip any row.
-2. Fix OCR mistakes.
-3. Hindi + English + Hinglish supported.
-4. Understand local tractor words.
-5. Convert half values correctly.
-6. Keep farmer names exactly.
-7. Detect Hero, Cultivator, Rotavator,
-Thresher, Spray Machine automatically.
+Date is written on right side.
+
+Every farmer below belongs to same date until next date.
+
+Short Codes:
+
+BH = Hero
+BK = Calti
+BMP = Morplau
+BDP = Displau
+B = Bigha
+Spray Machine = दवाई टंकी
+
+If Bajra written with KIV:
+unit=KIV
+work_type=Bajra
+
+If only hours written:
+work_type=Thresher
+unit=Hour
+
+Half Examples:
+
+1½=1.5
+2½=2.5
+3½=3.5
+4½=4.5
+5½=5.5
+6½=6.5
+7½=7.5
+8½=8.5
+
+If line starts with "
+repeat previous farmer name.
+
+Never guess.
+
+Return ONLY JSON.
+
+[
+{
+"farmer_name":"",
+"work_date":"",
+"mobile_number":"",
+"work_type":"",
+"crop":"",
+"unit":"",
+"quantity":"",
+"paid_amount":"0"
+}
+]
 `;
 
 }
@@ -297,18 +324,53 @@ async function sendScannerToGemini(base64){
 
 }
 
-// ---------- Parse ----------
+// ==========================================
+// PART 7
+// GEMINI RESPONSE PARSER
+// ==========================================
+
 function parseScannerResponse(response){
 
     try{
 
-        if(typeof response==="string"){
+        let raw = "";
 
-            return JSON.parse(response);
+        if(response.candidates){
+
+            raw =
+            response.candidates[0]
+            .content.parts[0]
+            .text;
+
+        }else{
+
+            raw = String(response);
 
         }
 
-        return response;
+        raw = raw
+            .replace(/```json/gi,"")
+            .replace(/```/g,"")
+            .trim();
+
+        const json =
+            raw.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+
+        if(!json){
+
+            return [];
+
+        }
+
+        let records = JSON.parse(json[0]);
+
+        if(!Array.isArray(records)){
+
+            records = [records];
+
+        }
+
+        return records;
 
     }catch(e){
 
@@ -318,7 +380,252 @@ function parseScannerResponse(response){
 
     }
 
+    }
+// ==========================================
+// PART 8
+// AUTO FORM FILL
+// ==========================================
+
+async function fillScannerForm(farmer){
+
+    if(document.getElementById("name"))
+        document.getElementById("name").value =
+            farmer.farmer_name || "";
+
+    if(document.getElementById("date"))
+        document.getElementById("date").value =
+            farmer.work_date || "";
+
+    if(document.getElementById("mobile"))
+        document.getElementById("mobile").value =
+            farmer.mobile_number || "";
+
+    const workBox =
+        document.getElementById("work");
+
+    if(workBox && farmer.work_type){
+
+        workBox.value = farmer.work_type;
+
+        workBox.dispatchEvent(
+            new Event("change")
+        );
+
+        await new Promise(r=>setTimeout(r,200));
+
+    }
+
+    if(document.getElementById("crop"))
+        document.getElementById("crop").value =
+            farmer.crop || "";
+
+    const qty =
+        Number(farmer.quantity || 0);
+
+    if(
+        ["Hero","Calti","Morplau","Display"]
+        .includes(farmer.work_type)
+    ){
+
+        document.getElementById("bigha").value =
+            qty;
+
+    }
+
+    else if(
+        farmer.work_type==="Spray Machine"
+    ){
+
+        document.getElementById("unitValue").value =
+            qty;
+
+    }
+
+    else if(
+        farmer.work_type==="Bajra"
+    ){
+
+        document.getElementById("crop").value =
+            "Bajra";
+
+        document.getElementById("unitValue").value =
+            qty;
+
+    }
+
+    else if(
+        farmer.work_type==="Thresher"
+    ){
+
+        const h=Math.floor(qty);
+
+        const m=Math.round((qty-h)*60);
+
+        document.getElementById("hours").value=h;
+
+        document.getElementById("minutes").value=m;
+
+    }
+
+    if(document.getElementById("paid"))
+        document.getElementById("paid").value =
+            farmer.paid_amount || 0;
+
 }
+
+window.fillScannerForm = fillScannerForm;
+// ==========================================
+// PART 9
+// AUTO RATE
+// ==========================================
+
+function applyScannerRate(farmer){
+
+    let rate = 0;
+
+    switch(farmer.work_type){
+
+        case "Hero":
+            rate = 250;
+            break;
+
+        case "Calti":
+            rate = 250;
+            break;
+
+        case "Morplau":
+            rate = 500;
+            break;
+
+        case "Display":
+        case "Displau":
+            rate = 500;
+            break;
+
+        case "Spray Machine":
+            rate = 800;
+            break;
+
+        case "Bajra":
+            rate = 150;
+            break;
+
+        case "Thresher":
+
+            if(
+                farmer.crop &&
+                farmer.crop.toLowerCase() === "bajra"
+            ){
+
+                rate = 150;
+
+            }else{
+
+                rate = 1200;
+
+            }
+
+            break;
+
+    }
+
+    const rateBox =
+        document.getElementById("rate");
+
+    if(rateBox){
+
+        rateBox.value = rate;
+
+    }
+
+    return rate;
+
+}
+
+window.applyScannerRate = applyScannerRate;
+// ==========================================
+// PART 10
+// AUTO SAVE + COMPLETE SCAN
+// ==========================================
+
+async function processScannedRecords(records){
+
+    if(!records || !records.length){
+
+        alert("कोई रिकॉर्ड नहीं मिला।");
+
+        return;
+
+    }
+
+    for(const farmer of records){
+
+        await fillScannerForm(farmer);
+
+        applyScannerRate(farmer);
+
+        if(typeof calculateTotal==="function"){
+
+            calculateTotal();
+
+        }
+
+        if(typeof save==="function"){
+
+            await save();
+
+        }
+
+        await new Promise(r=>setTimeout(r,500));
+
+    }
+
+    alert("✅ " + records.length + " रिकॉर्ड सफलतापूर्वक सेव हो गए।");
+
+}
+
+window.processScannedRecords = processScannedRecords;
+// ==========================================
+// PART 11
+// SCAN SUMMARY + MEMORY REFRESH
+// ==========================================
+
+async function finishScanner(records){
+
+    const success =
+        records ? records.length : 0;
+
+    window.RAJ_AI.scanner.lastResult = records;
+
+    window.RAJ_AI.scanner.lastScan = new Date();
+
+    window.RAJ_AI.scanner.successScans += success;
+
+    window.RAJ_AI.scanner.scanning = false;
+
+    if(typeof refreshRajMemory==="function"){
+
+        await refreshRajMemory();
+
+    }
+
+    if(typeof buildRajIndexes==="function"){
+
+        buildRajIndexes();
+
+    }
+
+    alert(
+        "✅ Scan Complete\n\n" +
+        "Records : " + success +
+        "\nMemory Updated Successfully."
+    );
+
+    return true;
+
+}
+
+window.finishScanner = finishScanner;
 
 // ---------- Validate ----------
 function validateScanRecords(records){
@@ -432,9 +739,9 @@ async function startScanner(file){
 
         const records = validateScanRecords(parsed);
 
-        await saveScannedRecords(records);
+        await processScannedRecords(records);
 
-        await mergeScannerMemory(records);
+await finishScanner(records);
 
         window.RAJ_AI.scanner.lastResult = records;
 
@@ -479,6 +786,58 @@ window.saveScannedRecords = saveScannedRecords;
 window.mergeScannerMemory = mergeScannerMemory;
 
 window.getScannerStatistics = getScannerStatistics;
+// ==========================================
+// PART 5
+// SCAN BUTTON + OCR START
+// ==========================================
+
+const scanBtn = document.getElementById("scan-btn");
+
+if (scanBtn) {
+
+    scanBtn.addEventListener("click", async () => {
+
+        const fileInput =
+            document.getElementById("register-image");
+
+        if (!fileInput || !fileInput.files.length) {
+
+            alert("कृपया पहले फोटो चुनें।");
+
+            return;
+
+        }
+
+        try {
+
+            const file = fileInput.files[0];
+
+            alert("AI रजिस्टर पढ़ रहा है...");
+
+            const records =
+                await startScanner(file);
+
+            if (!records || !records.length) {
+
+                alert("कोई रिकॉर्ड नहीं मिला।");
+
+                return;
+
+            }
+
+            alert("कुल रिकॉर्ड : " + records.length);
+
+        } catch (e) {
+
+            console.error(e);
+
+            alert("Scanner Error : " + e.message);
+
+        }
+
+    });
+
+            }
 
 // ==========================================
 // END OF RAJ AI SCANNER
