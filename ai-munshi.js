@@ -372,7 +372,74 @@ document.addEventListener("DOMContentLoaded", () => {
 
     return matched.length > 0 ? matched.join("\n") : window.MUNSHI_GLOBAL_MEMORY.slice(-25).join("\n");
   }
+// ==========================================
+// COMMON GEMINI API
+// ==========================================
 
+async function callGeminiAPI(prompt, imageBase64 = null) {
+
+    const part1 = "AQ.Ab8RN6IneFD895YMiuSHRHH-p";
+    const part2 = "fAG_Wz4ZrghWn3DykD4Q_0XVw";
+    const apiKey = part1 + part2;
+
+    const apiUrl =
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
+
+    const parts = [];
+
+    if (prompt) {
+        parts.push({ text: prompt });
+    }
+
+    if (imageBase64) {
+
+        parts.push({
+
+            inline_data: {
+
+                mime_type: "image/jpeg",
+
+                data: imageBase64.split(",")[1]
+
+            }
+
+        });
+
+    }
+
+    const response = await fetch(apiUrl, {
+
+        method: "POST",
+
+        headers: {
+
+            "Content-Type": "application/json",
+
+            "X-goog-api-key": apiKey
+
+        },
+
+        body: JSON.stringify({
+
+            contents: [
+
+                {
+
+                    parts: parts
+
+                }
+
+            ]
+
+        })
+
+    });
+
+    return await response.json();
+
+}
+
+window.callGeminiAPI = callGeminiAPI;
   // 3. AI रिक्वेस्ट हैंडलर (एकदम सही Single Fetch)
   async function handleSend(userText) {
     if (isRequestPending) return;
@@ -459,25 +526,7 @@ RULES:
 
     try {
       // 🔑 Key 2 हिस्सों में
-      const part1 = "AQ.Ab8RN6IneFD895YMiuSHRHH-p";
-      const part2 = "fAG_Wz4ZrghWn3DykD4Q_0XVw";
-      const fullApiKey = part1 + part2;
-
-      const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
-
-      // 💥 SINGLE & CORRECT FETCH CALL
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-goog-api-key": fullApiKey
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: fullPrompt }] }]
-        })
-      });
-
-      const data = await response.json();
+const data = await callGeminiAPI(fullPrompt);
       loadingDiv.remove();
 
       if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
