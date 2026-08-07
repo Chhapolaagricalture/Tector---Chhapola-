@@ -80,7 +80,11 @@ let baki = total - paid;
   document.getElementById("bigha").value = "";
   document.getElementById("rate").value = "";
   document.getElementById("paid").value = "";
-
+document.getElementById("crop").value = "";
+document.getElementById("unitValue").value = "";
+document.getElementById("hours").value = "";
+document.getElementById("minutes").value = "";
+document.getElementById("work").dispatchEvent(new Event("change"));
   alert("डेटा Firebase में सेव हो गया");
 show();
     }
