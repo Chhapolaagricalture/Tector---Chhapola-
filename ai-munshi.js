@@ -1,5 +1,5 @@
 // ==========================================
-// AI MUNSHI MAIN CONTROLLER v4.00
+// AI MUNSHI MAIN CONTROLLER v4
 // ==========================================
 window.RAJ_AI = window.RAJ_AI || {};
 window.RAJ_AI.munshi = window.RAJ_AI.munshi || {};
