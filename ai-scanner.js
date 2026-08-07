@@ -381,6 +381,20 @@ function parseScannerResponse(response){
     }
 
     }
+function validateScanRecords(records){
+
+    if(!Array.isArray(records)){
+        return [];
+    }
+
+    return records.filter(r =>
+        r &&
+        (r.farmer_name || r.farmer || r.name)
+    );
+
+}
+
+window.validateScanRecords = validateScanRecords;
 // ==========================================
 // PART 8
 // AUTO FORM FILL
