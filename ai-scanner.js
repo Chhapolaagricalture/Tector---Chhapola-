@@ -4,7 +4,7 @@
 // ==========================================
 
 "use strict";
-
+alert("AI Scanner Loaded");
 window.RAJ_AI = window.RAJ_AI || {};
 
 window.RAJ_AI.scanner = {
