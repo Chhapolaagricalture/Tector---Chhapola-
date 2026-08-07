@@ -646,18 +646,7 @@ validateScanRecords;
 // PART 4
 // AUTO SAVE + MEMORY + FINAL API
 // ==========================================
-function validateScanRecords(records){
 
-    if(!Array.isArray(records)){
-        return [];
-    }
-
-    return records.filter(r =>
-        r &&
-        (r.farmer_name || r.farmer || r.name)
-    );
-
-}
 // ---------- Save ----------
 async function saveScannedRecords(records){
 
