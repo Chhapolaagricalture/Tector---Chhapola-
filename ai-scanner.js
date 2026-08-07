@@ -640,8 +640,6 @@ sendScannerToGemini;
 window.parseScannerResponse=
 parseScannerResponse;
 
-window.validateScanRecords=
-validateScanRecords;
 // ==========================================
 // PART 4
 // AUTO SAVE + MEMORY + FINAL API
