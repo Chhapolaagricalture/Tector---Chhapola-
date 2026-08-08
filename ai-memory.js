@@ -236,126 +236,93 @@ async function scanTableMemory() {
 // ---------- FIREBASE MEMORY ----------
 async function scanFirebaseMemory(){
 
-    const records=[];
-
     try{
 
-        if(typeof db==="undefined"){
+        // script.js पहले से Firebase से records
+        // लेकर window.records में रखता है
+        if (!Array.isArray(window.records)) {
 
-            return [];
-
-        }
-
-        const collections=[
-            "entries",
-            "records",
-            "farmers",
-            "data",
-            "khata"
-        ];
-
-        for(const col of collections){
-
-            try{
-
-                const snapshot=await db.collection(col).get();
-
-                snapshot.forEach(doc=>{
-
-                    const d=doc.data();
-
-                    records.push({
-
-                        source:"firebase",
-
-                        id:doc.id,
-
-                        name:
-                            d.name||
-                            d.farmer||
-                            d.farmer_name||
-                            d.farmerName||
-                            "",
-
-                        mobile:
-                            d.mobile||
-                            "",
-
-                        work:
-                            d.work||
-                            d.work_type||
-                            "",
-
-                        crop:
-                            d.crop||
-                            "",
-
-                        quantity:
-                            d.quantity||
-                            d.hours||
-                            d.bigha||
-                            0,
-
-                        rate:
-                            d.rate||
-                            0,
-
-                        total:
-                            d.total||
-                            0,
-
-                        paid:
-                            d.paid||
-                            0,
-
-                        balance:
-                            d.balance||
-                            (
-                                (Number(d.total)||0)
-                                -
-                                (Number(d.paid)||0)
-                            ),
-
-                        date:
-                            d.date||
-                            ""
-
-                    });
-
-                });
-
-            }catch(e){
-
-                rajLog(col,e);
-
+            if (typeof show === "function") {
+                await show();
             }
 
         }
 
+        const records = Array.isArray(window.records)
+            ? window.records
+            : [];
+
+        window.RAJ_AI.memory.firebaseRecords =
+            records.map(r => ({
+
+                source: "firebase",
+
+                id: r.id || "",
+
+                name: r.name || "",
+
+                mobile: r.mobile || "",
+
+                date: r.date || "",
+
+                work: r.work || "",
+
+                crop: r.crop || "",
+
+                unit: r.unit || "",
+
+                time: r.time || "",
+
+                bigha: Number(r.bigha || 0),
+
+                quantity: Number(
+                    r.unit || r.bigha || 0
+                ),
+
+                rate: Number(r.rate || 0),
+
+                total: Number(r.total || 0),
+
+                paid: Number(r.paid || 0),
+
+                balance: Number(
+                    r.baki ??
+                    r.balance ??
+                    (
+                        Number(r.total || 0) -
+                        Number(r.paid || 0)
+                    )
+                )
+
+            }));
+
+        return window.RAJ_AI.memory.firebaseRecords;
+
     }catch(e){
 
-        rajLog(e);
+        console.error(
+            "❌ AI Firebase Memory Error:",
+            e
+        );
+
+        window.RAJ_AI.memory.firebaseRecords = [];
+
+        return [];
 
     }
-
-    window.RAJ_AI.memory.firebaseRecords=records;
-
-    return records;
 
 }
 
 // ---------- MERGE ----------
 function mergeRajMemory(){
 
-    const all=[];
+    const all = [
+        ...window.RAJ_AI.memory.firebaseRecords
+    ];
 
-    all.push(...window.RAJ_AI.memory.tableRecords);
+    window.RAJ_AI.memory.records = all;
 
-    all.push(...window.RAJ_AI.memory.firebaseRecords);
-
-    window.RAJ_AI.memory.records=all;
-
-    window.RAJ_AI.memory.totalRecords=all.length;
+    window.RAJ_AI.memory.totalRecords = all.length;
 
     saveMemoryCache();
 
