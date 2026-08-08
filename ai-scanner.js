@@ -1065,91 +1065,262 @@ window.validateScanRecords = validateScanRecords;
 // PART 8
 // AUTO FORM FILL
 // ==========================================
+// ==========================================
+// SCANNER → FORM FILL
+// ==========================================
 
-async function fillScannerForm(farmer){
+async function fillScannerForm(farmer) {
 
-    if(document.getElementById("name"))
-        document.getElementById("name").value =
-            farmer.farmer_name || "";
+    // -----------------------------
+    // 1. पहले पुराने सभी values साफ
+    // -----------------------------
 
-    if(document.getElementById("date"))
-        document.getElementById("date").value =
+    const nameBox = document.getElementById("name");
+    const dateBox = document.getElementById("date");
+    const mobileBox = document.getElementById("mobile");
+    const workBox = document.getElementById("work");
+    const cropBox = document.getElementById("crop");
+    const bighaBox = document.getElementById("bigha");
+    const rateBox = document.getElementById("rate");
+    const paidBox = document.getElementById("paid");
+    const unitValueBox = document.getElementById("unitValue");
+    const hoursBox = document.getElementById("hours");
+    const minutesBox = document.getElementById("minutes");
+
+    // बहुत जरूरी:
+    // हर नई entry के लिए पुराने values हटाएं
+
+    if (nameBox) nameBox.value = "";
+    if (dateBox) dateBox.value = "";
+    if (mobileBox) mobileBox.value = "";
+    if (bighaBox) bighaBox.value = "";
+    if (rateBox) rateBox.value = "";
+    if (paidBox) paidBox.value = "0";
+    if (unitValueBox) unitValueBox.value = "";
+    if (hoursBox) hoursBox.value = "";
+    if (minutesBox) minutesBox.value = "";
+
+    if (cropBox) {
+        cropBox.value = "";
+    }
+
+    // -----------------------------
+    // 2. Farmer basic information
+    // -----------------------------
+
+    if (nameBox) {
+        nameBox.value =
+            farmer.farmer_name ||
+            farmer.farmer ||
+            farmer.name ||
+            "";
+    }
+
+    if (dateBox) {
+        dateBox.value =
             farmer.work_date || "";
+    }
 
-    if(document.getElementById("mobile"))
-        document.getElementById("mobile").value =
+    if (mobileBox) {
+        mobileBox.value =
             farmer.mobile_number || "";
+    }
 
-    const workBox =
-        document.getElementById("work");
+    // -----------------------------
+    // 3. Work select
+    // -----------------------------
 
-    if(workBox && farmer.work_type){
+    const work = farmer.work_type || "";
 
-        workBox.value = farmer.work_type;
+    if (workBox) {
 
+        workBox.value = work;
+
+        // website का change event चलाएं
         workBox.dispatchEvent(
-            new Event("change")
+            new Event("change", { bubbles: true })
         );
 
-        await new Promise(r=>setTimeout(r,200));
-
+        // UI update होने दें
+        await new Promise(resolve =>
+            setTimeout(resolve, 200)
+        );
     }
 
-    if(document.getElementById("crop"))
-        document.getElementById("crop").value =
-            farmer.crop || "";
+    // -----------------------------
+    // 4. Crop
+    // -----------------------------
 
-    const qty =
-        Number(farmer.quantity || 0);
+    if (cropBox && farmer.crop) {
 
-    if(
-        ["Hero","Calti","Morplau","Display"]
-        .includes(farmer.work_type)
-    ){
+        cropBox.value = farmer.crop;
 
-        document.getElementById("bigha").value =
-            qty;
+        cropBox.dispatchEvent(
+            new Event("change", { bubbles: true })
+        );
 
+        await new Promise(resolve =>
+            setTimeout(resolve, 100)
+        );
     }
 
-    else if(
-        farmer.work_type==="Spray Machine"
-    ){
+    // -----------------------------
+    // 5. WORK TYPE के हिसाब से DATA
+    // -----------------------------
 
-        document.getElementById("unitValue").value =
-            qty;
+    // =================================
+    // BIGHA WORK
+    // =================================
 
+    const bighaWorks = [
+        "Hero",
+        "Calti",
+        "Morplau",
+        "Displau",
+        "Mej (Pata)"
+    ];
+
+    if (bighaWorks.includes(work)) {
+
+        const bigha =
+            farmer.bigha ||
+            farmer.quantity ||
+            "";
+
+        if (bighaBox) {
+            bighaBox.value = bigha;
+        }
+
+        // इन कामों में TIME बिल्कुल खाली
+        if (hoursBox) hoursBox.value = "";
+        if (minutesBox) minutesBox.value = "";
+
+        if (unitValueBox) unitValueBox.value = "";
     }
 
-    else if(
-        farmer.work_type==="Bajra"
-    ){
+    // =================================
+    // SPRAY MACHINE
+    // =================================
 
-        document.getElementById("crop").value =
-            "Bajra";
+    else if (work === "Spray Machine") {
 
-        document.getElementById("unitValue").value =
-            qty;
+        const quantity =
+            farmer.quantity || "";
 
+        if (unitValueBox) {
+            unitValueBox.value = quantity;
+        }
+
+        if (bighaBox) bighaBox.value = "";
+
+        if (hoursBox) hoursBox.value = "";
+        if (minutesBox) minutesBox.value = "";
     }
 
-    else if(
-        farmer.work_type==="Thresher"
-    ){
+    // =================================
+    // BAJRA
+    // =================================
 
-        const h=Math.floor(qty);
+    else if (work === "Bajra") {
 
-        const m=Math.round((qty-h)*60);
+        const quantity =
+            farmer.quantity || "";
 
-        document.getElementById("hours").value=h;
+        if (cropBox) {
+            cropBox.value = "Bajra";
+        }
 
-        document.getElementById("minutes").value=m;
+        if (unitValueBox) {
+            unitValueBox.value = quantity;
+        }
 
+        if (bighaBox) bighaBox.value = "";
+
+        if (hoursBox) hoursBox.value = "";
+        if (minutesBox) minutesBox.value = "";
     }
 
-    if(document.getElementById("paid"))
-        document.getElementById("paid").value =
-            farmer.paid_amount || 0;
+    // =================================
+    // THRESHER
+    // =================================
+
+    else if (work === "Thresher") {
+
+        // Thresher में quantity से time नहीं बनाना।
+        // Gemini से मिले hours/minutes ही इस्तेमाल होंगे।
+
+        if (hoursBox) {
+            hoursBox.value =
+                farmer.hours !== undefined
+                    ? farmer.hours
+                    : "";
+        }
+
+        if (minutesBox) {
+            minutesBox.value =
+                farmer.minutes !== undefined
+                    ? farmer.minutes
+                    : "";
+        }
+
+        if (bighaBox) bighaBox.value = "";
+        if (unitValueBox) unitValueBox.value = "";
+    }
+
+    // =================================
+    // PENDING BALANCE
+    // =================================
+
+    else if (work === "Pending Balance") {
+
+        if (bighaBox) bighaBox.value = "";
+
+        if (unitValueBox) unitValueBox.value = "";
+
+        if (hoursBox) hoursBox.value = "";
+        if (minutesBox) minutesBox.value = "";
+
+        if (rateBox) {
+            rateBox.value =
+                farmer.rate ||
+                farmer.quantity ||
+                "";
+        }
+    }
+
+    // =================================
+    // UNKNOWN / OTHER WORK
+    // =================================
+
+    else {
+
+        if (bighaBox) bighaBox.value = "";
+        if (unitValueBox) unitValueBox.value = "";
+        if (hoursBox) hoursBox.value = "";
+        if (minutesBox) minutesBox.value = "";
+    }
+
+    // -----------------------------
+    // 6. Paid Amount
+    // -----------------------------
+
+    if (paidBox) {
+
+        paidBox.value =
+            farmer.paid_amount !== undefined
+                ? farmer.paid_amount
+                : "0";
+    }
+
+    // -----------------------------
+    // 7. Rate
+    // -----------------------------
+
+    if (typeof applyScannerRate === "function") {
+
+        applyScannerRate(farmer);
+
+    }
 
 }
 
