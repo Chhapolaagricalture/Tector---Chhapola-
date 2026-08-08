@@ -968,6 +968,7 @@ Never copy Thresher time into the next work entry.
 
 Never create blank 0/0/0 records.
 
+`;
 }
 
 // ---------- Gemini ----------
