@@ -535,13 +535,18 @@ async function refreshRajMemory() {
 
         buildRajIndexes();
 
+        // Search को भी नया Firebase data देना
+        if (typeof window.refreshSearchEngine === "function") {
+            window.refreshSearchEngine();
+        }
+
         saveMemoryCache();
 
-        rajLog("Memory Refreshed");
+        rajLog("Memory + Search Refreshed");
 
     } catch (e) {
 
-        rajLog(e);
+        console.error("RAJ AI Memory Refresh Error:", e);
 
     }
 
