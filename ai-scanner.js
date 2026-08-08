@@ -893,6 +893,16 @@ Both records belong to:
 
 Rohitash Meena
 
+Half Examples:
+
+1½=1.5
+2½=2.5
+3½=3.5
+4½=4.5
+5½=5.5
+6½=6.5
+7½=7.5
+8½=8.5
 ==================================================
 23. OUTPUT LANGUAGE
 ==================================================
@@ -957,17 +967,7 @@ Never convert Bajra KIV into Thresher Hours.
 Never copy Thresher time into the next work entry.
 
 Never create blank 0/0/0 records.
-Half Examples:
 
-1½=1.5
-2½=2.5
-3½=3.5
-4½=4.5
-5½=5.5
-6½=6.5
-7½=7.5
-8½=8.5
-);
 }
 
 // ---------- Gemini ----------
