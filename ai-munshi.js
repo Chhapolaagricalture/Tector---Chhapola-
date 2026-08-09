@@ -177,21 +177,6 @@ if (typeof processLocalQuestion === "function") {
     }
 
 }
-if (typeof window.searchMemory === "function") {
-
-    const records = window.searchMemory(question);
-
-    if (records && records.length) {
-
-        result.success = true;
-        result.source = "memory";
-        result.records = records;
-
-        updateMunshiContext(question, records);
-
-        return result;
-    }
-}
 
 
     // 2. Analysis
@@ -470,8 +455,38 @@ window.callGeminiAPI = callGeminiAPI;
     if (window.MUNSHI_GLOBAL_MEMORY.length === 0) {
       await syncWebsiteMemory();
     }
+// ==========================================
+// MUNSHI → RAJ AI SEARCH ENGINE
+// ==========================================
 
-    const filteredRecords = getFilteredMemory(text);
+let filteredRecords = [];
+
+try {
+
+    // पहले किसान-विशेष Search
+    if (typeof searchFarmerRecords === "function") {
+
+        filteredRecords = searchFarmerRecords(text) || [];
+
+    }
+
+    // अगर किसान Search से कुछ नहीं मिला
+    if (
+        !filteredRecords.length &&
+        typeof universalSearch === "function"
+    ) {
+
+        filteredRecords = universalSearch(text) || [];
+
+    }
+
+} catch (e) {
+
+    console.error("Munshi Search Error:", e);
+
+    filteredRecords = [];
+
+}
 
         let munshiResult = null;
     try {
@@ -510,20 +525,34 @@ window.callGeminiAPI = callGeminiAPI;
         return;
     }
 
+const fullPrompt = `You are AI Munshi 3.0 of Chhapola Agriculture.
 
-    const fullPrompt = `You are AI Munshi 3.0 of Chhapola Agriculture. Always answer in clear Hindi. Never guess data.
+Always answer in natural, clear Hindi.
+Use only the verified farmer records provided below.
+Never invent or guess any data.
 
-USER QUERY: "${text}"
+USER QUERY:
+"${text}"
 
-FARMER RECORDS:
-${filteredRecords}
+VERIFIED FARMER RECORDS:
+${JSON.stringify(filteredRecords, null, 2)}
 
 RULES:
-1. Ignore spaces and spelling mistakes. Treat Hindi, Marwadi, and English pronunciation as same (e.g., Umed, उमेद, उम्मीद).
-2. Sum up Total and Paid accurately for the asked farmer and calculate Remaining Balance (Balance = Total - Paid).
-3. If farmer does not exist, say: "राम-राम जी, इस किसान का रिकॉर्ड नहीं मिला।"
-4. Reply in plain Hindi. Keep it short (2-3 lines).`;
-
+1. Understand what the user is actually asking.
+2. Answer only the question asked.
+3. Hindi, Marwadi and English farmer names should be treated as equivalent when they refer to the same person.
+4. Ignore small spelling and pronunciation differences.
+5. For हिसाब questions, calculate Total, Paid and Balance accurately.
+6. Balance = Total - Paid.
+7. If the user asks for one record, give that record.
+8. If the user asks for total हिसाब, add all matching records.
+9. If the user asks for date, work, crop, quantity, payment or balance, give that specific information.
+10. Do not use records belonging to another farmer.
+11. If no matching record exists, say:
+"राम-राम जी, इस किसान का रिकॉर्ड नहीं मिला।"
+12. Do not force a fixed number of lines or sentences.
+13. Keep the answer natural and concise, but give enough information to answer the question completely.
+`;
     try {
       // 🔑 Key 2 हिस्सों में
 const data = await callGeminiAPI(fullPrompt);
