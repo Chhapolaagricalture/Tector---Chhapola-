@@ -365,7 +365,7 @@ if (date) {
     ).join("\n");
 
 }
-
+}
 window.analyzeQuestion = analyzeQuestion;
 // ---------- Monthly Report ----------
 function generateMonthlyReport(records = [], month = "") {
