@@ -579,7 +579,11 @@ function detectIntent(text){
 
     if(/सीख|learn|remember|याद/.test(text))
         return "learning";
-
+if(
+    /\d{1,2}[\/-]\d{1,2}[\/-]\d{4}/.test(text) ||
+    /\d{4}[\/-]\d{1,2}[\/-]\d{1,2}/.test(text)
+)
+    return "analysis";
     if(/बाकी|balance|total|कुल|हिसाब|payment|paid/.test(text))
         return "analysis";
 
