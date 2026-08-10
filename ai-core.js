@@ -326,27 +326,75 @@ async function dispatchRajTask(request){
                     }
 
                     break;
+case "analysis": {
 
-                case "analysis":
+    const records =
+        window.RAJ_AI &&
+        window.RAJ_AI.memory &&
+        Array.isArray(window.RAJ_AI.memory.records)
+            ? window.RAJ_AI.memory.records
+            : [];
 
-                    if(typeof analyzeQuestion==="function"){
+    if (!records.length) break;
 
-                        const reply =
-                            await analyzeQuestion(request);
 
-                        if(reply){
+    // Existing Analysis module को ही चलाना है
+    if (/बाकी|balance|baki/.test(request.toLowerCase())) {
 
-                            return{
-                                success:true,
-                                source:"analysis",
-                                reply:reply
-                            };
+        return {
+            success: true,
+            source: "analysis",
+            records: records,
+            analysis: calculateBalance(records)
+        };
+    }
 
-                        }
 
-                    }
+    if (/जमा|paid|payment|jama/.test(request.toLowerCase())) {
 
-                    break;
+        return {
+            success: true,
+            source: "analysis",
+            records: records,
+            analysis: calculatePaid(records)
+        };
+    }
+
+
+    if (/कुल|total|कमाई|income/.test(request.toLowerCase())) {
+
+        return {
+            success: true,
+            source: "analysis",
+            records: records,
+            analysis: calculateIncome(records)
+        };
+    }
+
+
+    if (/work|काम|काम किया|काम हुआ/.test(request.toLowerCase())) {
+
+        return {
+            success: true,
+            source: "analysis",
+            records: records,
+            analysis: analyzeWork(records)
+        };
+    }
+
+
+    if (/crop|फसल|बाजरा|गेहूं|गेंहू|सरसों|मक्का|चना/.test(request.toLowerCase())) {
+
+        return {
+            success: true,
+            source: "analysis",
+            records: records,
+            analysis: analyzeCrop(records)
+        };
+    }
+
+    break;
+}
 
                 case "brain":
 
