@@ -143,63 +143,123 @@ question = resolveQuestionContext(question);
     window.RAJ_AI.munshi.lastQuestion =
         question;
 // ==========================================
-// CORE FIRST ROUTING
-// ==========================================
-// ==========================================
-// CORE = MAIN CONTROLLER
+// PART 13
+// LOCAL AI FIRST
 // ==========================================
 
+// 1. Local AI (सबसे पहले)
+if (typeof processLocalQuestion === "function") {
+
+    const localReply = processLocalQuestion(question);
+
+    if (localReply) {
+
+        result.success = true;
+        result.source = "local";
+
+        if (Array.isArray(localReply)) {
+
+            result.records = localReply;
+
+        } else {
+
+            result.reply = localReply;
+
+        }
+
+        updateMunshiContext(
+            question,
+            result.records || []
+        );
+
+        return result;
+
+    }
+
+}
+
+
+// 2. Analysis
+if(typeof analyzeQuestion==="function"){
+
+    try{
+
+        const r = await analyzeQuestion(question);
+
+        if(r){
+
+            result.success = true;
+
+            result.source = "analysis";
+
+            result.reply = r;
+
+            return result;
+
+        }
+
+    }catch(e){}
+
+}
+
+
+// 3. Brain
+if(typeof think==="function"){
+
+    try{
+
+        const r = await think(question);
+
+        if(r){
+
+            result.success = true;
+
+            result.source = "brain";
+
+            return r;
+
+        }
+
+    }catch(e){}
+
+}
+
+
+// 4. Core
 if (typeof processRajRequest === "function") {
 
     try {
 
-        const coreResult =
-            await processRajRequest(question);
+        const coreResult = await processRajRequest(question);
 
         if (coreResult && coreResult.success) {
 
             result.success = true;
-            result.source = coreResult.source || "core";
+            result.source = "core";
 
-            if (coreResult.reply) {
+            if (coreResult.reply)
                 result.reply = coreResult.reply;
-            }
 
-            if (
-                Array.isArray(coreResult.records) &&
-                coreResult.records.length
-            ) {
+            if (coreResult.records)
                 result.records = coreResult.records;
-            }
-
-            updateMunshiContext(
-                question,
-                result.records || []
-            );
 
             return result;
+
         }
 
     } catch (e) {
 
-        console.error(
-            "Core Controller Error:",
-            e
-        );
+        console.error(e);
 
     }
 
+}
 
-// ==========================================
-// FALLBACK
-// ==========================================
 
-// Core ने जवाब नहीं दिया तो यहाँ से
-// पुराना Gemini fallback चलेगा।
-
+// 5. Gemini
 result.source = "gemini";
-
 return result;
+
 }
 
 // ==========================================
