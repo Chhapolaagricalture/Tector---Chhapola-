@@ -142,87 +142,11 @@ question = resolveQuestionContext(question);
 
     window.RAJ_AI.munshi.lastQuestion =
         question;
-    // ==========================================
-// PART 13
-// LOCAL AI FIRST
+// ==========================================
+// CORE FIRST ROUTING
 // ==========================================
 
-// 1. Local AI (सबसे पहले)
-if (typeof processLocalQuestion === "function") {
-
-    const localReply = processLocalQuestion(question);
-
-    if (localReply) {
-
-        result.success = true;
-        result.source = "local";
-
-        if (Array.isArray(localReply)) {
-
-            result.records = localReply;
-
-        } else {
-
-            result.reply = localReply;
-
-        }
-
-        updateMunshiContext(
-            question,
-            result.records || []
-        );
-
-        return result;
-
-    }
-
-}
-
-
-    // 2. Analysis
-    if(typeof analyzeQuestion==="function"){
-
-        try{
-
-            const r = await analyzeQuestion(question);
-
-            if(r){
-
-                result.success = true;
-
-                result.source = "analysis";
-
-                result.reply = r;
-
-                return result;
-
-            }
-
-        }catch(e){}
-
-    }
-
-    // 3. Brain
-    if(typeof think==="function"){
-
-        try{
-
-            const r = await think(question);
-
-            if(r){
-
-                result.success = true;
-
-                result.source = "brain";
-
-                return r;
-
-            }
-
-        }catch(e){}
-
-    }
-// 4. Core
+// 1. CORE = मुख्य Controller
 if (typeof processRajRequest === "function") {
 
     try {
@@ -232,7 +156,7 @@ if (typeof processRajRequest === "function") {
         if (coreResult && coreResult.success) {
 
             result.success = true;
-            result.source = "core";
+            result.source = coreResult.source || "core";
 
             if (coreResult.reply)
                 result.reply = coreResult.reply;
@@ -240,24 +164,55 @@ if (typeof processRajRequest === "function") {
             if (coreResult.records)
                 result.records = coreResult.records;
 
-            return result;
+            updateMunshiContext(
+                question,
+                result.records || []
+            );
 
+            return result;
         }
 
     } catch (e) {
 
-        console.error(e);
+        console.error("Core Router Error:", e);
 
     }
-
 }
 
-// 5. Gemini
+
+// 2. Brain = केवल तब जब Core को सही module/result न मिले
+if (typeof think === "function") {
+
+    try {
+
+        const r = await think(question);
+
+        if (r && (r.success || r.reply)) {
+
+            result.success = true;
+            result.source = "brain";
+
+            if (r.reply)
+                result.reply = r.reply;
+
+            if (r.records)
+                result.records = r.records;
+
+            return result;
+        }
+
+    } catch (e) {
+
+        console.error("Brain Error:", e);
+
+    }
+}
+
+
+// 3. Gemini = अंतिम fallback
 result.source = "gemini";
+
 return result;
-
-
-}
 
 // ==========================================
 // AI MUNSHI 3.0 - FIXED & SEPARATED FILE
