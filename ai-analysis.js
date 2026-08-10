@@ -245,7 +245,94 @@ function generateDailyReport(records = [], date = "") {
     return records.filter(r => (r.date || "") === date);
 
 }
+// ==========================================
+// QUESTION ANALYZER
+// ==========================================
 
+function normalizeQuestionDate(value = "") {
+
+    value = String(value).trim();
+
+    let m;
+
+    // DD/MM/YYYY
+    m = value.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+
+    if (m) {
+        return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+    }
+
+    // YYYY/MM/DD or YYYY-MM-DD
+    m = value.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+
+    if (m) {
+        return `${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`;
+    }
+
+    return value;
+}
+
+
+async function analyzeQuestion(question = "") {
+
+    const text = String(question).trim().toLowerCase();
+
+    const records =
+        window.RAJ_AI &&
+        window.RAJ_AI.memory &&
+        Array.isArray(window.RAJ_AI.memory.records)
+            ? window.RAJ_AI.memory.records
+            : [];
+
+    // ---------- DATE ----------
+    const dateMatch = text.match(
+        /(\d{1,2}[\/-]\d{1,2}[\/-]\d{4}|\d{4}[\/-]\d{1,2}[\/-]\d{1,2})/
+    );
+
+    if (dateMatch) {
+
+        const date = normalizeQuestionDate(dateMatch[1]);
+
+        const dailyRecords =
+            records.filter(r => {
+
+                return normalizeQuestionDate(r.date || "") === date;
+
+            });
+
+        if (!dailyRecords.length) {
+
+            return `माफ कीजिए, ${dateMatch[1]} को कोई रिकॉर्ड नहीं मिला।`;
+
+        }
+
+        // Work question
+        if (
+            /काम|work|कार्य|क्या किया|क्या हुआ|कौन सा काम/.test(text)
+        ) {
+
+            const work = analyzeWork(dailyRecords);
+
+            const lines = Object.entries(work).map(
+                ([name, data]) =>
+                    `🚜 ${name}: ${data.count} बार, कुल ₹${data.total}`
+            );
+
+            return `📅 ${dateMatch[1]} को:\n${lines.join("\n")}`;
+
+        }
+
+        // General date question
+        return dailyRecords.map(r =>
+            `👨‍🌾 ${r.name || "अज्ञात"} — 🚜 ${r.work || "-"} — ₹${r.total || 0}`
+        ).join("\n");
+
+    }
+
+    return null;
+}
+
+window.analyzeQuestion = analyzeQuestion;
 // ---------- Monthly Report ----------
 function generateMonthlyReport(records = [], month = "") {
 
