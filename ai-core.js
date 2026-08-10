@@ -392,9 +392,10 @@ case "analysis": {
             analysis: analyzeCrop(records)
         };
     }
+            }
 
     break;
-}
+
 
                 case "brain":
 
