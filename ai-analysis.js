@@ -328,48 +328,42 @@ if (numericDate) {
         date = `${year}-${month}-${day}`;
     }
 }
+if (date) {
 
-    if (dateMatch) {
+    const dailyRecords =
+        records.filter(r => {
 
-        const date = normalizeQuestionDate(dateMatch[1]);
+            return normalizeQuestionDate(r.date || "") === date;
 
-        const dailyRecords =
-            records.filter(r => {
+        });
 
-                return normalizeQuestionDate(r.date || "") === date;
+    if (!dailyRecords.length) {
 
-            });
-
-        if (!dailyRecords.length) {
-
-            return `माफ कीजिए, ${dateMatch[1]} को कोई रिकॉर्ड नहीं मिला।`;
-
-        }
-
-        // Work question
-        if (
-            /काम|work|कार्य|क्या किया|क्या हुआ|कौन सा काम/.test(text)
-        ) {
-
-            const work = analyzeWork(dailyRecords);
-
-            const lines = Object.entries(work).map(
-                ([name, data]) =>
-                    `🚜 ${name}: ${data.count} बार, कुल ₹${data.total}`
-            );
-
-            return `📅 ${dateMatch[1]} को:\n${lines.join("\n")}`;
-
-        }
-
-        // General date question
-        return dailyRecords.map(r =>
-            `👨‍🌾 ${r.name || "अज्ञात"} — 🚜 ${r.work || "-"} — ₹${r.total || 0}`
-        ).join("\n");
+        return `माफ कीजिए, ${question} का कोई रिकॉर्ड नहीं मिला।`;
 
     }
 
-    return null;
+    // Work question
+    if (
+        /काम|work|कार्य|क्या किया|क्या हुआ|कौन सा काम|kam/.test(text)
+    ) {
+
+        const work = analyzeWork(dailyRecords);
+
+        const lines = Object.entries(work).map(
+            ([name, data]) =>
+                `🚜 ${name}: ${data.count} बार, कुल ₹${data.total}`
+        );
+
+        return `📅 ${question} को:\n${lines.join("\n")}`;
+
+    }
+
+    // General date question
+    return dailyRecords.map(r =>
+        `👨‍🌾 ${r.name || "अज्ञात"} — 🚜 ${r.work || "-"} — ₹${r.total || 0}`
+    ).join("\n");
+
 }
 
 window.analyzeQuestion = analyzeQuestion;
