@@ -285,9 +285,49 @@ async function analyzeQuestion(question = "") {
             : [];
 
     // ---------- DATE ----------
-    const dateMatch = text.match(
-        /(\d{1,2}[\/-]\d{1,2}[\/-]\d{4}|\d{4}[\/-]\d{1,2}[\/-]\d{1,2})/
+    const monthNames = {
+    january: "01", jan: "01", जनवरी: "01",
+    february: "02", feb: "02", फरवरी: "02",
+    march: "03", mar: "03", मार्च: "03",
+    april: "04", apr: "04", अप्रैल: "04",
+    may: "05", मई: "05",
+    june: "06", jun: "06", जून: "06",
+    july: "07", jul: "07", जुलाई: "07",
+    august: "08", aug: "08", अगस्त: "08",
+    september: "09", sep: "09", सितंबर: "09", सितम्बर: "09",
+    october: "10", oct: "10", अक्टूबर: "10",
+    november: "11", nov: "11", नवंबर: "11", नवम्बर: "11",
+    december: "12", dec: "12", दिसंबर: "12", दिसम्बर: "12"
+};
+
+let date = "";
+
+// 24/06/2026 या 24-06-2026
+let numericDate = text.match(
+    /(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/
+);
+
+if (numericDate) {
+
+    date =
+        `${numericDate[3]}-${numericDate[2].padStart(2,"0")}-${numericDate[1].padStart(2,"0")}`;
+
+} else {
+
+    // 24 June 2026 / 24 जून 2026
+    let monthDate = text.match(
+        /(\d{1,2})\s*(january|jan|जनवरी|february|feb|फरवरी|march|mar|मार्च|april|apr|अप्रैल|may|मई|june|jun|जून|july|jul|जुलाई|august|aug|अगस्त|september|sep|सितंबर|सितम्बर|october|oct|अक्टूबर|november|nov|नवंबर|नवम्बर|december|dec|दिसंबर|दिसम्बर)\s*(\d{4})/i
     );
+
+    if (monthDate) {
+
+        const day = monthDate[1].padStart(2,"0");
+        const month = monthNames[monthDate[2].toLowerCase()];
+        const year = monthDate[3];
+
+        date = `${year}-${month}-${day}`;
+    }
+}
 
     if (dateMatch) {
 
