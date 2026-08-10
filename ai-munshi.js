@@ -145,24 +145,32 @@ question = resolveQuestionContext(question);
 // ==========================================
 // CORE FIRST ROUTING
 // ==========================================
+// ==========================================
+// CORE = MAIN CONTROLLER
+// ==========================================
 
-// 1. CORE = मुख्य Controller
 if (typeof processRajRequest === "function") {
 
     try {
 
-        const coreResult = await processRajRequest(question);
+        const coreResult =
+            await processRajRequest(question);
 
         if (coreResult && coreResult.success) {
 
             result.success = true;
             result.source = coreResult.source || "core";
 
-            if (coreResult.reply)
+            if (coreResult.reply) {
                 result.reply = coreResult.reply;
+            }
 
-            if (coreResult.records)
+            if (
+                Array.isArray(coreResult.records) &&
+                coreResult.records.length
+            ) {
                 result.records = coreResult.records;
+            }
 
             updateMunshiContext(
                 question,
@@ -174,42 +182,22 @@ if (typeof processRajRequest === "function") {
 
     } catch (e) {
 
-        console.error("Core Router Error:", e);
+        console.error(
+            "Core Controller Error:",
+            e
+        );
 
     }
 }
 
 
-// 2. Brain = केवल तब जब Core को सही module/result न मिले
-if (typeof think === "function") {
+// ==========================================
+// FALLBACK
+// ==========================================
 
-    try {
+// Core ने जवाब नहीं दिया तो यहाँ से
+// पुराना Gemini fallback चलेगा।
 
-        const r = await think(question);
-
-        if (r && (r.success || r.reply)) {
-
-            result.success = true;
-            result.source = "brain";
-
-            if (r.reply)
-                result.reply = r.reply;
-
-            if (r.records)
-                result.records = r.records;
-
-            return result;
-        }
-
-    } catch (e) {
-
-        console.error("Brain Error:", e);
-
-    }
-}
-
-
-// 3. Gemini = अंतिम fallback
 result.source = "gemini";
 
 return result;
