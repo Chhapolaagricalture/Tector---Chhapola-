@@ -597,7 +597,7 @@ function getModulePriority(intent){
             return ["memory","search","brain","gemini"];
 
         case "analysis":
-            return ["memory","analysis","brain","gemini"];
+    return ["analysis","memory","brain","gemini"];
 
         case "scanner":
             return ["scanner","brain","gemini"];
