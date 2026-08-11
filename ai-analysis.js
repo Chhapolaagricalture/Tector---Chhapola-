@@ -552,66 +552,10 @@ async function analyzeQuestion(question = "") {
         Array.isArray(window.RAJ_AI.memory.records)
             ? window.RAJ_AI.memory.records
             : [];
-// ---------- TOP / MAX QUESTIONS ----------
+const smartReply = answerSmartQuestion(text, records);
 
-if (
-    /सबसे ज्यादा बाकी|सबसे अधिक बाकी|सबसे ज्यादा बकाया|highest balance|most pending|सबसे ज्यादा काम|सबसे अधिक काम|most work|highest work|किस किसान का सबसे/.test(text)
-) {
-
-    // सबसे ज्यादा बाकी
-    if (
-        /बाकी|बकाया|balance|pending/.test(text)
-    ) {
-
-        const farmers = {};
-
-        records.forEach(r => {
-
-            const name = r.name || "अज्ञात";
-
-            const balance =
-                Number(r.total || 0) - Number(r.paid || 0);
-
-            farmers[name] =
-                (farmers[name] || 0) + balance;
-
-        });
-
-        const result = Object.entries(farmers)
-            .sort((a,b) => b[1] - a[1]);
-
-        if (!result.length) {
-            return "राम-राम जी, कोई रिकॉर्ड नहीं मिला।";
-        }
-
-        return `👨‍🌾 सबसे ज्यादा बाकी:\n${result[0][0]} — ₹${result[0][1]}`;
-    }
-
-    // सबसे ज्यादा काम
-    if (
-        /काम|work/.test(text)
-    ) {
-
-        const farmers = {};
-
-        records.forEach(r => {
-
-            const name = r.name || "अज्ञात";
-
-            farmers[name] =
-                (farmers[name] || 0) + 1;
-
-        });
-
-        const result = Object.entries(farmers)
-            .sort((a,b) => b[1] - a[1]);
-
-        if (!result.length) {
-            return "राम-राम जी, कोई रिकॉर्ड नहीं मिला।";
-        }
-
-        return `👨‍🌾 सबसे ज्यादा काम:\n${result[0][0]} — ${result[0][1]} काम`;
-    }
+if (smartReply) {
+    return smartReply;
 }
     // ---------- DATE ----------
     const monthNames = {
