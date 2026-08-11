@@ -28,10 +28,10 @@ function diagnosticCheckModules() {
         typeof initSearch === "function";
 
     modules.language =
-        typeof initLanguage === "function";
+        typeof initLanguageEngine === "function";
 
     modules.learning =
-        typeof initLearning === "function";
+        typeof initLearningEngine === "function";
 
     modules.analysis =
         typeof initAnalysis === "function" ||
