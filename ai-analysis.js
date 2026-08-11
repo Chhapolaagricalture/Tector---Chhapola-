@@ -342,22 +342,18 @@ if (date) {
         return `माफ कीजिए, ${question} का कोई रिकॉर्ड नहीं मिला।`;
 
     }
+// Work question
+if (
+    /काम|work|कार्य|क्या किया|क्या हुआ|कौन सा काम|kam|किसान|किस किस/.test(text)
+) {
 
-    // Work question
-    if (
-        /काम|work|कार्य|क्या किया|क्या हुआ|कौन सा काम|kam/.test(text)
-    ) {
+    const lines = dailyRecords.map(r =>
+        `👨‍🌾 ${r.name || "अज्ञात"} — 🚜 ${r.work || "-"} — ₹${r.total || 0}`
+    );
 
-        const work = analyzeWork(dailyRecords);
+    return `📅 ${question} को:\n${lines.join("\n")}`;
 
-        const lines = Object.entries(work).map(
-            ([name, data]) =>
-                `🚜 ${name}: ${data.count} बार, कुल ₹${data.total}`
-        );
-
-        return `📅 ${question} को:\n${lines.join("\n")}`;
-
-    }
+}
 
     // General date question
     return dailyRecords.map(r =>
