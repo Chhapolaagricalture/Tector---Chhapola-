@@ -122,6 +122,31 @@ function resolveQuestionContext(question){
 }
 async function askMunshi(question){
 question = resolveQuestionContext(question);
+    
+    // ==========================================
+// RAJ AI DIAGNOSTIC COMMAND
+// ==========================================
+
+const diagnosticText = String(question || "")
+    .toLowerCase()
+    .trim();
+
+if (
+    /system.*check|diagnostic|diagnose|सिस्टम.*चेक|सिस्टम.*जांच|सिस्टम.*जाँच|मॉड्यूल.*चेक|module.*check/.test(diagnosticText)
+) {
+
+    if (typeof getRAIAIDiagnosticReport === "function") {
+
+        return {
+            success: true,
+            source: "diagnostic",
+            reply: getRAIAIDiagnosticReport(),
+            records: []
+        };
+
+    }
+
+}
     const result = {
 
         success:false,
