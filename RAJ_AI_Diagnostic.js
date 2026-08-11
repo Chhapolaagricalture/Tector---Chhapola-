@@ -59,7 +59,6 @@ function diagnosticCheckModules() {
 // ==========================================
 // REAL FUNCTION CHECK
 // ==========================================
-
 function diagnosticCheckFunctions() {
 
     return {
@@ -70,6 +69,15 @@ function diagnosticCheckFunctions() {
         search:
             typeof searchFarmerRecords === "function" ||
             typeof universalSearch === "function",
+
+        language:
+            typeof initLanguageEngine === "function" &&
+            typeof processLanguage === "function",
+
+        learning:
+            typeof initLearningEngine === "function" &&
+            typeof learnQuestion === "function" &&
+            typeof autoLearnRecord === "function",
 
         analysis:
             typeof analyzeQuestion === "function",
@@ -82,9 +90,6 @@ function diagnosticCheckFunctions() {
 
         voice:
             typeof startVoiceRecognition === "function",
-
-        learning:
-            typeof learnRajAI === "function",
 
         tools:
             typeof calculateIncome === "function" ||
