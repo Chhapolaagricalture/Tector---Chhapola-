@@ -169,6 +169,36 @@ function buildSearchIndex() {
 }
 
 // ==========================================
+// SEARCH ENGINE INIT
+// ==========================================
+
+function initSearch(){
+
+    if(window.RAJ_AI.search.initialized){
+        return;
+    }
+
+    window.RAJ_AI.search.initialized = true;
+
+    // पुराने cache को साफ करके नया index बनाएं
+    window.RAJ_AI.search.cache.clear();
+    window.RAJ_AI.search.lastQuery = "";
+    window.RAJ_AI.search.lastResult = [];
+
+    // Memory उपलब्ध हो तो index बनाएं
+    if(
+        window.RAJ_AI.memory &&
+        Array.isArray(window.RAJ_AI.memory.records)
+    ){
+        buildSearchIndex();
+    }
+
+    searchLog("Search Engine Ready");
+}
+
+// Public
+window.initSearch = initSearch;
+// ==========================================
 // SMART SEARCH
 // ==========================================
 
