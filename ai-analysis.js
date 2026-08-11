@@ -246,6 +246,275 @@ function generateDailyReport(records = [], date = "") {
 
 }
 // ==========================================
+// SMART QUESTION INTENT
+// TOP / MAX / MIN / COUNT
+// ==========================================
+
+function detectSmartQuestionIntent(text = "") {
+
+    text = String(text)
+        .toLowerCase()
+        .replace(/[?!.,]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    // ---------- HIGHEST BALANCE ----------
+    if (
+        /सबसे\s*ज्यादा\s*(बाकी|बकाया|उधार|बकाया\s*राशि)/.test(text) ||
+        /किस\s*किसान.*(बाकी|बकाया|उधार).*ज्यादा/.test(text) ||
+        /(किस|किसके|किसका).*सबसे\s*ज्यादा.*(बाकी|बकाया|उधार)/.test(text) ||
+        /(highest|maximum|max).*balance/.test(text) ||
+        /(highest|maximum|max).*pending/.test(text) ||
+        /सबसे\s*ज्यादा.*पैसा.*(लेना|बाकी)/.test(text) ||
+        /सबसे\s*ज्यादा.*रकम.*बाकी/.test(text)
+    ) {
+        return "highest_balance";
+    }
+
+    // ---------- HIGHEST WORK COUNT ----------
+    if (
+        /सबसे\s*ज्यादा\s*(काम|कार्य)/.test(text) ||
+        /(किस|किसके|किसने).*सबसे\s*ज्यादा\s*(काम|कार्य)/.test(text) ||
+        /सबसे\s*अधिक\s*(काम|कार्य)/.test(text) ||
+        /(highest|maximum|max).*work/.test(text) ||
+        /most\s*work/.test(text) ||
+        /सबसे\s*ज्यादा.*बार.*काम/.test(text) ||
+        /सबसे\s*ज्यादा.*entry/.test(text) ||
+        /सबसे\s*ज्यादा.*entries/.test(text)
+    ) {
+        return "highest_work";
+    }
+
+    // ---------- HIGHEST TOTAL ----------
+    if (
+        /सबसे\s*ज्यादा\s*(कुल|total|राशि|कमाई|कमाया)/.test(text) ||
+        /(किस|किसका|किसने).*सबसे\s*ज्यादा.*(कुल|total|कमाया|कमाई)/.test(text) ||
+        /(highest|maximum|max).*total/.test(text) ||
+        /सबसे\s*बड़ी.*राशि/.test(text)
+    ) {
+        return "highest_total";
+    }
+
+    // ---------- HIGHEST PAID ----------
+    if (
+        /सबसे\s*ज्यादा\s*(जमा|paid|भुगतान)/.test(text) ||
+        /(किस|किसने|किसका).*सबसे\s*ज्यादा.*(जमा|paid|भुगतान)/.test(text) ||
+        /(highest|maximum|max).*paid/.test(text)
+    ) {
+        return "highest_paid";
+    }
+
+    // ---------- TOTAL FARMERS ----------
+    if (
+        /कुल\s*(कितने|कितना)?\s*(किसान|farmer)/.test(text) ||
+        /कितने\s*(किसान|farmer).*हैं/.test(text) ||
+        /(total|how many).*farmer/.test(text) ||
+        /कुल\s*किसान/.test(text)
+    ) {
+        return "total_farmers";
+    }
+
+    return "";
+}
+
+
+// ==========================================
+// SMART QUESTION ANSWER
+// ==========================================
+
+function answerSmartQuestion(text, records = []) {
+
+    const intent = detectSmartQuestionIntent(text);
+
+    if (!intent) {
+        return null;
+    }
+
+    if (!Array.isArray(records) || !records.length) {
+        return "राम-राम जी, अभी कोई रिकॉर्ड उपलब्ध नहीं है।";
+    }
+
+
+    // ======================================
+    // सबसे ज्यादा बाकी
+    // ======================================
+
+    if (intent === "highest_balance") {
+
+        const farmers = {};
+
+        records.forEach(r => {
+
+            const name =
+                String(r.name || "अज्ञात").trim();
+
+            const total =
+                Number(r.total || 0);
+
+            const paid =
+                Number(r.paid || 0);
+
+            // balance field हो तो भी calculation सही रखेंगे
+            const balance =
+                total - paid;
+
+            if (!farmers[name]) {
+                farmers[name] = {
+                    total: 0,
+                    paid: 0,
+                    balance: 0
+                };
+            }
+
+            farmers[name].total += total;
+            farmers[name].paid += paid;
+            farmers[name].balance += balance;
+
+        });
+
+        const result =
+            Object.entries(farmers)
+                .sort((a,b) =>
+                    b[1].balance - a[1].balance
+                )[0];
+
+        if (!result) {
+            return "राम-राम जी, कोई किसान रिकॉर्ड नहीं मिला।";
+        }
+
+        return `👨‍🌾 ${result[0]} पर सबसे ज्यादा बाकी है: ₹${result[1].balance}`;
+    }
+
+
+    // ======================================
+    // सबसे ज्यादा काम
+    // ======================================
+
+    if (intent === "highest_work") {
+
+        const farmers = {};
+
+        records.forEach(r => {
+
+            const name =
+                String(r.name || "अज्ञात").trim();
+
+            if (!farmers[name]) {
+                farmers[name] = {
+                    count: 0,
+                    total: 0
+                };
+            }
+
+            farmers[name].count++;
+
+            farmers[name].total +=
+                Number(r.total || 0);
+
+        });
+
+        const result =
+            Object.entries(farmers)
+                .sort((a,b) =>
+                    b[1].count - a[1].count
+                )[0];
+
+        if (!result) {
+            return "राम-राम जी, कोई किसान रिकॉर्ड नहीं मिला।";
+        }
+
+        return `👨‍🌾 ${result[0]} ने सबसे ज्यादा काम कराया: ${result[1].count} बार`;
+    }
+
+
+    // ======================================
+    // सबसे ज्यादा कुल
+    // ======================================
+
+    if (intent === "highest_total") {
+
+        const farmers = {};
+
+        records.forEach(r => {
+
+            const name =
+                String(r.name || "अज्ञात").trim();
+
+            farmers[name] =
+                (farmers[name] || 0) +
+                Number(r.total || 0);
+
+        });
+
+        const result =
+            Object.entries(farmers)
+                .sort((a,b) => b[1] - a[1])[0];
+
+        if (!result) {
+            return "राम-राम जी, कोई रिकॉर्ड नहीं मिला।";
+        }
+
+        return `👨‍🌾 ${result[0]} का कुल हिसाब सबसे ज्यादा है: ₹${result[1]}`;
+    }
+
+
+    // ======================================
+    // सबसे ज्यादा जमा
+    // ======================================
+
+    if (intent === "highest_paid") {
+
+        const farmers = {};
+
+        records.forEach(r => {
+
+            const name =
+                String(r.name || "अज्ञात").trim();
+
+            farmers[name] =
+                (farmers[name] || 0) +
+                Number(r.paid || 0);
+
+        });
+
+        const result =
+            Object.entries(farmers)
+                .sort((a,b) => b[1] - a[1])[0];
+
+        if (!result) {
+            return "राम-राम जी, कोई जमा रिकॉर्ड नहीं मिला।";
+        }
+
+        return `👨‍🌾 ${result[0]} ने सबसे ज्यादा जमा किया है: ₹${result[1]}`;
+    }
+
+
+    // ======================================
+    // कुल किसान
+    // ======================================
+
+    if (intent === "total_farmers") {
+
+        const names = new Set();
+
+        records.forEach(r => {
+
+            const name =
+                String(r.name || "").trim();
+
+            if (name) {
+                names.add(name);
+            }
+
+        });
+
+        return `राम-राम जी, हमारे रिकॉर्ड में कुल ${names.size} किसान हैं।`;
+    }
+
+
+    return null;
+        }
+// ==========================================
 // QUESTION ANALYZER
 // ==========================================
 
