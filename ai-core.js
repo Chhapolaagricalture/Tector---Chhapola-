@@ -143,13 +143,13 @@ function checkModules(){
         typeof initSearch === "function";
 
     window.RAJ_AI.core.modules.language =
-        typeof initLanguage === "function";
+        typeof initLanguageEngine === "function";
 
     window.RAJ_AI.core.modules.learning =
-        typeof initLearning === "function";
+        typeof initLearningEngine === "function";
 
     window.RAJ_AI.core.modules.analysis =
-        typeof initAnalysis === "function";
+        typeof initAnalysisEngine === "function";
 
     window.RAJ_AI.core.modules.brain =
         typeof initBrain === "function";
@@ -168,41 +168,84 @@ function checkModules(){
 
 }
 
-// ---------- Initialize ----------
+
 async function initializeModules(){
 
     try{
 
-        if(typeof initRajMemory==="function")
+        // ==============================
+        // MEMORY
+        // ==============================
+        if(typeof initRajMemory === "function"){
             await initRajMemory();
+        }
 
-        if(typeof initSearch==="function")
+        // ==============================
+        // SEARCH
+        // ==============================
+        if(typeof initSearch === "function"){
             initSearch();
+        }
 
-        if(typeof initLanguage==="function")
-            initLanguage();
+        // ==============================
+        // LANGUAGE
+        // ==============================
+        if(typeof initLanguageEngine === "function"){
+            initLanguageEngine();
+        }
 
-        if(typeof initLearning==="function")
-            initLearning();
+        // ==============================
+        // LEARNING
+        // ==============================
+        if(typeof initLearningEngine === "function"){
+            initLearningEngine();
+        }
 
-        if(typeof initAnalysis==="function")
-            initAnalysis();
+        // ==============================
+        // ANALYSIS
+        // ==============================
+        if(typeof initAnalysisEngine === "function"){
+            initAnalysisEngine();
+        }
 
-        if(typeof initBrain==="function")
+        // ==============================
+        // BRAIN
+        // ==============================
+        if(typeof initBrain === "function"){
             initBrain();
+        }
 
-        if(typeof initScanner==="function")
+        // ==============================
+        // SCANNER
+        // ==============================
+        if(typeof initScanner === "function"){
             initScanner();
+        }
 
-        if(typeof initVoiceEngine==="function")
+        // ==============================
+        // VOICE
+        // ==============================
+        if(typeof initVoiceEngine === "function"){
             initVoiceEngine();
+        }
 
-        if(typeof initTools==="function")
+        // ==============================
+        // TOOLS
+        // ==============================
+        if(typeof initTools === "function"){
             initTools();
+        }
 
-        if(typeof initActions==="function")
+        // ==============================
+        // ACTIONS
+        // ==============================
+        if(typeof initActions === "function"){
             initActions();
+        }
 
+        // ==============================
+        // CHECK ALL MODULES
+        // ==============================
         checkModules();
 
         window.RAJ_AI.core.ready = true;
@@ -211,13 +254,13 @@ async function initializeModules(){
 
     }catch(e){
 
-        console.error(e);
+        console.error("[RAJ CORE] Module initialization error:", e);
 
-        window.RAJ_AI.core.statistics.totalErrors++;
+        window.RAJ_AI.core.ready = false;
 
     }
 
-}
+    }
 
 // ---------- Ready ----------
 function isRajAIReady(){
