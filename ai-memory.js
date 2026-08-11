@@ -165,19 +165,44 @@ function clearRajMemory(){
 
 async function initRajMemory(){
 
-    if(window.RAJ_AI.memory.initialized) return;
+    if(window.RAJ_AI.memory.initialized){
+        return;
+    }
 
-    window.RAJ_AI.memory.loading=true;
+    window.RAJ_AI.memory.loading = true;
 
+    // पुराने cache को केवल backup/offline के लिए load करें
     loadMemoryCache();
 
-    window.RAJ_AI.memory.initialized=true;
+    window.RAJ_AI.memory.initialized = true;
 
-    window.RAJ_AI.memory.loading=false;
+    // ==========================================
+    // CENTRAL MEMORY SYNC
+    // Firebase → RAJ_AI.memory.records
+    // ==========================================
 
-    rajLog("Memory Ready");
+    try {
 
-}
+        await refreshRajMemory();
+
+    } catch(e) {
+
+        console.error(
+            "❌ RAJ AI Initial Memory Sync Error:",
+            e
+        );
+
+    }
+
+    window.RAJ_AI.memory.loading = false;
+
+    rajLog(
+        "Memory Ready:",
+        window.RAJ_AI.memory.totalRecords,
+        "records"
+    );
+
+        }
 
 // ==========================================
 // PUBLIC API
