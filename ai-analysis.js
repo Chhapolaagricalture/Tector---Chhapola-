@@ -245,78 +245,141 @@ function generateDailyReport(records = [], date = "") {
     return records.filter(r => (r.date || "") === date);
 
 }
+
 // ==========================================
-// SMART QUESTION INTENT
-// TOP / MAX / MIN / COUNT
+// SMART QUESTION INTENT v2
+// Hindi + Hinglish + English
 // ==========================================
 
 function detectSmartQuestionIntent(text = "") {
 
     text = String(text)
         .toLowerCase()
-        .replace(/[?!.,]/g, " ")
+        .replace(/[?!.,।,:;]/g, " ")
         .replace(/\s+/g, " ")
         .trim();
 
-    // ---------- HIGHEST BALANCE ----------
-    if (
-        /सबसे\s*ज्यादा\s*(बाकी|बकाया|उधार|बकाया\s*राशि)/.test(text) ||
-        /किस\s*किसान.*(बाकी|बकाया|उधार).*ज्यादा/.test(text) ||
-        /(किस|किसके|किसका).*सबसे\s*ज्यादा.*(बाकी|बकाया|उधार)/.test(text) ||
-        /(highest|maximum|max).*balance/.test(text) ||
-        /(highest|maximum|max).*pending/.test(text) ||
-        /सबसे\s*ज्यादा.*पैसा.*(लेना|बाकी)/.test(text) ||
-        /सबसे\s*ज्यादा.*रकम.*बाकी/.test(text)
-    ) {
+    // ======================================
+    // HIGHEST BALANCE / PENDING
+    // ======================================
+
+    const balanceQuestion =
+        (
+            /सबसे\s*ज्यादा.*(बाकी|बकाया|उधार)/.test(text) ||
+            /(बाकी|बकाया|उधार).*सबसे\s*ज्यादा/.test(text) ||
+            /किस.*किसान.*(बाकी|बकाया|उधार).*ज्यादा/.test(text) ||
+            /किस.*का.*सबसे\s*ज्यादा.*(बाकी|बकाया|उधार)/.test(text) ||
+
+            /sabse\s*jyada.*(baki|bakaya|udhar)/.test(text) ||
+            /(baki|bakaya|udhar).*sabse\s*jyada/.test(text) ||
+            /kis.*kisan.*(baki|bakaya|udhar).*jyada/.test(text) ||
+            /kis.*ka.*sabse\s*jyada.*(baki|bakaya|udhar)/.test(text) ||
+
+            /(highest|maximum|max|most).*?(balance|pending)/.test(text) ||
+            /(balance|pending).*?(highest|maximum|max|most)/.test(text)
+        );
+
+    if (balanceQuestion) {
         return "highest_balance";
     }
 
-    // ---------- HIGHEST WORK COUNT ----------
-    if (
-        /सबसे\s*ज्यादा\s*(काम|कार्य)/.test(text) ||
-        /(किस|किसके|किसने).*सबसे\s*ज्यादा\s*(काम|कार्य)/.test(text) ||
-        /सबसे\s*अधिक\s*(काम|कार्य)/.test(text) ||
-        /(highest|maximum|max).*work/.test(text) ||
-        /most\s*work/.test(text) ||
-        /सबसे\s*ज्यादा.*बार.*काम/.test(text) ||
-        /सबसे\s*ज्यादा.*entry/.test(text) ||
-        /सबसे\s*ज्यादा.*entries/.test(text)
-    ) {
+
+    // ======================================
+    // HIGHEST WORK
+    // ======================================
+
+    const workQuestion =
+        (
+            /सबसे\s*ज्यादा.*(काम|कार्य)/.test(text) ||
+            /(काम|कार्य).*सबसे\s*ज्यादा/.test(text) ||
+            /किस.*किसान.*सबसे\s*ज्यादा.*(काम|कार्य)/.test(text) ||
+            /किसने.*सबसे\s*ज्यादा.*(काम|कार्य)/.test(text) ||
+
+            /sabse\s*jyada.*(kam|kaam|work)/.test(text) ||
+            /(kam|kaam|work).*sabse\s*jyada/.test(text) ||
+            /kis.*kisan.*sabse\s*jyada.*(kam|kaam|work)/.test(text) ||
+            /kisne.*sabse\s*jyada.*(kam|kaam|work)/.test(text) ||
+
+            /(highest|maximum|max|most).*work/.test(text) ||
+            /work.*(highest|maximum|max|most)/.test(text) ||
+
+            /सबसे\s*ज्यादा.*(entry|entries)/.test(text) ||
+            /sabse\s*jyada.*(entry|entries)/.test(text)
+        );
+
+    if (workQuestion) {
         return "highest_work";
     }
 
-    // ---------- HIGHEST TOTAL ----------
-    if (
-        /सबसे\s*ज्यादा\s*(कुल|total|राशि|कमाई|कमाया)/.test(text) ||
-        /(किस|किसका|किसने).*सबसे\s*ज्यादा.*(कुल|total|कमाया|कमाई)/.test(text) ||
-        /(highest|maximum|max).*total/.test(text) ||
-        /सबसे\s*बड़ी.*राशि/.test(text)
-    ) {
+
+    // ======================================
+    // HIGHEST TOTAL
+    // ======================================
+
+    const totalQuestion =
+        (
+            /सबसे\s*ज्यादा.*(कुल|राशि|कमाई|कमाया)/.test(text) ||
+            /(कुल|राशि|कमाई).*सबसे\s*ज्यादा/.test(text) ||
+            /किस.*का.*सबसे\s*ज्यादा.*(कुल|राशि|कमाई)/.test(text) ||
+
+            /sabse\s*jyada.*(kul|total|rashi|kamai|kamaya)/.test(text) ||
+            /(kul|total|rashi|kamai).*sabse\s*jyada/.test(text) ||
+            /kis.*ka.*sabse\s*jyada.*(kul|total|rashi|kamai)/.test(text) ||
+
+            /(highest|maximum|max|most).*total/.test(text)
+        );
+
+    if (totalQuestion) {
         return "highest_total";
     }
 
-    // ---------- HIGHEST PAID ----------
-    if (
-        /सबसे\s*ज्यादा\s*(जमा|paid|भुगतान)/.test(text) ||
-        /(किस|किसने|किसका).*सबसे\s*ज्यादा.*(जमा|paid|भुगतान)/.test(text) ||
-        /(highest|maximum|max).*paid/.test(text)
-    ) {
+
+    // ======================================
+    // HIGHEST PAID
+    // ======================================
+
+    const paidQuestion =
+        (
+            /सबसे\s*ज्यादा.*(जमा|भुगतान|paid)/.test(text) ||
+            /(जमा|भुगतान|paid).*सबसे\s*ज्यादा/.test(text) ||
+            /किसने.*सबसे\s*ज्यादा.*(जमा|भुगतान)/.test(text) ||
+
+            /sabse\s*jyada.*(jama|bhugtan|paid)/.test(text) ||
+            /(jama|bhugtan|paid).*sabse\s*jyada/.test(text) ||
+            /kisne.*sabse\s*jyada.*(jama|bhugtan|paid)/.test(text) ||
+
+            /(highest|maximum|max|most).*paid/.test(text)
+        );
+
+    if (paidQuestion) {
         return "highest_paid";
     }
 
-    // ---------- TOTAL FARMERS ----------
-    if (
-        /कुल\s*(कितने|कितना)?\s*(किसान|farmer)/.test(text) ||
-        /कितने\s*(किसान|farmer).*हैं/.test(text) ||
-        /(total|how many).*farmer/.test(text) ||
-        /कुल\s*किसान/.test(text)
-    ) {
+
+    // ======================================
+    // TOTAL FARMERS
+    // ======================================
+
+    const farmerQuestion =
+        (
+            /कुल.*कितने.*किसान/.test(text) ||
+            /कितने.*किसान.*हैं/.test(text) ||
+            /कुल\s*किसान/.test(text) ||
+
+            /kul.*kitne.*kisan/.test(text) ||
+            /kitne.*kisan.*hai/.test(text) ||
+            /kitne.*farmer/.test(text) ||
+
+            /(total|how many).*farmer/.test(text)
+        );
+
+    if (farmerQuestion) {
         return "total_farmers";
     }
 
+
     return "";
 }
-
 
 // ==========================================
 // SMART QUESTION ANSWER
