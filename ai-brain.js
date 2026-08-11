@@ -141,7 +141,11 @@ async function think(question){
 
     if(!question){
 
-        return "कोई प्रश्न नहीं मिला।";
+        return {
+            question: "",
+            records: [],
+            analysis: null
+        };
 
     }
 
@@ -151,10 +155,49 @@ async function think(question){
 
     window.RAJ_AI.brain.statistics.lastQuestion = question;
 
-    
-let processed = question;
-let records = [];
+    // ==========================================
+    // CENTRAL MEMORY → BRAIN
+    // ==========================================
 
+    let processed = String(question).trim();
+
+    let records = [];
+
+    if(
+        window.RAJ_AI &&
+        window.RAJ_AI.memory &&
+        Array.isArray(window.RAJ_AI.memory.records)
+    ){
+
+        records = window.RAJ_AI.memory.records;
+
+    }
+
+    // ==========================================
+    // ANALYSIS
+    // ==========================================
+
+    let analysis = null;
+
+    if(typeof analyzeQuestion === "function"){
+
+        try{
+
+            analysis =
+                await analyzeQuestion(
+                    processed
+                );
+
+        }catch(e){
+
+            console.error(
+                "❌ Brain Analysis Error:",
+                e
+            );
+
+        }
+
+    }
 
     window.RAJ_AI.brain.thinking = false;
 
@@ -162,13 +205,13 @@ let records = [];
 
         question: processed,
 
-        records,
+        records: records,
 
-        analysis:null
+        analysis: analysis
 
     };
 
-}
+        }
 
 // ---------- Answer ----------
 function createAnswer(result){
