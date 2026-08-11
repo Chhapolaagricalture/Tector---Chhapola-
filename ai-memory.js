@@ -634,16 +634,14 @@ function startRajAutoSync() {
 }
 
 // Init
+
 window.addEventListener("load", async () => {
 
     await initRajMemory();
 
-    await refreshRajMemory();
-
     startRajAutoSync();
 
 });
-
 // Public API
 window.refreshRajMemory = refreshRajMemory;
 
