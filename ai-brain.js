@@ -158,46 +158,31 @@ async function think(question){
     // ==========================================
     // CENTRAL MEMORY → BRAIN
     // ==========================================
+let processed = String(question).trim();
 
-    let processed = String(question).trim();
+let records = [];
 
-    let records = [];
+let analysis = null;
 
-    if(
-        window.RAJ_AI &&
-        window.RAJ_AI.memory &&
-        Array.isArray(window.RAJ_AI.memory.records)
-    ){
+if(typeof analyzeQuestion === "function"){
 
-        records = window.RAJ_AI.memory.records;
+    try{
 
-    }
-
-    // ==========================================
-    // ANALYSIS
-    // ==========================================
-
-    let analysis = null;
-
-    if(typeof analyzeQuestion === "function"){
-
-        try{
-
-            analysis =
-                await analyzeQuestion(
-                    processed
-                );
-
-        }catch(e){
-
-            console.error(
-                "❌ Brain Analysis Error:",
-                e
+        analysis =
+            await analyzeQuestion(
+                processed
             );
 
-        }
+    }catch(e){
+
+        console.error(
+            "❌ Brain Analysis Error:",
+            e
+        );
 
     }
+
+}
 
     window.RAJ_AI.brain.thinking = false;
 
