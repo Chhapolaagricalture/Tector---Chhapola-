@@ -28,7 +28,8 @@ async function save() {
 let unit = Number(document.getElementById("unitValue").value);
 let hours = document.getElementById("hours").value;
 let minutes = document.getElementById("minutes").value;
-
+let note = document.getElementById("note").value.trim();
+  
 let time = (hours || minutes)
     ? `${hours || 0} घंटा ${minutes || 0} मिनट`
     : "-";
@@ -70,7 +71,8 @@ let baki = total - paid;
     rate,
     paid,
     total,
-    baki
+    baki,
+    note
 });
 
   document.getElementById("name").value = "";
@@ -85,6 +87,7 @@ document.getElementById("unitValue").value = "";
 document.getElementById("hours").value = "";
 document.getElementById("minutes").value = "";
 document.getElementById("work").dispatchEvent(new Event("change"));
+  document.getElementById("note").value = "";
   alert("डेटा Firebase में सेव हो गया");
 show();
     }
@@ -344,6 +347,7 @@ document.getElementById("minutes").value = "";
 
 document.getElementById("work").dispatchEvent(new Event("change"));
 document.getElementById("crop").dispatchEvent(new Event("change"));
+  document.getElementById("note").value = r.note || "";
   await deleteDoc(doc(window.db, "records", r.id));
   show();
 }
