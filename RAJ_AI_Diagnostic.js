@@ -373,12 +373,15 @@ function getRAIAIDiagnosticReport() {
         total++;
 
         const connected =
-            report.modules[key];
+    report.modules[key];
 
-        const working =
-            report.functions[key];
+const functionGroup =
+    report.functions[key] || {};
 
-        if (connected && working) {
+const working =
+    Object.values(functionGroup).some(Boolean);
+
+if (connected && working) {
 
             lines.push(
                 `${names[key]} — ✅ Working`
