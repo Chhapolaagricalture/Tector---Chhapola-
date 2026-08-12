@@ -489,11 +489,7 @@ doc.text("Balance : rs." + baki, 10, y);
 // ===============================
 // FARMER NOTE
 // ===============================
-
-const farmerNote = prompt(
-    "किसान के लिए Note लिखें (जरूरी नहीं है):"
-);
-
+const farmerNote = r.note || "";
 if (farmerNote && farmerNote.trim()) {
 
     if (y > 245) {
