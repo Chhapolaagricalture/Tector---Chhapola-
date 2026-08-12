@@ -329,116 +329,348 @@ function runRAIAIDiagnostic() {
 // ==========================================
 // MOBILE FRIENDLY REPORT
 // ==========================================
+// ==========================================
+// RAJ AI REAL FUNCTION DIAGNOSTIC v2
+// यह module सिर्फ जांच करता है, records को बदलता नहीं
+// ==========================================
 
-function getRAIAIDiagnosticReport() {
+window.getRAIAIDiagnosticReport = function () {
 
-    const report =
-        runRAIAIDiagnostic();
+    const out = [];
 
-    const names = {
+    const ctx =
+        window.RAJ_AI &&
+        window.RAJ_AI.munshi &&
+        window.RAJ_AI.munshi.context
+            ? window.RAJ_AI.munshi.context
+            : {};
 
-        memory: "🧠 Memory",
+    // आखिरी असली user question
+    const question =
+        ctx.lastQuestion ||
+        (window.RAJ_AI &&
+         window.RAJ_AI.munshi &&
+         window.RAJ_AI.munshi.lastQuestion) ||
+        "";
 
-        search: "🔎 Search",
+    out.push("🔧 RAJ AI REAL FUNCTION DIAGNOSTIC");
+    out.push("━━━━━━━━━━━━━━━━━━━━");
 
-        language: "🌐 Language",
+    if (!question) {
+        out.push("⚠️ अभी कोई पिछला सवाल नहीं मिला।");
+        out.push("पहले कोई सामान्य सवाल पूछें, फिर:");
+        out.push("system check");
+        return out.join("\n");
+    }
 
-        learning: "📚 Learning",
+    out.push(`❓ Test Question: ${question}`);
+    out.push("");
 
-        analysis: "📊 Analysis",
+    // ------------------------------------------
+    // ORIGINAL RECORD COUNT
+    // ------------------------------------------
 
-        brain: "🧠 Brain",
+    const originalRecords =
+        Array.isArray(window.records)
+            ? window.records
+            : [];
 
-        scanner: "📷 Scanner",
+    out.push(
+        `📦 Website Records: ${originalRecords.length}`
+    );
 
-        voice: "🎤 Voice",
+    // ------------------------------------------
+    // TEST RESULT HELPER
+    // ------------------------------------------
 
-        tools: "🛠️ Tools",
+    function testFunction(name, fn) {
 
-        actions: "⚡ Actions"
+        try {
 
-    };
+            const result = fn();
 
-    let lines = [];
+            let count = null;
 
-    lines.push("🔍 RAJ AI SYSTEM DIAGNOSTIC");
+            if (Array.isArray(result)) {
+                count = result.length;
+            }
 
-    lines.push("");
+            if (result && Array.isArray(result.records)) {
+                count = result.records.length;
+            }
 
-    let ok = 0;
-    let total = 0;
+            if (result === null || result === undefined) {
 
-    Object.keys(names).forEach(key => {
+                out.push(`⚠️ ${name} → NULL / NO RESULT`);
+                return {
+                    name,
+                    ok: false,
+                    result,
+                    count
+                };
 
-        total++;
+            }
 
-        const connected =
-    report.modules[key];
-
-const functionGroup =
-    report.functions[key] || {};
-
-const working =
-    Object.values(functionGroup).some(Boolean);
-
-if (connected && working) {
-
-            lines.push(
-                `${names[key]} — ✅ Working`
+            out.push(
+                `🟢 ${name} → OK` +
+                (count !== null
+                    ? ` | Records: ${count}`
+                    : "")
             );
 
-            ok++;
+            return {
+                name,
+                ok: true,
+                result,
+                count
+            };
 
-        } else if (connected) {
+        } catch (e) {
 
-            lines.push(
-                `${names[key]} — ⚠️ Connected`
+            out.push(`🔴 ${name} → ERROR`);
+            out.push(`   ${e.message}`);
+
+            return {
+                name,
+                ok: false,
+                error: e
+            };
+        }
+    }
+
+    // ==========================================
+    // 1. SEARCH FARMER RECORDS
+    // ==========================================
+
+    let farmerSearch = null;
+
+    if (typeof searchFarmerRecords === "function") {
+
+        farmerSearch = testFunction(
+            "searchFarmerRecords()",
+            () => searchFarmerRecords(question)
+        );
+
+    } else {
+
+        out.push("⚪ searchFarmerRecords() → NOT FOUND");
+
+    }
+
+    // ==========================================
+    // 2. UNIVERSAL SEARCH
+    // ==========================================
+
+    let universal = null;
+
+    if (typeof universalSearch === "function") {
+
+        universal = testFunction(
+            "universalSearch()",
+            () => universalSearch(question)
+        );
+
+    } else {
+
+        out.push("⚪ universalSearch() → NOT FOUND");
+
+    }
+
+    // ==========================================
+    // 3. LOCAL AI
+    // ==========================================
+
+    let local = null;
+
+    if (typeof processLocalQuestion === "function") {
+
+        local = testFunction(
+            "processLocalQuestion()",
+            () => processLocalQuestion(question)
+        );
+
+    } else {
+
+        out.push("⚪ processLocalQuestion() → NOT FOUND");
+
+    }
+
+    // ==========================================
+    // 4. ANALYSIS
+    // ==========================================
+
+    let analysis = null;
+
+    if (typeof analyzeQuestion === "function") {
+
+        analysis = testFunction(
+            "analyzeQuestion()",
+            () => analyzeQuestion(question)
+        );
+
+    } else {
+
+        out.push("⚪ analyzeQuestion() → NOT FOUND");
+
+    }
+
+    // ==========================================
+    // RECORD COUNT COMPARISON
+    // ==========================================
+
+    out.push("");
+    out.push("📊 RESULT CHECK");
+    out.push("━━━━━━━━━━━━━━━━━━━━");
+
+    const originalCount = originalRecords.length;
+
+    function showCount(label, test) {
+
+        if (!test) return;
+
+        if (typeof test.count !== "number") return;
+
+        if (test.count === originalCount && originalCount > 1) {
+
+            out.push(
+                `🔴 ${label} ने पूरे ${originalCount} records लौटाए।`
             );
 
         } else {
 
-            lines.push(
-                `${names[key]} — ❌ Not Connected`
+            out.push(
+                `🟢 ${label} → ${test.count} record(s)`
+            );
+
+        }
+    }
+
+    showCount("searchFarmerRecords()", farmerSearch);
+    showCount("universalSearch()", universal);
+    showCount("processLocalQuestion()", local);
+
+    // ==========================================
+    // DATE QUESTION TEST
+    // ==========================================
+
+    const dateQuestion =
+        /date|दिनांक|तारीख|तारिख|को|काम किया|क्या किया|work|काम/i
+            .test(question);
+
+    if (dateQuestion && analysis) {
+
+        if (
+            analysis.result &&
+            typeof analysis.result === "string" &&
+            analysis.result.includes("कोई रिकॉर्ड नहीं")
+        ) {
+
+            out.push("");
+            out.push(
+                "🔴 DATE ANALYSIS → रिकॉर्ड नहीं मिला"
+            );
+
+        } else {
+
+            out.push("");
+            out.push(
+                "🟢 DATE ANALYSIS → response मिला"
             );
 
         }
 
-    });
+    }
 
-    lines.push("");
+    // ==========================================
+    // FINAL BUG DETECTION
+    // ==========================================
 
-    lines.push(
-        `📊 Modules OK: ${ok}/${total}`
+    out.push("");
+    out.push("🚨 FINAL DIAGNOSIS");
+    out.push("━━━━━━━━━━━━━━━━━━━━");
+
+    let bugFound = false;
+
+    if (
+        local &&
+        typeof local.count === "number" &&
+        local.count === originalCount &&
+        originalCount > 1
+    ) {
+
+        bugFound = true;
+
+        out.push(
+            "🔴 BUG: processLocalQuestion()"
+        );
+
+        out.push(
+            `यह ${originalCount} records लौटा रहा है।`
+        );
+
+        out.push(
+            "यहीं सबसे पहले सुधार करना चाहिए।"
+        );
+    }
+
+    if (
+        farmerSearch &&
+        typeof farmerSearch.count === "number" &&
+        farmerSearch.count === originalCount &&
+        originalCount > 1 &&
+        (!local || local.count !== originalCount)
+    ) {
+
+        bugFound = true;
+
+        out.push(
+            "🔴 BUG: searchFarmerRecords()"
+        );
+
+        out.push(
+            `इसने पूरे ${originalCount} records लौटाए।`
+        );
+    }
+
+    if (
+        universal &&
+        typeof universal.count === "number" &&
+        universal.count === originalCount &&
+        originalCount > 1 &&
+        (!local || local.count !== originalCount) &&
+        (!farmerSearch || farmerSearch.count !== originalCount)
+    ) {
+
+        bugFound = true;
+
+        out.push(
+            "🔴 BUG: universalSearch()"
+        );
+
+        out.push(
+            `इसने पूरे ${originalCount} records लौटाए।`
+        );
+    }
+
+    if (!bugFound) {
+
+        out.push(
+            "🟢 इन tested functions में स्पष्ट bug नहीं मिला।"
+        );
+
+        out.push(
+            "अगला suspect AI request / Gemini response flow है।"
+        );
+
+    }
+
+    out.push("");
+    out.push(
+        "ℹ️ Diagnostic ने records में कोई बदलाव नहीं किया।"
     );
 
-    lines.push("");
-
-    lines.push(
-        `🔥 Firebase/Memory Records: ${report.memory.records}`
-    );
-
-    lines.push(
-        `🔗 Core Initialized: ${
-            report.core.initialized ? "✅" : "❌"
-        }`
-    );
-
-    lines.push(
-        `🚀 Core Ready: ${
-            report.core.ready ? "✅" : "❌"
-        }`
-    );
-
-    lines.push("");
-
-    lines.push(
-        `🕒 Check: ${report.time}`
-    );
-
-    return lines.join("\n");
-
-}
-
+    return out.join("\n");
+};
 
 // ==========================================
 // PUBLIC API
