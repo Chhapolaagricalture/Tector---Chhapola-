@@ -333,344 +333,527 @@ function runRAIAIDiagnostic() {
 // RAJ AI REAL FUNCTION DIAGNOSTIC v2
 // यह module सिर्फ जांच करता है, records को बदलता नहीं
 // ==========================================
+// ==========================================
+// RAJ AI REAL FUNCTION DIAGNOSTIC v2
+// INPUT → OUTPUT → RECORD COUNT → FINAL FLOW
+// ==========================================
 
-window.getRAIAIDiagnosticReport = function () {
+async function getRAIAIDiagnosticReport(testQuestion = "Mahipal Ola ka hisab") {
 
-    const out = [];
+    const report = [];
 
-    const ctx =
-        window.RAJ_AI &&
-        window.RAJ_AI.munshi &&
-        window.RAJ_AI.munshi.context
-            ? window.RAJ_AI.munshi.context
-            : {};
+    const add = (icon, text) => {
+        report.push(`${icon} ${text}`);
+    };
 
-    // आखिरी असली user question
-    const question =
-        ctx.lastQuestion ||
-        (window.RAJ_AI &&
-         window.RAJ_AI.munshi &&
-         window.RAJ_AI.munshi.lastQuestion) ||
-        "";
+    add("🔧", "RAJ AI REAL FUNCTION DIAGNOSTIC v2");
+    add("❓", `Test Question: ${testQuestion}`);
+    add("📦", `Website Records: ${
+        Array.isArray(window.records) ? window.records.length : 0
+    }`);
 
-    out.push("🔧 RAJ AI REAL FUNCTION DIAGNOSTIC");
-    out.push("━━━━━━━━━━━━━━━━━━━━");
+    // --------------------------------------
+    // FUNCTION TEST HELPER
+    // --------------------------------------
 
-    if (!question) {
-        out.push("⚠️ अभी कोई पिछला सवाल नहीं मिला।");
-        out.push("पहले कोई सामान्य सवाल पूछें, फिर:");
-        out.push("system check");
-        return out.join("\n");
-    }
+    function inspect(name, output) {
 
-    out.push(`❓ Test Question: ${question}`);
-    out.push("");
+        if (output === undefined || output === null) {
 
-    // ------------------------------------------
-    // ORIGINAL RECORD COUNT
-    // ------------------------------------------
+            add("🔴", `${name}() → NO OUTPUT`);
+            return {
+                ok: false,
+                records: [],
+                output: null
+            };
 
-    const originalRecords =
-        Array.isArray(window.records)
-            ? window.records
-            : [];
+        }
 
-    out.push(
-        `📦 Website Records: ${originalRecords.length}`
-    );
+        if (Array.isArray(output)) {
 
-    // ------------------------------------------
-    // TEST RESULT HELPER
-    // ------------------------------------------
-
-    function testFunction(name, fn) {
-
-        try {
-
-            const result = fn();
-
-            let count = null;
-
-            if (Array.isArray(result)) {
-                count = result.length;
-            }
-
-            if (result && Array.isArray(result.records)) {
-                count = result.records.length;
-            }
-
-            if (result === null || result === undefined) {
-
-                out.push(`⚠️ ${name} → NULL / NO RESULT`);
-                return {
-                    name,
-                    ok: false,
-                    result,
-                    count
-                };
-
-            }
-
-            out.push(
-                `🟢 ${name} → OK` +
-                (count !== null
-                    ? ` | Records: ${count}`
-                    : "")
+            add(
+                output.length
+                    ? "🟡"
+                    : "🟢",
+                `${name}() → ARRAY | Records: ${output.length}`
             );
 
+            // सबसे जरूरी detection
+            if (output.length > 0) {
+
+                const first = output[0];
+
+                if (
+                    typeof first === "object" &&
+                    first !== null
+                ) {
+
+                    add(
+                        "⚠️",
+                        `${name}() ने सीधे RECORD ARRAY लौटाया`
+                    );
+
+                    add(
+                        "🚨",
+                        `POSSIBLE FLOW BUG: ${name}() का output final answer की तरह इस्तेमाल हो सकता है`
+                    );
+                }
+            }
+
             return {
-                name,
                 ok: true,
-                result,
-                count
-            };
-
-        } catch (e) {
-
-            out.push(`🔴 ${name} → ERROR`);
-            out.push(`   ${e.message}`);
-
-            return {
-                name,
-                ok: false,
-                error: e
+                records: output,
+                output
             };
         }
+
+        if (typeof output === "object") {
+
+            add(
+                "🟢",
+                `${name}() → OBJECT`
+            );
+
+            if (output.reply) {
+
+                add(
+                    "✅",
+                    `${name}() ने FINAL REPLY दिया`
+                );
+            }
+
+            if (
+                Array.isArray(output.records)
+            ) {
+
+                add(
+                    "📊",
+                    `${name}() → Records: ${output.records.length}`
+                );
+            }
+
+            return {
+                ok: true,
+                records: Array.isArray(output.records)
+                    ? output.records
+                    : [],
+                output
+            };
+        }
+
+        if (typeof output === "string") {
+
+            add(
+                output.trim()
+                    ? "🟢"
+                    : "🟡",
+                `${name}() → TEXT`
+            );
+
+            if (output.trim()) {
+
+                add(
+                    "💬",
+                    `${name}() ने text answer दिया`
+                );
+            }
+
+            return {
+                ok: true,
+                records: [],
+                output
+            };
+        }
+
+        add(
+            "🟡",
+            `${name}() → ${typeof output}`
+        );
+
+        return {
+            ok: true,
+            records: [],
+            output
+        };
     }
 
-    // ==========================================
-    // 1. SEARCH FARMER RECORDS
-    // ==========================================
+
+    // --------------------------------------
+    // 1. SEARCH FARMER
+    // --------------------------------------
 
     let farmerSearch = null;
 
-    if (typeof searchFarmerRecords === "function") {
+    try {
 
-        farmerSearch = testFunction(
-            "searchFarmerRecords()",
-            () => searchFarmerRecords(question)
+        if (
+            typeof searchFarmerRecords === "function"
+        ) {
+
+            farmerSearch =
+                searchFarmerRecords(testQuestion);
+
+            inspect(
+                "searchFarmerRecords",
+                farmerSearch
+            );
+
+        } else {
+
+            add(
+                "🔴",
+                "searchFarmerRecords() → FUNCTION NOT FOUND"
+            );
+        }
+
+    } catch (e) {
+
+        add(
+            "🔴",
+            `searchFarmerRecords() ERROR → ${e.message}`
         );
-
-    } else {
-
-        out.push("⚪ searchFarmerRecords() → NOT FOUND");
-
     }
 
-    // ==========================================
+
+    // --------------------------------------
     // 2. UNIVERSAL SEARCH
-    // ==========================================
+    // --------------------------------------
 
     let universal = null;
 
-    if (typeof universalSearch === "function") {
+    try {
 
-        universal = testFunction(
-            "universalSearch()",
-            () => universalSearch(question)
+        if (
+            typeof universalSearch === "function"
+        ) {
+
+            universal =
+                universalSearch(testQuestion);
+
+            inspect(
+                "universalSearch",
+                universal
+            );
+
+        } else {
+
+            add(
+                "🔴",
+                "universalSearch() → FUNCTION NOT FOUND"
+            );
+        }
+
+    } catch (e) {
+
+        add(
+            "🔴",
+            `universalSearch() ERROR → ${e.message}`
         );
-
-    } else {
-
-        out.push("⚪ universalSearch() → NOT FOUND");
-
     }
 
-    // ==========================================
+
+    // --------------------------------------
     // 3. LOCAL AI
-    // ==========================================
+    // --------------------------------------
 
     let local = null;
 
-    if (typeof processLocalQuestion === "function") {
+    try {
 
-        local = testFunction(
-            "processLocalQuestion()",
-            () => processLocalQuestion(question)
+        if (
+            typeof processLocalQuestion === "function"
+        ) {
+
+            local =
+                processLocalQuestion(testQuestion);
+
+            const info =
+                inspect(
+                    "processLocalQuestion",
+                    local
+                );
+
+            // CRITICAL BUG DETECTION
+            if (
+                Array.isArray(local) &&
+                local.length > 0
+            ) {
+
+                add(
+                    "🚨",
+                    "CRITICAL: processLocalQuestion() ने RECORD ARRAY लौटाया"
+                );
+
+                add(
+                    "❌",
+                    "askMunshi() इसे final answer मान सकता है"
+                );
+
+                add(
+                    "👉",
+                    "यही पूरा record दिखने की सबसे बड़ी suspect जगह है"
+                );
+            }
+
+        } else {
+
+            add(
+                "⚪",
+                "processLocalQuestion() → NOT FOUND"
+            );
+        }
+
+    } catch (e) {
+
+        add(
+            "🔴",
+            `processLocalQuestion() ERROR → ${e.message}`
         );
-
-    } else {
-
-        out.push("⚪ processLocalQuestion() → NOT FOUND");
-
     }
 
-    // ==========================================
-    // 4. ANALYSIS
-    // ==========================================
+
+    // --------------------------------------
+    // 4. SMART ANSWER
+    // --------------------------------------
+
+    let smart = null;
+
+    try {
+
+        if (
+            typeof answerSmartQuestion === "function"
+        ) {
+
+            const sourceRecords =
+                Array.isArray(farmerSearch) &&
+                farmerSearch.length
+                    ? farmerSearch
+                    : (
+                        Array.isArray(window.records)
+                            ? window.records
+                            : []
+                    );
+
+            smart =
+                answerSmartQuestion(
+                    testQuestion,
+                    sourceRecords
+                );
+
+            inspect(
+                "answerSmartQuestion",
+                smart
+            );
+
+        } else {
+
+            add(
+                "🔴",
+                "answerSmartQuestion() → FUNCTION NOT FOUND"
+            );
+        }
+
+    } catch (e) {
+
+        add(
+            "🔴",
+            `answerSmartQuestion() ERROR → ${e.message}`
+        );
+    }
+
+
+    // --------------------------------------
+    // 5. QUESTION ANALYZER
+    // --------------------------------------
 
     let analysis = null;
 
-    if (typeof analyzeQuestion === "function") {
+    try {
 
-        analysis = testFunction(
-            "analyzeQuestion()",
-            () => analyzeQuestion(question)
+        if (
+            typeof analyzeQuestion === "function"
+        ) {
+
+            analysis =
+                await analyzeQuestion(
+                    testQuestion
+                );
+
+            inspect(
+                "analyzeQuestion",
+                analysis
+            );
+
+        } else {
+
+            add(
+                "🔴",
+                "analyzeQuestion() → FUNCTION NOT FOUND"
+            );
+        }
+
+    } catch (e) {
+
+        add(
+            "🔴",
+            `analyzeQuestion() ERROR → ${e.message}`
+        );
+    }
+
+
+    // --------------------------------------
+    // 6. CORE
+    // --------------------------------------
+
+    let core = null;
+
+    try {
+
+        if (
+            typeof processRajRequest === "function"
+        ) {
+
+            core =
+                await processRajRequest(
+                    testQuestion
+                );
+
+            inspect(
+                "processRajRequest",
+                core
+            );
+
+        } else {
+
+            add(
+                "⚪",
+                "processRajRequest() → NOT FOUND"
+            );
+        }
+
+    } catch (e) {
+
+        add(
+            "🔴",
+            `processRajRequest() ERROR → ${e.message}`
+        );
+    }
+
+
+    // --------------------------------------
+    // FINAL FLOW ANALYSIS
+    // --------------------------------------
+
+    add("🚨", "FINAL DIAGNOSIS");
+    add("━━━━━━━━━━━━━━━━━━━━", "");
+
+    let bugs = 0;
+
+
+    // Local array = dangerous
+    if (
+        Array.isArray(local) &&
+        local.length > 0 &&
+        typeof local[0] === "object"
+    ) {
+
+        bugs++;
+
+        add(
+            "🔴",
+            "LOCAL AI RECORD ARRAY RETURN कर रहा है"
+        );
+
+        add(
+            "👉",
+            "askMunshi() में यही array final answer बनने की संभावना है"
+        );
+    }
+
+
+    // Search records but no answer
+    if (
+        Array.isArray(farmerSearch) &&
+        farmerSearch.length > 0 &&
+        !smart &&
+        !analysis &&
+        !core
+    ) {
+
+        bugs++;
+
+        add(
+            "🟠",
+            "Search records मिल रहे हैं लेकिन कोई final answer नहीं बना"
+        );
+    }
+
+
+    // Analysis text
+    if (
+        typeof analysis === "string" &&
+        analysis.trim()
+    ) {
+
+        add(
+            "🟢",
+            "analyzeQuestion() ने वास्तविक answer दिया"
+        );
+    }
+
+
+    // Smart answer
+    if (
+        typeof smart === "string" &&
+        smart.trim()
+    ) {
+
+        add(
+            "🟢",
+            "answerSmartQuestion() ने वास्तविक answer दिया"
+        );
+    }
+
+
+    // --------------------------------------
+    // FINAL RESULT
+    // --------------------------------------
+
+    if (bugs > 0) {
+
+        add(
+            "🔴",
+            `कुल suspect flow problems: ${bugs}`
         );
 
     } else {
 
-        out.push("⚪ analyzeQuestion() → NOT FOUND");
-
-    }
-
-    // ==========================================
-    // RECORD COUNT COMPARISON
-    // ==========================================
-
-    out.push("");
-    out.push("📊 RESULT CHECK");
-    out.push("━━━━━━━━━━━━━━━━━━━━");
-
-    const originalCount = originalRecords.length;
-
-    function showCount(label, test) {
-
-        if (!test) return;
-
-        if (typeof test.count !== "number") return;
-
-        if (test.count === originalCount && originalCount > 1) {
-
-            out.push(
-                `🔴 ${label} ने पूरे ${originalCount} records लौटाए।`
-            );
-
-        } else {
-
-            out.push(
-                `🟢 ${label} → ${test.count} record(s)`
-            );
-
-        }
-    }
-
-    showCount("searchFarmerRecords()", farmerSearch);
-    showCount("universalSearch()", universal);
-    showCount("processLocalQuestion()", local);
-
-    // ==========================================
-    // DATE QUESTION TEST
-    // ==========================================
-
-    const dateQuestion =
-        /date|दिनांक|तारीख|तारिख|को|काम किया|क्या किया|work|काम/i
-            .test(question);
-
-    if (dateQuestion && analysis) {
-
-        if (
-            analysis.result &&
-            typeof analysis.result === "string" &&
-            analysis.result.includes("कोई रिकॉर्ड नहीं")
-        ) {
-
-            out.push("");
-            out.push(
-                "🔴 DATE ANALYSIS → रिकॉर्ड नहीं मिला"
-            );
-
-        } else {
-
-            out.push("");
-            out.push(
-                "🟢 DATE ANALYSIS → response मिला"
-            );
-
-        }
-
-    }
-
-    // ==========================================
-    // FINAL BUG DETECTION
-    // ==========================================
-
-    out.push("");
-    out.push("🚨 FINAL DIAGNOSIS");
-    out.push("━━━━━━━━━━━━━━━━━━━━");
-
-    let bugFound = false;
-
-    if (
-        local &&
-        typeof local.count === "number" &&
-        local.count === originalCount &&
-        originalCount > 1
-    ) {
-
-        bugFound = true;
-
-        out.push(
-            "🔴 BUG: processLocalQuestion()"
+        add(
+            "🟢",
+            "इन functions में direct flow bug नहीं मिला"
         );
 
-        out.push(
-            `यह ${originalCount} records लौटा रहा है।`
-        );
-
-        out.push(
-            "यहीं सबसे पहले सुधार करना चाहिए।"
+        add(
+            "🔍",
+            "अब अगला suspect: Gemini/API response या handleSend() final response flow"
         );
     }
 
-    if (
-        farmerSearch &&
-        typeof farmerSearch.count === "number" &&
-        farmerSearch.count === originalCount &&
-        originalCount > 1 &&
-        (!local || local.count !== originalCount)
-    ) {
 
-        bugFound = true;
-
-        out.push(
-            "🔴 BUG: searchFarmerRecords()"
-        );
-
-        out.push(
-            `इसने पूरे ${originalCount} records लौटाए।`
-        );
-    }
-
-    if (
-        universal &&
-        typeof universal.count === "number" &&
-        universal.count === originalCount &&
-        originalCount > 1 &&
-        (!local || local.count !== originalCount) &&
-        (!farmerSearch || farmerSearch.count !== originalCount)
-    ) {
-
-        bugFound = true;
-
-        out.push(
-            "🔴 BUG: universalSearch()"
-        );
-
-        out.push(
-            `इसने पूरे ${originalCount} records लौटाए।`
-        );
-    }
-
-    if (!bugFound) {
-
-        out.push(
-            "🟢 इन tested functions में स्पष्ट bug नहीं मिला।"
-        );
-
-        out.push(
-            "अगला suspect AI request / Gemini response flow है।"
-        );
-
-    }
-
-    out.push("");
-    out.push(
-        "ℹ️ Diagnostic ने records में कोई बदलाव नहीं किया।"
+    add(
+        "🛡️",
+        "Diagnostic ने कोई record modify/delete नहीं किया"
     );
 
-    return out.join("\n");
-};
+    return report.join("\n");
+}
+
+
+// GLOBAL
+window.getRAIAIDiagnosticReport =
+    getRAIAIDiagnosticReport;
+
+
 
 // ==========================================
 // PUBLIC API
