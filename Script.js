@@ -487,12 +487,20 @@ doc.text("Paid Amount : rs." + paid, 10, y);
 y += 8;
 doc.text("Balance : rs." + baki, 10, y);
 // ===============================
-// FARMER NOTE
+// FARMER NOTES
 // ===============================
-const farmerNote = r.note || "";
-if (farmerNote && farmerNote.trim()) {
 
-    if (y > 245) {
+const farmerNotes = window.records
+  .filter(x =>
+    x.name.trim().toLowerCase() === farmer.trim().toLowerCase() &&
+    x.note &&
+    x.note.trim()
+  )
+  .map(x => `${x.date} : ${x.note.trim()}`);
+
+if (farmerNotes.length > 0) {
+
+    if (y > 235) {
         doc.addPage();
         y = 20;
     }
@@ -500,16 +508,15 @@ if (farmerNote && farmerNote.trim()) {
     y += 12;
 
     doc.setFontSize(13);
-    doc.text("Farmer Note / किसान नोट", 10, y);
+    doc.text("Farmer Notes / किसान नोट", 10, y);
 
     y += 8;
 
     doc.setFontSize(11);
 
-    const noteLines = doc.splitTextToSize(
-        farmerNote.trim(),
-        250
-    );
+    const noteText = farmerNotes.join("\n");
+
+    const noteLines = doc.splitTextToSize(noteText, 250);
 
     doc.text(noteLines, 10, y);
 
