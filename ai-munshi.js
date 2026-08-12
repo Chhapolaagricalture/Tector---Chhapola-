@@ -142,7 +142,7 @@ if (
         return {
             success: true,
             source: "diagnostic",
-            reply: await getRAIAIDiagnosticReport(question),
+            reply: getRAIAIDiagnosticReport(),
             records: []
         };
 
