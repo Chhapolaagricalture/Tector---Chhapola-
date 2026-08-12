@@ -330,524 +330,164 @@ function runRAIAIDiagnostic() {
 // MOBILE FRIENDLY REPORT
 // ==========================================
 // ==========================================
-// RAJ AI REAL FUNCTION DIAGNOSTIC v2
-// यह module सिर्फ जांच करता है, records को बदलता नहीं
-// ==========================================
-// ==========================================
-// RAJ AI REAL FUNCTION DIAGNOSTIC v2
-// INPUT → OUTPUT → RECORD COUNT → FINAL FLOW
-// ==========================================
-async function getRAIAIDiagnosticReport(testQuestion){
+
+function getRAIAIDiagnosticReport() {
+
     const report = [];
 
     const add = (icon, text) => {
         report.push(`${icon} ${text}`);
     };
 
-    add("🔧", "RAJ AI REAL FUNCTION DIAGNOSTIC v2");
-    add("❓", `Test Question: ${testQuestion}`);
-    add("📦", `Website Records: ${
-        Array.isArray(window.records) ? window.records.length : 0
-    }`);
+    add("🔧", "RAJ AI DIAGNOSTIC - READ ONLY");
 
-    // --------------------------------------
-    // FUNCTION TEST HELPER
-    // --------------------------------------
+    // ==============================
+    // 1. MODULE CHECK
+    // ==============================
 
-    function inspect(name, output) {
+    const modules = diagnosticCheckModules();
 
-        if (output === undefined || output === null) {
+    Object.keys(modules).forEach(name => {
 
-            add("🔴", `${name}() → NO OUTPUT`);
-            return {
-                ok: false,
-                records: [],
-                output: null
-            };
+        add(
+            modules[name] ? "🟢" : "🔴",
+            `Module ${name}: ${modules[name] ? "CONNECTED" : "MISSING"}`
+        );
 
-        }
+    });
 
-        if (Array.isArray(output)) {
+
+    // ==============================
+    // 2. FUNCTION CHECK
+    // ==============================
+
+    const functions = diagnosticCheckFunctions();
+
+    Object.keys(functions).forEach(group => {
+
+        const groupData = functions[group];
+
+        Object.keys(groupData).forEach(fn => {
 
             add(
-                output.length
-                    ? "🟡"
-                    : "🟢",
-                `${name}() → ARRAY | Records: ${output.length}`
+                groupData[fn] ? "🟢" : "🔴",
+                `${group}.${fn}: ${groupData[fn] ? "AVAILABLE" : "MISSING"}`
             );
 
-            // सबसे जरूरी detection
-            if (output.length > 0) {
+        });
 
-                const first = output[0];
+    });
 
-                if (
-                    typeof first === "object" &&
-                    first !== null
-                ) {
 
-                    add(
-                        "⚠️",
-                        `${name}() ने सीधे RECORD ARRAY लौटाया`
-                    );
+    // ==============================
+    // 3. MEMORY CHECK
+    // ==============================
 
-                    add(
-                        "🚨",
-                        `POSSIBLE FLOW BUG: ${name}() का output final answer की तरह इस्तेमाल हो सकता है`
-                    );
-                }
-            }
+    const memory = diagnosticCheckMemoryData();
 
-            return {
-                ok: true,
-                records: output,
-                output
-            };
-        }
+    add(
+        memory.available ? "🟢" : "🟠",
+        `Memory Records: ${memory.records}`
+    );
 
-        if (typeof output === "object") {
 
-            add(
-                "🟢",
-                `${name}() → OBJECT`
-            );
+    // ==============================
+    // 4. WEBSITE RECORDS
+    // ==============================
 
-            if (output.reply) {
-
-                add(
-                    "✅",
-                    `${name}() ने FINAL REPLY दिया`
-                );
-            }
-
-            if (
-                Array.isArray(output.records)
-            ) {
-
-                add(
-                    "📊",
-                    `${name}() → Records: ${output.records.length}`
-                );
-            }
-
-            return {
-                ok: true,
-                records: Array.isArray(output.records)
-                    ? output.records
-                    : [],
-                output
-            };
-        }
-
-        if (typeof output === "string") {
-
-            add(
-                output.trim()
-                    ? "🟢"
-                    : "🟡",
-                `${name}() → TEXT`
-            );
-
-            if (output.trim()) {
-
-                add(
-                    "💬",
-                    `${name}() ने text answer दिया`
-                );
-            }
-
-            return {
-                ok: true,
-                records: [],
-                output
-            };
-        }
-
-        add(
-            "🟡",
-            `${name}() → ${typeof output}`
-        );
-
-        return {
-            ok: true,
-            records: [],
-            output
-        };
-    }
-
-
-    // --------------------------------------
-    // 1. SEARCH FARMER
-    // --------------------------------------
-
-    let farmerSearch = null;
-
-    try {
-
-        if (
-            typeof searchFarmerRecords === "function"
-        ) {
-
-            farmerSearch =
-                searchFarmerRecords(testQuestion);
-
-            inspect(
-                "searchFarmerRecords",
-                farmerSearch
-            );
-
-        } else {
-
-            add(
-                "🔴",
-                "searchFarmerRecords() → FUNCTION NOT FOUND"
-            );
-        }
-
-    } catch (e) {
-
-        add(
-            "🔴",
-            `searchFarmerRecords() ERROR → ${e.message}`
-        );
-    }
-
-
-    // --------------------------------------
-    // 2. UNIVERSAL SEARCH
-    // --------------------------------------
-
-    let universal = null;
-
-    try {
-
-        if (
-            typeof universalSearch === "function"
-        ) {
-
-            universal =
-                universalSearch(testQuestion);
-
-            inspect(
-                "universalSearch",
-                universal
-            );
-
-        } else {
-
-            add(
-                "🔴",
-                "universalSearch() → FUNCTION NOT FOUND"
-            );
-        }
-
-    } catch (e) {
-
-        add(
-            "🔴",
-            `universalSearch() ERROR → ${e.message}`
-        );
-    }
-
-
-    // --------------------------------------
-    // 3. LOCAL AI
-    // --------------------------------------
-
-    let local = null;
-
-    try {
-
-        if (
-            typeof processLocalQuestion === "function"
-        ) {
-
-            local =
-                processLocalQuestion(testQuestion);
-
-            const info =
-                inspect(
-                    "processLocalQuestion",
-                    local
-                );
-
-            // CRITICAL BUG DETECTION
-            if (
-                Array.isArray(local) &&
-                local.length > 0
-            ) {
-
-                add(
-                    "🚨",
-                    "CRITICAL: processLocalQuestion() ने RECORD ARRAY लौटाया"
-                );
-
-                add(
-                    "❌",
-                    "askMunshi() इसे final answer मान सकता है"
-                );
-
-                add(
-                    "👉",
-                    "यही पूरा record दिखने की सबसे बड़ी suspect जगह है"
-                );
-            }
-
-        } else {
-
-            add(
-                "⚪",
-                "processLocalQuestion() → NOT FOUND"
-            );
-        }
-
-    } catch (e) {
-
-        add(
-            "🔴",
-            `processLocalQuestion() ERROR → ${e.message}`
-        );
-    }
-
-
-    // --------------------------------------
-    // 4. SMART ANSWER
-    // --------------------------------------
-
-    let smart = null;
-
-    try {
-
-        if (
-            typeof answerSmartQuestion === "function"
-        ) {
-
-            const sourceRecords =
-                Array.isArray(farmerSearch) &&
-                farmerSearch.length
-                    ? farmerSearch
-                    : (
-                        Array.isArray(window.records)
-                            ? window.records
-                            : []
-                    );
-
-            smart =
-                answerSmartQuestion(
-                    testQuestion,
-                    sourceRecords
-                );
-
-            inspect(
-                "answerSmartQuestion",
-                smart
-            );
-
-        } else {
-
-            add(
-                "🔴",
-                "answerSmartQuestion() → FUNCTION NOT FOUND"
-            );
-        }
-
-    } catch (e) {
-
-        add(
-            "🔴",
-            `answerSmartQuestion() ERROR → ${e.message}`
-        );
-    }
-
-
-    // --------------------------------------
-    // 5. QUESTION ANALYZER
-    // --------------------------------------
-
-    let analysis = null;
-
-    try {
-
-        if (
-            typeof analyzeQuestion === "function"
-        ) {
-
-            analysis =
-                await analyzeQuestion(
-                    testQuestion
-                );
-
-            inspect(
-                "analyzeQuestion",
-                analysis
-            );
-
-        } else {
-
-            add(
-                "🔴",
-                "analyzeQuestion() → FUNCTION NOT FOUND"
-            );
-        }
-
-    } catch (e) {
-
-        add(
-            "🔴",
-            `analyzeQuestion() ERROR → ${e.message}`
-        );
-    }
-
-
-    // --------------------------------------
-    // 6. CORE
-    // --------------------------------------
-
-    let core = null;
-
-    try {
-
-        if (
-            typeof processRajRequest === "function"
-        ) {
-
-            core =
-                await processRajRequest(
-                    testQuestion
-                );
-
-            inspect(
-                "processRajRequest",
-                core
-            );
-
-        } else {
-
-            add(
-                "⚪",
-                "processRajRequest() → NOT FOUND"
-            );
-        }
-
-    } catch (e) {
-
-        add(
-            "🔴",
-            `processRajRequest() ERROR → ${e.message}`
-        );
-    }
-
-
-    // --------------------------------------
-    // FINAL FLOW ANALYSIS
-    // --------------------------------------
-
-    add("🚨", "FINAL DIAGNOSIS");
-    add("━━━━━━━━━━━━━━━━━━━━", "");
-
-    let bugs = 0;
-
-
-    // Local array = dangerous
-    if (
-        Array.isArray(local) &&
-        local.length > 0 &&
-        typeof local[0] === "object"
-    ) {
-
-        bugs++;
-
-        add(
-            "🔴",
-            "LOCAL AI RECORD ARRAY RETURN कर रहा है"
-        );
-
-        add(
-            "👉",
-            "askMunshi() में यही array final answer बनने की संभावना है"
-        );
-    }
-
-
-    // Search records but no answer
-    if (
-        Array.isArray(farmerSearch) &&
-        farmerSearch.length > 0 &&
-        !smart &&
-        !analysis &&
-        !core
-    ) {
-
-        bugs++;
-
-        add(
-            "🟠",
-            "Search records मिल रहे हैं लेकिन कोई final answer नहीं बना"
-        );
-    }
-
-
-    // Analysis text
-    if (
-        typeof analysis === "string" &&
-        analysis.trim()
-    ) {
+    if (Array.isArray(window.records)) {
 
         add(
             "🟢",
-            "analyzeQuestion() ने वास्तविक answer दिया"
-        );
-    }
-
-
-    // Smart answer
-    if (
-        typeof smart === "string" &&
-        smart.trim()
-    ) {
-
-        add(
-            "🟢",
-            "answerSmartQuestion() ने वास्तविक answer दिया"
-        );
-    }
-
-
-    // --------------------------------------
-    // FINAL RESULT
-    // --------------------------------------
-
-    if (bugs > 0) {
-
-        add(
-            "🔴",
-            `कुल suspect flow problems: ${bugs}`
+            `window.records: ${window.records.length} records`
         );
 
     } else {
 
         add(
-            "🟢",
-            "इन functions में direct flow bug नहीं मिला"
+            "🔴",
+            "window.records: NOT AVAILABLE"
         );
 
-        add(
-            "🔍",
-            "अब अगला suspect: Gemini/API response या handleSend() final response flow"
-        );
     }
 
 
+    // ==============================
+    // 5. CORE
+    // ==============================
+
+    const core = diagnosticCheckCore();
+
     add(
-        "🛡️",
-        "Diagnostic ने कोई record modify/delete नहीं किया"
+        core.available ? "🟢" : "🔴",
+        `RAJ AI Core: ${
+            core.available
+                ? (core.ready ? "READY" : "CONNECTED BUT NOT READY")
+                : "NOT CONNECTED"
+        }`
     );
+
+
+    // ==============================
+    // 6. IMPORTANT FLOW CHECK
+    // ==============================
+
+    add("🔍", "FINAL FLOW CHECK");
+
+    if (typeof askMunshi === "function") {
+        add("🟢", "askMunshi() available");
+    } else {
+        add("🔴", "askMunshi() missing");
+    }
+
+    if (typeof processLocalQuestion === "function") {
+        add("🟢", "processLocalQuestion() available");
+    } else {
+        add("🟠", "processLocalQuestion() missing");
+    }
+
+    if (typeof searchFarmerRecords === "function") {
+        add("🟢", "searchFarmerRecords() available");
+    } else {
+        add("🔴", "searchFarmerRecords() missing");
+    }
+
+    if (typeof universalSearch === "function") {
+        add("🟢", "universalSearch() available");
+    } else {
+        add("🔴", "universalSearch() missing");
+    }
+
+    if (typeof analyzeQuestion === "function") {
+        add("🟢", "analyzeQuestion() available");
+    } else {
+        add("🔴", "analyzeQuestion() missing");
+    }
+
+    if (typeof callGeminiAPI === "function") {
+        add("🟢", "callGeminiAPI() available");
+    } else {
+        add("🔴", "callGeminiAPI() missing");
+    }
+
+
+    // ==============================
+    // 7. SAFETY
+    // ==============================
+
+    add("🛡️", "Diagnostic ने कोई AI/search function execute नहीं किया");
+    add("🛡️", "Diagnostic ने कोई record modify/delete नहीं किया");
+    add("🛡️", "Diagnostic ने कोई search result generate नहीं किया");
+
+
+    // ==============================
+    // 8. FINAL
+    // ==============================
+
+    add("✅", "Diagnostic check complete");
 
     return report.join("\n");
 }
-
-
-
 // ==========================================
 // PUBLIC API
 // ==========================================
