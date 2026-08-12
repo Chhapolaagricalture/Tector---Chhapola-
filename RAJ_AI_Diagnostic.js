@@ -88,9 +88,11 @@ function diagnosticCheckFunctions() {
         scanner:
             typeof startScanner === "function",
 
-        voice:
-            typeof startVoiceRecognition === "function",
-
+       voice:
+    typeof startListening === "function" &&
+    typeof stopListening === "function" &&
+    typeof speakText === "function",
+        
         tools:
             typeof calculateIncome === "function" ||
             typeof calculateBalance === "function",
