@@ -126,7 +126,9 @@ question = resolveQuestionContext(question);
     // ==========================================
 // RAJ AI DIAGNOSTIC COMMAND
 // ==========================================
-
+if (!/system.*check|diagnostic|diagnose|सिस्टम.*चेक|सिस्टम.*जांच|मॉड्यूल.*चेक|module.*check/i.test(String(question))) {
+    window.RAJ_AI.munshi.context.lastQuestion = question;
+}
 const diagnosticText = String(question || "")
     .toLowerCase()
     .trim();
