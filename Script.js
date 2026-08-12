@@ -522,19 +522,26 @@ if (farmerNotes.length > 0) {
 
     y += (noteLines.length * 6) + 5;
 }
+// ===============================
+// CONTACT
+// ===============================
 
-  y += 15;
-if (y > 250) {
+if (y > 240) {
     doc.addPage();
-    y = 20;
+    y = 30;
+} else {
+    y += 15;
 }
+
+doc.setFontSize(12);
 doc.text("Contact", 180, y);
 
-y += 10;
+y += 8;
 doc.text("Chhapola Agriculture", 180, y);
 
-y += 10;
+y += 8;
 doc.text("Mobile : 9079096875", 180, y);
+
 
 doc.setFont("helvetica", "normal");
 
