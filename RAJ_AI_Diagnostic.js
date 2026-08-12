@@ -337,7 +337,7 @@ function runRAIAIDiagnostic() {
 // RAJ AI REAL FUNCTION DIAGNOSTIC v2
 // INPUT → OUTPUT → RECORD COUNT → FINAL FLOW
 // ==========================================
-async function getRAIAIDiagnosticReport(testQuestion)
+async function getRAIAIDiagnosticReport(testQuestion){
     const report = [];
 
     const add = (icon, text) => {
