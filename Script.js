@@ -482,6 +482,39 @@ doc.text("Paid Amount : rs." + paid, 10, y);
 
 y += 8;
 doc.text("Balance : rs." + baki, 10, y);
+// ===============================
+// FARMER NOTE
+// ===============================
+
+const farmerNote = prompt(
+    "किसान के लिए Note लिखें (जरूरी नहीं है):"
+);
+
+if (farmerNote && farmerNote.trim()) {
+
+    if (y > 245) {
+        doc.addPage();
+        y = 20;
+    }
+
+    y += 12;
+
+    doc.setFontSize(13);
+    doc.text("Farmer Note / किसान नोट", 10, y);
+
+    y += 8;
+
+    doc.setFontSize(11);
+
+    const noteLines = doc.splitTextToSize(
+        farmerNote.trim(),
+        250
+    );
+
+    doc.text(noteLines, 10, y);
+
+    y += (noteLines.length * 6) + 5;
+}
 
   y += 15;
 if (y > 250) {
