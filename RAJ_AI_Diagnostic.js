@@ -61,49 +61,164 @@ function diagnosticCheckModules() {
 // ==========================================
 function diagnosticCheckFunctions() {
 
-    return {
+    const result = {};
 
-        memory:
+    // ==============================
+    // MEMORY
+    // ==============================
+    result.memory = {
+        searchMemory:
             typeof searchMemory === "function",
 
-        search:
-            typeof searchFarmerRecords === "function" ||
-            typeof universalSearch === "function",
-
-        language:
-            typeof initLanguageEngine === "function" &&
-            typeof processLanguage === "function",
-
-        learning:
-            typeof initLearningEngine === "function" &&
-            typeof learnQuestion === "function" &&
-            typeof autoLearnRecord === "function",
-
-        analysis:
-            typeof analyzeQuestion === "function",
-
-        brain:
-            typeof think === "function",
-
-        scanner:
-            typeof startScanner === "function",
-
-       voice:
-    typeof startListening === "function" &&
-    typeof stopListening === "function" &&
-    typeof speakText === "function",
-        
-        tools:
-            typeof calculateIncome === "function" ||
-            typeof calculateBalance === "function",
-
-        actions:
-            typeof initActions === "function"
-
+        refreshRajMemory:
+            typeof refreshRajMemory === "function"
     };
 
-}
 
+    // ==============================
+    // SEARCH
+    // ==============================
+    result.search = {
+        searchFarmerRecords:
+            typeof searchFarmerRecords === "function",
+
+        universalSearch:
+            typeof universalSearch === "function"
+    };
+
+
+    // ==============================
+    // LANGUAGE
+    // ==============================
+    result.language = {
+        processLanguage:
+            typeof processLanguage === "function",
+
+        detectLanguage:
+            typeof detectLanguage === "function",
+
+        normalizeLanguageText:
+            typeof normalizeLanguageText === "function",
+
+        smartNameMatch:
+            typeof smartNameMatch === "function",
+
+        correctSpelling:
+            typeof correctSpelling === "function"
+    };
+
+
+    // ==============================
+    // LEARNING
+    // ==============================
+    result.learning = {
+        init:
+            typeof initLearningEngine === "function",
+
+        learnQuestion:
+            typeof learnQuestion === "function",
+
+        learnFarmer:
+            typeof learnFarmer === "function",
+
+        getLearningStatistics:
+            typeof getLearningStatistics === "function"
+    };
+
+
+    // ==============================
+    // ANALYSIS
+    // ==============================
+    result.analysis = {
+        init:
+            typeof initAnalysisEngine === "function" ||
+            typeof initAnalysis === "function",
+
+        analyzeQuestion:
+            typeof analyzeQuestion === "function"
+    };
+
+
+    // ==============================
+    // BRAIN
+    // ==============================
+    result.brain = {
+        init:
+            typeof initBrain === "function",
+
+        think:
+            typeof think === "function"
+    };
+
+
+    // ==============================
+    // SCANNER
+    // ==============================
+    result.scanner = {
+        init:
+            typeof initScanner === "function",
+
+        startScanner:
+            typeof startScanner === "function"
+    };
+
+
+    // ==============================
+    // VOICE
+    // ==============================
+    result.voice = {
+        init:
+            typeof initVoiceEngine === "function",
+
+        startListening:
+            typeof startListening === "function",
+
+        speakText:
+            typeof speakText === "function"
+    };
+
+
+    // ==============================
+    // TOOLS
+    // ==============================
+    result.tools = {
+        init:
+            typeof initTools === "function",
+
+        calculateIncome:
+            typeof calculateIncome === "function",
+
+        calculateBalance:
+            typeof calculateBalance === "function"
+    };
+
+
+    // ==============================
+    // ACTIONS
+    // ==============================
+    result.actions = {
+        init:
+            typeof initActions === "function"
+    };
+
+
+    // ==============================
+    // MUNSHI CONNECTION
+    // ==============================
+    result.munshi = {
+        askMunshi:
+            typeof askMunshi === "function",
+
+        processRajRequest:
+            typeof processRajRequest === "function",
+
+        callGeminiAPI:
+            typeof callGeminiAPI === "function"
+    };
+
+
+    return result;
+        }
 
 // ==========================================
 // DATA CHECK
