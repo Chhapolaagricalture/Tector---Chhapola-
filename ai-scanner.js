@@ -1420,7 +1420,7 @@ async function processScannedRecords(records){
 }
 
 window.processScannedRecords = processScannedRecords;
-showScannedPreview(records);
+
 // ==========================================
 // SCANNER PREVIEW + CONFIRM SAVE
 // ==========================================
