@@ -559,13 +559,13 @@ logo.onload = function () {
     const logoH = 32;
 
     // बीच में
-    const logoX = (297 - logoW) / 2;
+    const logoX = (297 - logoW) / 2+ 20;
 
     doc.addImage(
         logo,
         "PNG",
         logoX,
-        y - 20,
+        y - 30,
         logoW,
         logoH
     );
