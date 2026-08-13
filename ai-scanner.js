@@ -1410,13 +1410,10 @@ async function processScannedRecords(records){
     // पहले सभी स्कैन की गई एंट्री दिखेंगी
     window.scannedPendingRecords = records;
 
-    alert(
-        "✅ स्कैन पूरा हो गया\n\n" +
-        "कुल एंट्री : " + records.length +
-        "\n\nपहले सभी एंट्री जाँचें और Edit करें।"
-    );
+showScannedPreview(records);
 
-    return records;
+return records;
+
 }
 
 window.processScannedRecords = processScannedRecords;
