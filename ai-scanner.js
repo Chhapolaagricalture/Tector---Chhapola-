@@ -1402,40 +1402,261 @@ window.applyScannerRate = applyScannerRate;
 async function processScannedRecords(records){
 
     if(!records || !records.length){
-
         alert("कोई रिकॉर्ड नहीं मिला।");
+        return;
+    }
 
+    // अभी रिकॉर्ड सेव नहीं होंगे
+    // पहले सभी स्कैन की गई एंट्री दिखेंगी
+    window.scannedPendingRecords = records;
+
+    alert(
+        "✅ स्कैन पूरा हो गया\n\n" +
+        "कुल एंट्री : " + records.length +
+        "\n\nपहले सभी एंट्री जाँचें और Edit करें।"
+    );
+
+    return records;
+}
+
+window.processScannedRecords = processScannedRecords;
+showScannedPreview(records);
+// ==========================================
+// SCANNER PREVIEW + CONFIRM SAVE
+// ==========================================
+
+function showScannedPreview(records) {
+
+    const box = document.getElementById("scannerPreview");
+
+    if (!box) {
+        alert("Scanner Preview Box नहीं मिला।");
+        return;
+    }
+
+    let html = `
+        <h3>📋 Scan की गई Entries</h3>
+        <p>कुल Entries: <b>${records.length}</b></p>
+    `;
+
+    records.forEach((r, i) => {
+
+        html += `
+        <div class="scanner-entry"
+             style="border:1px solid #ccc;
+                    padding:10px;
+                    margin:10px 0;
+                    border-radius:8px;">
+
+            <b>Entry ${i + 1}</b>
+
+            <br>
+
+            किसान:
+            <input id="scan_name_${i}"
+                   value="${r.farmer_name || ""}">
+
+            <br>
+
+            तारीख:
+            <input type="date"
+                   id="scan_date_${i}"
+                   value="${r.work_date || ""}">
+
+            <br>
+
+            काम:
+            <input id="scan_work_${i}"
+                   value="${r.work_type || ""}">
+
+            <br>
+
+            फसल:
+            <input id="scan_crop_${i}"
+                   value="${r.crop || ""}">
+
+            <br>
+
+            मात्रा:
+            <input id="scan_quantity_${i}"
+                   value="${r.quantity || ""}">
+
+            <br>
+
+            बीघा:
+            <input id="scan_bigha_${i}"
+                   value="${r.bigha || ""}">
+
+            <br>
+
+            घंटे:
+            <input id="scan_hours_${i}"
+                   value="${r.hours || ""}">
+
+            <br>
+
+            मिनट:
+            <input id="scan_minutes_${i}"
+                   value="${r.minutes || ""}">
+
+            <br>
+
+            जमा:
+            <input id="scan_paid_${i}"
+                   value="${r.paid_amount || 0}">
+
+        </div>
+        `;
+    });
+
+    html += `
+        <button onclick="confirmScannerSave()"
+                style="background:#2e7d32;
+                       color:white;
+                       padding:12px 20px;
+                       border:0;
+                       border-radius:8px;
+                       font-size:16px;">
+            ✅ Confirm & Save
+        </button>
+
+        <button onclick="cancelScannerPreview()"
+                style="background:#c62828;
+                       color:white;
+                       padding:12px 20px;
+                       border:0;
+                       border-radius:8px;
+                       font-size:16px;">
+            ❌ Cancel
+        </button>
+    `;
+
+    box.innerHTML = html;
+    box.style.display = "block";
+}
+
+
+// ==========================================
+// CONFIRM AND SAVE
+// ==========================================
+
+async function confirmScannerSave() {
+
+    const records = window.scannedPendingRecords;
+
+    if (!records || !records.length) {
+
+        alert("कोई Pending Scan Entry नहीं है।");
         return;
 
     }
 
-    for(const farmer of records){
+    if (!confirm(
+        "क्या सभी Entries सही हैं?\n\n" +
+        "Confirm करने पर सभी Firebase में सेव हो जाएँगी।"
+    )) {
+        return;
+    }
 
-        await fillScannerForm(farmer);
+    try {
 
-        applyScannerRate(farmer);
+        for (let i = 0; i < records.length; i++) {
 
-        if(typeof calculateTotal==="function"){
+            const r = records[i];
 
-            calculateTotal();
+            const farmer = {
+                farmer_name:
+                    document.getElementById(`scan_name_${i}`).value.trim(),
+
+                work_date:
+                    document.getElementById(`scan_date_${i}`).value,
+
+                work_type:
+                    document.getElementById(`scan_work_${i}`).value.trim(),
+
+                crop:
+                    document.getElementById(`scan_crop_${i}`).value.trim(),
+
+                quantity:
+                    document.getElementById(`scan_quantity_${i}`).value,
+
+                bigha:
+                    document.getElementById(`scan_bigha_${i}`).value,
+
+                hours:
+                    document.getElementById(`scan_hours_${i}`).value,
+
+                minutes:
+                    document.getElementById(`scan_minutes_${i}`).value,
+
+                paid_amount:
+                    document.getElementById(`scan_paid_${i}`).value || 0
+            };
+
+            await fillScannerForm(farmer);
+
+            applyScannerRate(farmer);
+
+            if (typeof calculateTotal === "function") {
+                calculateTotal();
+            }
+
+            if (typeof save === "function") {
+                await save();
+            }
 
         }
 
-        if(typeof save==="function"){
+        window.scannedPendingRecords = [];
 
-            await save();
+        document.getElementById("scannerPreview").style.display = "none";
 
-        }
+        alert(
+            "✅ सभी " +
+            records.length +
+            " Entries सफलतापूर्वक Firebase में सेव हो गईं।"
+        );
 
-        await new Promise(r=>setTimeout(r,500));
+        show();
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            "❌ Entry Save करने में समस्या आई:\n" +
+            error.message
+        );
+    }
+}
+
+
+// ==========================================
+// CANCEL
+// ==========================================
+
+function cancelScannerPreview() {
+
+    window.scannedPendingRecords = [];
+
+    const box =
+        document.getElementById("scannerPreview");
+
+    if (box) {
+
+        box.innerHTML = "";
+
+        box.style.display = "none";
 
     }
 
-    alert("✅ " + records.length + " रिकॉर्ड सफलतापूर्वक सेव हो गए।");
-
+    alert("❌ Scan Entries रद्द कर दी गईं।");
 }
 
-window.processScannedRecords = processScannedRecords;
+
+window.showScannedPreview = showScannedPreview;
+window.confirmScannerSave = confirmScannerSave;
+window.cancelScannerPreview = cancelScannerPreview;
 // ==========================================
 // PART 11
 // SCAN SUMMARY + MEMORY REFRESH
