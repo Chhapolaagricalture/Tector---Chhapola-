@@ -1845,12 +1845,16 @@ window.getScannerStatistics = getScannerStatistics;
 // PART 5
 // SCAN BUTTON + OCR START
 // ==========================================
+document.addEventListener("DOMContentLoaded", function () {
 
-const scanBtn = document.getElementById("scan-btn");
+    const scanBtn = document.getElementById("scan-btn");
 
-if (scanBtn) {
+    if (!scanBtn) {
+        console.error("Scanner Button #scan-btn नहीं मिला");
+        return;
+    }
 
-    scanBtn.addEventListener("click", async () => {
+    scanBtn.addEventListener("click", async function () {
 
         const fileInput =
             document.getElementById("register-image");
@@ -1858,7 +1862,6 @@ if (scanBtn) {
         if (!fileInput || !fileInput.files.length) {
 
             alert("कृपया पहले फोटो चुनें।");
-
             return;
 
         }
@@ -1875,7 +1878,6 @@ if (scanBtn) {
             if (!records || !records.length) {
 
                 alert("कोई रिकॉर्ड नहीं मिला।");
-
                 return;
 
             }
@@ -1884,15 +1886,18 @@ if (scanBtn) {
 
         } catch (e) {
 
-            console.error(e);
+            console.error("Scanner Error:", e);
 
-            alert("Scanner Error : " + e.message);
+            alert(
+                "Scanner Error : " +
+                (e.message || e)
+            );
 
         }
 
     });
 
-            }
+});
 
 // ==========================================
 // END OF RAJ AI SCANNER
