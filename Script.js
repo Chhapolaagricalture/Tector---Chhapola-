@@ -500,33 +500,49 @@ const farmerNotes = window.records
 
 if (farmerNotes.length > 0) {
 
+    // Note heading के लिए जगह
     if (y > 235) {
         doc.addPage();
-        y = 20;
+        y = 25;
+    } else {
+        y += 15;
     }
 
-    y += 12;
-
     doc.setFontSize(13);
-    doc.text("Farmer Notes / किसान नोट", 10, y);
+    doc.text("Farmer Notes / Kisan Note", 10, y);
 
     y += 8;
-
     doc.setFontSize(11);
 
     const noteText = farmerNotes.join("\n");
-
     const noteLines = doc.splitTextToSize(noteText, 250);
 
-    doc.text(noteLines, 10, y);
+    // Note को लाइन-दर-लाइन लिखेंगे
+    noteLines.forEach(line => {
 
-    y += (noteLines.length * 6) + 5;
+        // नीचे जगह खत्म होने पर नया page
+        if (y > 275) {
+            doc.addPage();
+            y = 25;
+
+            doc.setFontSize(11);
+            doc.text("Farmer Notes / Kisan Note (continued)", 10, y);
+
+            y += 8;
+        }
+
+        doc.text(line, 10, y);
+        y += 6;
+    });
 }
+
+
 // ===============================
 // CONTACT
 // ===============================
 
-if (y > 240) {
+// Contact के लिए पर्याप्त जगह सुनिश्चित करें
+if (y > 245) {
     doc.addPage();
     y = 30;
 } else {
@@ -534,6 +550,7 @@ if (y > 240) {
 }
 
 doc.setFontSize(12);
+
 doc.text("Contact", 180, y);
 
 y += 8;
