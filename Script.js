@@ -536,31 +536,48 @@ if (farmerNotes.length > 0) {
     });
 }
 
-
 // ===============================
-// CONTACT a
+// CONTACT / LOGO
 // ===============================
 
-// Contact के लिए पर्याप्त जगह सुनिश्चित करें
 if (y > 245) {
     doc.addPage();
     y = 30;
 } else {
-    y += 15;
+    y += 10;
 }
 
-doc.setFontSize(12);
+// Logo image
+const logo = new Image();
 
-doc.text("Contact", 180, y);
+logo.src = "chhapola-logo.png";
 
-y += 8;
-doc.text("Chhapola Agriculture", 180, y);
+logo.onload = function () {
 
-y += 8;
-doc.text("Mobile : 9079096875", 180, y);
+    // छोटा logo
+    const logoW = 32;
+    const logoH = 32;
 
+    // बीच में
+    const logoX = (297 - logoW) / 2;
 
-doc.setFont("helvetica", "normal");
+    doc.addImage(
+        logo,
+        "PNG",
+        logoX,
+        y,
+        logoW,
+        logoH
+    );
+
+    doc.save(farmer + ".pdf");
+};
+
+logo.onerror = function () {
+
+    alert("❌ chhapola-logo.png नहीं मिली");
+
+};
 
 doc.save(farmer + ".pdf");
 
