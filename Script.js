@@ -565,7 +565,7 @@ logo.onload = function () {
         logo,
         "PNG",
         logoX,
-        y - 10,
+        y - 20,
         logoW,
         logoH
     );
