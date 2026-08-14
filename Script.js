@@ -2,7 +2,8 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
-  updatePassword
+  updatePassword,
+  signOut
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 import {
   collection,
@@ -628,9 +629,17 @@ async function login() {
 }
 
 window.login = login;
-function logout() {
-  localStorage.removeItem("loggedIn");
-  location.reload();
+async function logout() {
+  try {
+    await signOut(window.auth);
+
+    localStorage.removeItem("loggedIn");
+
+    location.reload();
+
+  } catch (error) {
+    alert("❌ Logout नहीं हुआ: " + error.message);
+  }
 }
 
 window.logout = logout;
