@@ -33,7 +33,53 @@
 
   <a href="#" onclick="forgotPassword()">Forgot Password?</a>
 </div>
- 
+ <br><br>
+
+<button onclick="showSignup()">➕ नया Tractor Account बनाएं</button>
+
+<div id="signupBox" style="display:none; margin-top:15px;">
+
+  <input
+    type="text"
+    id="signupName"
+    placeholder="Tractor मालिक का नाम"
+  >
+
+  <input
+    type="tel"
+    id="signupMobile"
+    placeholder="Mobile Number"
+  >
+
+  <input
+    type="email"
+    id="signupEmail"
+    placeholder="Email"
+  >
+
+  <input
+    type="password"
+    id="signupPassword"
+    placeholder="Password"
+  >
+
+  <input
+    type="password"
+    id="signupConfirmPassword"
+    placeholder="Confirm Password"
+  >
+
+  <button onclick="signup()">
+    Account बनाएं
+  </button>
+
+  <br><br>
+
+  <button onclick="hideSignup()">
+    वापस Login
+  </button>
+
+</div>
 
 <div id="mainApp" style="display:none;">
 
@@ -207,6 +253,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebas
 import { getFirestore } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 import {
   getAuth,
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   onAuthStateChanged,
@@ -231,6 +278,8 @@ const auth = getAuth(app);
 window.db = db;
 window.auth = auth;
 window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+  window.createUserWithEmailAndPassword =
+  createUserWithEmailAndPassword;
   window.sendPasswordResetEmail = sendPasswordResetEmail;
 window.onAuthStateChanged = onAuthStateChanged;
 window.signOut = signOut;
