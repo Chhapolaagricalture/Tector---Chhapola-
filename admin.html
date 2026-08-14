@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chhapola Agriculture - Owner Admin</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div id="adminLogin" class="screen">
+  <div class="card login-card">
+    <div class="brand">👑</div>
+    <h1>OWNER / ADMIN</h1>
+    <p>Chhapola Agriculture</p>
+    <input id="adminEmail" type="email" placeholder="Admin Email" autocomplete="username">
+    <input id="adminPassword" type="password" placeholder="Password" autocomplete="current-password">
+    <button id="adminLoginBtn">LOGIN</button>
+    <div id="loginMessage" class="message"></div>
+  </div>
+</div>
+
+<div id="adminApp" class="app hidden">
+  <header class="topbar">
+    <div>
+      <div class="title">👑 OWNER / ADMIN PANEL</div>
+      <div id="adminUser" class="sub"></div>
+    </div>
+    <button id="logoutBtn" class="logout">Logout</button>
+  </header>
+
+  <main class="content">
+    <section class="stats">
+      <div class="stat"><span>👥</span><b id="userCount">0</b><small>Users</small></div>
+      <div class="stat"><span>🚜</span><b id="tractorOwnerCount">0</b><small>Tractor Owners</small></div>
+      <div class="stat"><span>📋</span><b id="recordCount">0</b><small>Records</small></div>
+      <div class="stat"><span>💰</span><b id="incomeTotal">₹0</b><small>Total Income</small></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>👥 सभी Users</h2><button id="refreshBtn">Refresh</button></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>User</th><th>Email</th><th>Status</th><th>Last Login</th><th>Records</th></tr></thead>
+          <tbody id="usersBody"><tr><td colspan="5">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel info-panel">
+      <h2>⚙️ Admin Controls</h2>
+      <div class="controls">
+        <div>👥 User Add / Block / Delete <small>अगले चरण में</small></div>
+        <div>📊 User Activity <small>अगले चरण में</small></div>
+        <div>💳 Subscription / Plan <small>अगले चरण में</small></div>
+        <div>🌐 Website Settings <small>अगले चरण में</small></div>
+        <div>🛡️ System Control <small>अगले चरण में</small></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script type="module" src="admin.js"></script>
+</body>
+</html>
