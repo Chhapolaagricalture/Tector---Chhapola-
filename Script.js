@@ -660,6 +660,79 @@ async function changePassword() {
 }
 
 window.changePassword = changePassword;
+function showSignup() {
+  document.getElementById("signupBox").style.display = "block";
+}
+
+function hideSignup() {
+  document.getElementById("signupBox").style.display = "none";
+}
+
+async function signup() {
+
+  const name =
+    document.getElementById("signupName").value.trim();
+
+  const mobile =
+    document.getElementById("signupMobile").value.trim();
+
+  const email =
+    document.getElementById("signupEmail").value.trim();
+
+  const password =
+    document.getElementById("signupPassword").value;
+
+  const confirmPassword =
+    document.getElementById("signupConfirmPassword").value;
+
+  if (!name || !mobile || !email || !password) {
+    alert("सभी जानकारी भरें");
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    alert("Password और Confirm Password समान नहीं हैं");
+    return;
+  }
+
+  if (password.length < 6) {
+    alert("Password कम से कम 6 अक्षर का होना चाहिए");
+    return;
+  }
+
+  try {
+
+    await window.createUserWithEmailAndPassword(
+      window.auth,
+      email,
+      password
+    );
+
+    alert("✅ Tractor Account सफलतापूर्वक बन गया।");
+
+    document.getElementById("signupBox").style.display = "none";
+
+    document.getElementById("email").value = email;
+
+    document.getElementById("signupName").value = "";
+    document.getElementById("signupMobile").value = "";
+    document.getElementById("signupEmail").value = "";
+    document.getElementById("signupPassword").value = "";
+    document.getElementById("signupConfirmPassword").value = "";
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert("❌ Account नहीं बना: " + error.message);
+
+  }
+}
+
+window.showSignup = showSignup;
+window.hideSignup = hideSignup;
+window.signup = signup;
+
 document.getElementById("work").addEventListener("change", function () {
 
   const work = this.value;
