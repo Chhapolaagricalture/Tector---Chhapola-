@@ -60,6 +60,7 @@ if (work === "Thresher") {
 let baki = total - paid;
 
   await addDoc(recordsRef, {
+    ownerUid: window.auth.currentUser.uid,
     name,
     mobile,
     date,
