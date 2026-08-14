@@ -49,7 +49,7 @@ const db = getFirestore(app);
 // अपना ADMIN EMAIL यहां डालें
 // ==========================================
 
-const ADMIN_EMAIL = "YOUR_ADMIN_EMAIL_HERE";
+const ADMIN_EMAIL = "jaichhapola@gmail.com";
 
 
 // ==========================================
