@@ -10,7 +10,9 @@ import {
   getDocs,
   deleteDoc,
   updateDoc,
-  doc
+  doc,
+  query,
+  where 
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 alert("Script Loaded");
 const recordsRef = collection(window.db, "records");
@@ -94,8 +96,20 @@ show();
     }
 
 async function show() {
-  const snapshot = await getDocs(recordsRef);
 
+const user = window.auth.currentUser;
+
+if (!user) {
+  return;
+}
+
+const userRecordsQuery = query(
+  recordsRef,
+  where("ownerUid", "==", user.uid)
+);
+
+const snapshot = await getDocs(userRecordsQuery);
+  
 let records = [];
 
 snapshot.forEach((doc) => {
