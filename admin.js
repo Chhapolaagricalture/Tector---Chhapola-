@@ -1,12 +1,13 @@
 // ==========================================
 // CHHAPOLA AGRICULTURE
-// OWNER / ADMIN PANEL - admin.js
+// OWNER / ADMIN PANEL - FINAL admin.js
 // ==========================================
 
 "use strict";
 
-import { initializeApp }
-from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import {
+    initializeApp
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
 
 import {
     getAuth,
@@ -21,6 +22,7 @@ import {
     collection,
     getDocs
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
 
 // ==========================================
 // FIREBASE CONFIG
@@ -40,14 +42,16 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+
 // ==========================================
 // ADMIN EMAIL
 // ==========================================
 
 const ADMIN_EMAIL = "jaichhapola@gmail.com";
 
+
 // ==========================================
-// CURRENT admin.html ELEMENTS
+// HTML ELEMENTS
 // ==========================================
 
 const adminLogin =
@@ -71,6 +75,9 @@ const logoutBtn =
 const refreshBtn =
     document.getElementById("refreshBtn");
 
+const refreshUsersBtn =
+    document.getElementById("refreshUsersBtn");
+
 const loginMessage =
     document.getElementById("loginMessage");
 
@@ -92,6 +99,54 @@ const incomeTotal =
 const usersBody =
     document.getElementById("usersBody");
 
+const userManagementBody =
+    document.getElementById("userManagementBody");
+
+const userSearch =
+    document.getElementById("userSearch");
+
+const userStatusFilter =
+    document.getElementById("userStatusFilter");
+
+const selectedUserBox =
+    document.getElementById("selectedUserBox");
+
+
+// ==========================================
+// GLOBAL DATA
+// ==========================================
+
+let adminUsers = [];
+let allRecords = [];
+
+
+// ==========================================
+// SECURITY / HTML ESCAPE
+// ==========================================
+
+function escapeHTML(value) {
+
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+// ==========================================
+// MONEY
+// ==========================================
+
+function money(value) {
+
+    return "₹" +
+        Number(value || 0)
+            .toLocaleString("en-IN");
+}
+
+
 // ==========================================
 // LOGIN SCREEN
 // ==========================================
@@ -111,8 +166,9 @@ function showLogin(message = "") {
     }
 }
 
+
 // ==========================================
-// ADMIN PANEL
+// DASHBOARD
 // ==========================================
 
 function showDashboard(user) {
@@ -133,6 +189,7 @@ function showDashboard(user) {
     loadAdminData();
 }
 
+
 // ==========================================
 // ADMIN CHECK
 // ==========================================
@@ -149,16 +206,6 @@ function isAdmin(user) {
     );
 }
 
-// ==========================================
-// MONEY
-// ==========================================
-
-function money(value) {
-
-    return "₹" +
-        Number(value || 0)
-        .toLocaleString("en-IN");
-}
 
 // ==========================================
 // LOGIN
@@ -172,13 +219,13 @@ if (adminLoginBtn) {
 
             const email =
                 adminEmail
-                ? adminEmail.value.trim()
-                : "";
+                    ? adminEmail.value.trim()
+                    : "";
 
             const password =
                 adminPassword
-                ? adminPassword.value
-                : "";
+                    ? adminPassword.value
+                    : "";
 
             if (!email || !password) {
 
@@ -232,31 +279,30 @@ if (adminLoginBtn) {
                     error.code ===
                     "auth/invalid-credential"
                 ) {
-
                     message =
                         "❌ Email या Password गलत है।";
+                }
 
-                } else if (
+                else if (
                     error.code ===
                     "auth/user-not-found"
                 ) {
-
                     message =
                         "❌ यह Admin account Firebase में नहीं है।";
+                }
 
-                } else if (
+                else if (
                     error.code ===
                     "auth/wrong-password"
                 ) {
-
                     message =
                         "❌ Password गलत है।";
+                }
 
-                } else if (
+                else if (
                     error.code ===
                     "auth/invalid-email"
                 ) {
-
                     message =
                         "❌ Email गलत है।";
                 }
@@ -276,8 +322,9 @@ if (adminLoginBtn) {
     );
 }
 
+
 // ==========================================
-// ENTER KEY
+// ENTER KEY LOGIN
 // ==========================================
 
 if (adminPassword) {
@@ -290,13 +337,13 @@ if (adminPassword) {
                 event.key === "Enter" &&
                 adminLoginBtn
             ) {
-
                 adminLoginBtn.click();
-
             }
+
         }
     );
 }
+
 
 // ==========================================
 // LOGOUT
@@ -311,20 +358,21 @@ if (logoutBtn) {
             try {
 
                 await signOut(auth);
-
                 showLogin();
 
             } catch (error) {
 
                 console.error(
-                    "Logout Error:",
+                    "LOGOUT ERROR:",
                     error
                 );
 
             }
+
         }
     );
 }
+
 
 // ==========================================
 // FORGOT PASSWORD
@@ -335,8 +383,8 @@ async function () {
 
     const email =
         adminEmail
-        ? adminEmail.value.trim()
-        : ADMIN_EMAIL;
+            ? adminEmail.value.trim()
+            : ADMIN_EMAIL;
 
     try {
 
@@ -352,34 +400,23 @@ async function () {
     } catch (error) {
 
         console.error(
-            "Reset Password Error:",
+            "RESET PASSWORD ERROR:",
             error
         );
 
         if (loginMessage) {
-
             loginMessage.textContent =
                 "❌ Password reset email नहीं भेजी गई।";
         }
     }
 };
 
+
 // ==========================================
-// LOAD ADMIN DATA
+// LOAD ALL RECORDS
 // ==========================================
 
-async function loadAdminData() {
-
-    if (!usersBody) {
-        return;
-    }
-
-    usersBody.innerHTML =
-        `<tr>
-            <td colspan="5">
-                Loading...
-            </td>
-        </tr>`;
+async function loadRecords() {
 
     try {
 
@@ -388,159 +425,263 @@ async function loadAdminData() {
                 collection(db, "records")
             );
 
-        const records =
+        allRecords =
             snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
 
-        let totalIncome = 0;
+        return allRecords;
 
-        const owners = new Map();
+    } catch (error) {
 
-        // ==================================
-        // RECORD ANALYSIS
-        // ==================================
+        console.error(
+            "RECORD LOAD ERROR:",
+            error
+        );
 
-        records.forEach(record => {
+        allRecords = [];
 
-            totalIncome +=
-                Number(record.total || 0);
+        throw error;
+    }
+}
 
-            const ownerUid =
-                record.ownerUid ||
-                "OLD / NO OWNER UID";
 
-            if (!owners.has(ownerUid)) {
+// ==========================================
+// CREATE OWNER USAGE SUMMARY
+// ==========================================
 
-                owners.set(ownerUid, {
+function buildOwnerUsageSummary(records) {
 
-                    uid: ownerUid,
+    const owners = new Map();
 
-                    records: 0,
+    records.forEach(record => {
 
-                    farmers: new Set(),
+        const uid =
+            record.ownerUid;
 
-                    lastDate: ""
+        if (!uid) {
+            return;
+        }
 
-                });
-            }
+        if (!owners.has(uid)) {
 
-            const owner =
-                owners.get(ownerUid);
+            owners.set(uid, {
 
-            owner.records++;
+                uid: uid,
 
-            if (record.name) {
+                records: 0,
 
-                owner.farmers.add(
-                    record.name
+                farmers: new Set(),
+
+                dates: new Set(),
+
+                works: new Set(),
+
+                lastDate: "",
+
+                firstDate: ""
+
+            });
+
+        }
+
+        const owner =
+            owners.get(uid);
+
+        // Total records
+        owner.records++;
+
+
+        // Farmer count
+        if (record.name) {
+
+            const farmerName =
+                String(record.name)
                     .trim()
-                    .toLowerCase()
+                    .toLowerCase();
+
+            if (farmerName) {
+                owner.farmers.add(
+                    farmerName
                 );
             }
+        }
 
-            if (
-                record.date &&
-                (
+
+        // Date
+        if (record.date) {
+
+            const date =
+                String(record.date)
+                    .trim();
+
+            if (date) {
+
+                owner.dates.add(date);
+
+                if (
                     !owner.lastDate ||
-                    record.date > owner.lastDate
-                )
-            ) {
+                    date > owner.lastDate
+                ) {
+                    owner.lastDate = date;
+                }
 
-                owner.lastDate =
-                    record.date;
+                if (
+                    !owner.firstDate ||
+                    date < owner.firstDate
+                ) {
+                    owner.firstDate = date;
+                }
             }
-        });
+        }
+
+
+        // Work type
+        if (record.workType) {
+
+            owner.works.add(
+                String(record.workType)
+                    .trim()
+            );
+
+        } else if (record.work) {
+
+            owner.works.add(
+                String(record.work)
+                    .trim()
+            );
+        }
+
+    });
+
+    return owners;
+}
+
+
+// ==========================================
+// LOAD ADMIN DATA
+// ==========================================
+
+async function loadAdminData() {
+
+    if (usersBody) {
+
+        usersBody.innerHTML =
+            `<tr>
+                <td colspan="5">
+                    ⏳ Loading...
+                </td>
+            </tr>`;
+    }
+
+    try {
+
+        const records =
+            await loadRecords();
+
+        const owners =
+            buildOwnerUsageSummary(records);
+
 
         // ==================================
-        // DASHBOARD
+        // DASHBOARD SUMMARY
         // ==================================
 
         if (userCount) {
-
             userCount.textContent =
                 owners.size;
         }
 
         if (tractorOwnerCount) {
-
             tractorOwnerCount.textContent =
                 owners.size;
         }
 
         if (recordCount) {
-
             recordCount.textContent =
                 records.length;
         }
 
+        /*
+         * Admin को किसान का पैसा नहीं दिखाना है।
+         * इसलिए incomeTotal को business usage summary
+         * में रखा गया है, farmer income के रूप में नहीं।
+         */
+
         if (incomeTotal) {
-
             incomeTotal.textContent =
-                money(totalIncome);
+                "—";
         }
 
+
         // ==================================
-        // USERS TABLE
+        // BASIC USER TABLE
         // ==================================
 
-        if (owners.size === 0) {
+        if (usersBody) {
 
-            usersBody.innerHTML =
-                `<tr>
-                    <td colspan="5">
-                        अभी कोई User/Owner record नहीं मिला।
-                    </td>
-                </tr>`;
+            if (owners.size === 0) {
 
-            return;
+                usersBody.innerHTML =
+                    `<tr>
+                        <td colspan="5">
+                            अभी कोई Tractor Owner record नहीं मिला।
+                        </td>
+                    </tr>`;
+
+            } else {
+
+                usersBody.innerHTML =
+                    [...owners.values()]
+                        .sort(
+                            (a, b) =>
+                                String(b.lastDate)
+                                    .localeCompare(
+                                        String(a.lastDate)
+                                    )
+                        )
+                        .map(owner => {
+
+                            return `
+                            <tr>
+
+                                <td>
+                                    ${escapeHTML(owner.uid)}
+                                </td>
+
+                                <td>
+                                    Firebase User
+                                </td>
+
+                                <td>
+                                    🟢 Active
+                                </td>
+
+                                <td>
+                                    ${escapeHTML(
+                                        owner.lastDate || "-"
+                                    )}
+                                </td>
+
+                                <td>
+                                    ${owner.records}
+                                </td>
+
+                            </tr>
+                            `;
+
+                        })
+                        .join("");
+            }
         }
 
-        usersBody.innerHTML =
-            [...owners.values()]
-            .sort(
-                (a, b) =>
-                    String(b.lastDate)
-                    .localeCompare(
-                        String(a.lastDate)
-                    )
-            )
-            .map(owner => {
 
-                return `
-                <tr>
+        // ==================================
+        // USER MANAGEMENT
+        // ==================================
 
-                    <td>
-                        ${owner.uid}
-                    </td>
-
-                    <td>
-                        ${
-                            owner.uid ===
-                            "OLD / NO OWNER UID"
-                            ? "पुराना Record"
-                            : "Firebase User"
-                        }
-                    </td>
-
-                    <td>
-                        Active
-                    </td>
-
-                    <td>
-                        ${owner.lastDate || "-"}
-                    </td>
-
-                    <td>
-                        ${owner.records}
-                    </td>
-
-                </tr>
-                `;
-
-            })
-            .join("");
+        await loadUserProfiles(owners);
 
     } catch (error) {
 
@@ -549,229 +690,188 @@ async function loadAdminData() {
             error
         );
 
-        usersBody.innerHTML =
-            `<tr>
-                <td colspan="5"
-                    style="color:red">
+        if (usersBody) {
 
-                    ❌ Firebase data load नहीं हुआ।
+            usersBody.innerHTML =
+                `<tr>
+                    <td colspan="5"
+                        style="color:red">
 
-                    <br><br>
+                        ❌ Firebase data load नहीं हुआ।
 
-                    ${
-                        error.code ===
-                        "permission-denied"
-                        ? "Firestore Rules Admin को records पढ़ने की permission नहीं दे रहे हैं।"
-                        : error.message
-                    }
+                        <br><br>
 
-                </td>
-            </tr>`;
+                        ${
+                            error.code ===
+                            "permission-denied"
+                            ? "Firestore Rules Admin को records पढ़ने की permission नहीं दे रहे हैं।"
+                            : escapeHTML(
+                                error.message ||
+                                "Unknown error"
+                            )
+                        }
+
+                    </td>
+                </tr>`;
+        }
     }
 }
 
-// ==========================================
-// REFRESH
-// ==========================================
-
-if (refreshBtn) {
-
-    refreshBtn.addEventListener(
-        "click",
-        loadAdminData
-    );
-}
 
 // ==========================================
-// AUTH STATE
+// LOAD USER PROFILES
 // ==========================================
 
-onAuthStateChanged(
-    auth,
-    async function (user) {
+async function loadUserProfiles(
+    ownersMap
+) {
 
-        if (!user) {
-
-            showLogin();
-
-            return;
-        }
-
-        if (!isAdmin(user)) {
-
-            await signOut(auth);
-
-            showLogin(
-                "❌ यह account Owner/Admin account नहीं है।"
-            );
-
-            return;
-        }
-
-        showDashboard(user);
-    }
-);
-
-// ==========================================
-// GLOBAL ADMIN OBJECT
-// ==========================================
-
-window.RAJ_ADMIN = {
-
-    auth: auth,
-
-    db: db,
-
-    isAdmin: isAdmin,
-
-    loadAdminData: loadAdminData,
-
-    showDashboard: showDashboard,
-
-    showLogin: showLogin
-
-};
-
-console.log(
-    "✅ Chhapola Admin Panel Loaded"
-);
-// ==========================================
-// PROPER USER MANAGEMENT
-// ==========================================
-
-let adminUsers = [];
-
-
-async function loadUserManagement() {
-
-    const body = document.getElementById(
-        "userManagementBody"
-    );
-
-    if (!body) return;
-
-    body.innerHTML = `
-        <tr>
-            <td colspan="8">
-                ⏳ Users Loading...
-            </td>
-        </tr>
-    `;
+    let profiles = [];
 
     try {
 
-        const snapshot = await getDocs(
-            collection(db, "records")
-        );
-
-        const usersMap = new Map();
-
-        snapshot.forEach((docSnap) => {
-
-            const r = docSnap.data();
-
-            const uid =
-                r.ownerUid ||
-                "OLD / NO OWNER UID";
-
-            if (!usersMap.has(uid)) {
-
-                usersMap.set(uid, {
-                    uid: uid,
-                    email:
-                        r.email ||
-                        "Firebase User",
-                    status: "active",
-                    records: 0,
-                    total: 0,
-                    paid: 0,
-                    balance: 0
-                });
-
-            }
-
-            const user = usersMap.get(uid);
-
-            user.records++;
-
-            user.total += Number(
-                r.total || 0
+        const snapshot =
+            await getDocs(
+                collection(db, "users")
             );
 
-            user.paid += Number(
-                r.paid || 0
-            );
+        snapshot.forEach(docSnap => {
 
-            user.balance += Number(
-                r.baki ||
-                (
-                    Number(r.total || 0) -
-                    Number(r.paid || 0)
-                )
-            );
+            profiles.push({
+
+                uid: docSnap.id,
+
+                ...docSnap.data()
+
+            });
 
         });
 
-
-        adminUsers =
-            Array.from(usersMap.values());
-
-
-        renderAdminUsers();
-
-
     } catch (error) {
 
-        console.error(
-            "USER MANAGEMENT ERROR:",
+        console.warn(
+            "users collection unavailable:",
             error
         );
-
-        body.innerHTML = `
-            <tr>
-                <td colspan="8" style="color:red;">
-                    ❌ Users load नहीं हुए
-                    <br>
-                    <small>
-                        ${escapeHTML(
-                            error?.message ||
-                            "Unknown error"
-                        )}
-                    </small>
-                </td>
-            </tr>
-        `;
-
     }
 
+
+    // ======================================
+    // MERGE PROFILE + USAGE
+    // ======================================
+
+    const merged = new Map();
+
+
+    // पहले profiles
+    profiles.forEach(profile => {
+
+        merged.set(
+            profile.uid,
+            {
+
+                ...profile,
+
+                uid: profile.uid,
+
+                usage:
+                    ownersMap.get(
+                        profile.uid
+                    ) || {
+
+                        records: 0,
+
+                        farmers: new Set(),
+
+                        dates: new Set(),
+
+                        works: new Set(),
+
+                        lastDate: "",
+
+                        firstDate: ""
+
+                    }
+
+            }
+        );
+
+    });
+
+
+    // फिर records वाले owners
+    ownersMap.forEach(
+        (usage, uid) => {
+
+            if (!merged.has(uid)) {
+
+                merged.set(
+                    uid,
+                    {
+
+                        uid: uid,
+
+                        email:
+                            "Firebase User",
+
+                        status:
+                            "Active",
+
+                        plan:
+                            "Free",
+
+                        usage: usage
+
+                    }
+                );
+
+            } else {
+
+                merged.get(uid).usage =
+                    usage;
+            }
+
+        }
+    );
+
+
+    adminUsers =
+        [...merged.values()];
+
+    renderAdminUsers();
+
+    showSubscriptionSummary(
+        adminUsers
+    );
+
+    showExpiringPlans(
+        adminUsers
+    );
 }
 
+
 // ==========================================
-// RENDER USERS
+// RENDER ADMIN USERS
 // ==========================================
 
 function renderAdminUsers() {
 
-    const body =
-        document.getElementById(
-            "userManagementBody"
-        );
-
-    if (!body) return;
+    if (!userManagementBody) {
+        return;
+    }
 
     const search =
         (
-            document.getElementById(
-                "userSearch"
-            )?.value || ""
+            userSearch?.value ||
+            ""
         )
         .toLowerCase()
         .trim();
 
+
     const filter =
-        document.getElementById(
-            "userStatusFilter"
-        )?.value || "all";
+        userStatusFilter?.value ||
+        "all";
 
 
     let list =
@@ -779,24 +879,46 @@ function renderAdminUsers() {
 
             const text =
                 (
-                    user.uid +
-                    " " +
-                    user.email
-                ).toLowerCase();
+                    user.name || ""
+                ) +
+                " " +
+                (
+                    user.email || ""
+                ) +
+                " " +
+                (
+                    user.mobile || ""
+                ) +
+                " " +
+                (
+                    user.uid || ""
+                );
+
 
             if (
                 search &&
-                !text.includes(search)
+                !text
+                    .toLowerCase()
+                    .includes(search)
             ) {
                 return false;
             }
 
+
+            const status =
+                String(
+                    user.status ||
+                    "active"
+                ).toLowerCase();
+
+
             if (
                 filter !== "all" &&
-                user.status !== filter
+                status !== filter
             ) {
                 return false;
             }
+
 
             return true;
 
@@ -805,25 +927,62 @@ function renderAdminUsers() {
 
     if (!list.length) {
 
-        body.innerHTML = `
-            <tr>
+        userManagementBody.innerHTML =
+            `<tr>
                 <td colspan="8">
-                    कोई User नहीं मिला।
+                    कोई Tractor Owner नहीं मिला।
                 </td>
-            </tr>
-        `;
+            </tr>`;
 
         return;
     }
 
 
-    body.innerHTML =
-        list.map((user, index) => {
+    userManagementBody.innerHTML =
+        list.map(user => {
+
+            const usage =
+                user.usage || {};
+
 
             const status =
-                user.status === "blocked"
+                String(
+                    user.status ||
+                    "active"
+                ).toLowerCase();
+
+
+            const statusText =
+                status === "blocked"
                     ? "🔴 Blocked"
                     : "🟢 Active";
+
+
+            const works =
+                [...(
+                    usage.works ||
+                    new Set()
+                )]
+                .join(", ") || "-";
+
+
+            const farmers =
+                (
+                    usage.farmers?.size ||
+                    0
+                );
+
+
+            const days =
+                (
+                    usage.dates?.size ||
+                    0
+                );
+
+
+            const records =
+                usage.records ||
+                0;
 
 
             return `
@@ -831,38 +990,72 @@ function renderAdminUsers() {
             <tr>
 
                 <td>
-                    <b>${escapeHTML(user.uid)}</b>
+                    <b>
+                        ${escapeHTML(
+                            user.name ||
+                            user.uid
+                        )}
+                    </b>
+
+                    <br>
+
+                    <small>
+                        ${escapeHTML(
+                            user.uid
+                        )}
+                    </small>
                 </td>
 
-                <td>
-                    ${escapeHTML(user.email)}
-                </td>
 
                 <td>
-                    ${status}
+                    ${escapeHTML(
+                        user.email ||
+                        "-"
+                    )}
                 </td>
 
-                <td>
-                    ${user.records}
-                </td>
 
                 <td>
-                    ₹${user.total.toLocaleString("en-IN")}
+                    ${statusText}
                 </td>
 
-                <td>
-                    ₹${user.paid.toLocaleString("en-IN")}
-                </td>
 
                 <td>
-                    ₹${user.balance.toLocaleString("en-IN")}
+                    ${records}
                 </td>
+
+
+                <td>
+                    ${escapeHTML(
+                        user.plan ||
+                        "Free"
+                    )}
+                </td>
+
+
+                <td>
+                    ${escapeHTML(
+                        user.expiryDate ||
+                        "-"
+                    )}
+                </td>
+
+
+                <td>
+                    ${days} दिन
+                </td>
+
 
                 <td>
 
                     <button
-                        onclick="viewAdminUser(${index})">
-                        👁️
+                        type="button"
+                        onclick="viewAdminUserByUid('${escapeHTML(
+                            user.uid
+                        )}')">
+
+                        👁️ Usage
+
                     </button>
 
                 </td>
@@ -873,83 +1066,214 @@ function renderAdminUsers() {
 
         })
         .join("");
-
 }
 
 
 // ==========================================
-// VIEW USER
+// VIEW OWNER USAGE
 // ==========================================
 
-window.viewAdminUser =
-function(index) {
+window.viewAdminUserByUid =
+function(uid) {
 
     const user =
-        adminUsers[index];
-
-    if (!user) return;
-
-    const box =
-        document.getElementById(
-            "selectedUserBox"
+        adminUsers.find(
+            u => u.uid === uid
         );
 
-    if (!box) return;
+    if (!user) {
+        return;
+    }
 
-    box.innerHTML = `
 
-        <div class="card">
+    if (!selectedUserBox) {
+        return;
+    }
+
+
+    const usage =
+        user.usage || {};
+
+
+    const farmers =
+        usage.farmers?.size ||
+        0;
+
+
+    const records =
+        usage.records ||
+        0;
+
+
+    const days =
+        usage.dates?.size ||
+        0;
+
+
+    const works =
+        [...(
+            usage.works ||
+            new Set()
+        )];
+
+
+    selectedUserBox.innerHTML = `
+
+        <div class="card"
+             style="width:100%;text-align:left">
 
             <h3>
-                👤 User Details
+                🚜 ${escapeHTML(
+                    user.name ||
+                    "Tractor Owner"
+                )}
             </h3>
 
-            <p>
-                <b>UID:</b>
-                ${escapeHTML(user.uid)}
-            </p>
 
             <p>
-                <b>Email:</b>
-                ${escapeHTML(user.email)}
+                📧 <b>Email:</b>
+                ${escapeHTML(
+                    user.email ||
+                    "-"
+                )}
             </p>
 
-            <p>
-                <b>Status:</b>
-                ${user.status}
-            </p>
 
             <p>
-                <b>Total Records:</b>
-                ${user.records}
+                📱 <b>Mobile:</b>
+                ${escapeHTML(
+                    user.mobile ||
+                    "-"
+                )}
             </p>
 
-            <p>
-                <b>Total:</b>
-                ₹${user.total.toLocaleString("en-IN")}
-            </p>
 
             <p>
-                <b>Paid:</b>
-                ₹${user.paid.toLocaleString("en-IN")}
+                🆔 <b>UID:</b>
+                ${escapeHTML(
+                    user.uid
+                )}
             </p>
 
-            <p>
-                <b>Balance:</b>
-                ₹${user.balance.toLocaleString("en-IN")}
-            </p>
 
             <hr>
 
-            <button
-                onclick="alert('Block / Unblock के लिए Cloud Function जोड़ना होगा।')">
-                🚫 Block / Unblock
-            </button>
 
-            <button
-                onclick="alert('User Delete के लिए Cloud Function जोड़ना होगा।')">
-                🗑️ Delete User
-            </button>
+            <h3>
+                📊 Website Usage Summary
+            </h3>
+
+
+            <p>
+                👨‍🌾 <b>कुल किसान Records:</b>
+                ${farmers}
+            </p>
+
+
+            <p>
+                📋 <b>कुल Entries:</b>
+                ${records}
+            </p>
+
+
+            <p>
+                📅 <b>कुल इस्तेमाल किए गए दिन:</b>
+                ${days}
+            </p>
+
+
+            <p>
+                🕐 <b>पहली Activity:</b>
+                ${escapeHTML(
+                    usage.firstDate ||
+                    "-"
+                )}
+            </p>
+
+
+            <p>
+                🔄 <b>आखिरी Activity:</b>
+                ${escapeHTML(
+                    usage.lastDate ||
+                    "-"
+                )}
+            </p>
+
+
+            <p>
+                🚜 <b>काम इस्तेमाल:</b>
+                ${
+                    works.length
+                        ? works
+                            .map(
+                                work =>
+                                    `<span style="
+                                        display:inline-block;
+                                        padding:5px 8px;
+                                        margin:3px;
+                                        border-radius:8px;
+                                        background:#eef5ef;
+                                    ">
+                                    ${escapeHTML(work)}
+                                    </span>`
+                            )
+                            .join("")
+                        : "-"
+                }
+            </p>
+
+
+            <hr>
+
+
+            <h3>
+                💳 Subscription
+            </h3>
+
+
+            <p>
+                <b>Plan:</b>
+                ${escapeHTML(
+                    user.plan ||
+                    "Free"
+                )}
+            </p>
+
+
+            <p>
+                <b>Plan Start:</b>
+                ${escapeHTML(
+                    user.planStartDate ||
+                    "-"
+                )}
+            </p>
+
+
+            <p>
+                <b>Plan Expiry:</b>
+                ${escapeHTML(
+                    user.expiryDate ||
+                    "-"
+                )}
+            </p>
+
+
+            <p>
+                <b>Payment:</b>
+                ${escapeHTML(
+                    user.paymentStatus ||
+                    "Free"
+                )}
+            </p>
+
+
+            <p>
+                <b>Account Status:</b>
+                ${escapeHTML(
+                    user.status ||
+                    "Active"
+                )}
+            </p>
 
         </div>
 
@@ -961,25 +1285,14 @@ function(index) {
 // SEARCH
 // ==========================================
 
-const userSearch =
-    document.getElementById(
-        "userSearch"
-    );
-
 if (userSearch) {
 
     userSearch.addEventListener(
         "input",
         renderAdminUsers
     );
-
 }
 
-
-const userStatusFilter =
-    document.getElementById(
-        "userStatusFilter"
-    );
 
 if (userStatusFilter) {
 
@@ -987,7 +1300,6 @@ if (userStatusFilter) {
         "change",
         renderAdminUsers
     );
-
 }
 
 
@@ -995,121 +1307,12 @@ if (userStatusFilter) {
 // REFRESH USERS
 // ==========================================
 
-const refreshUsersBtn =
-    document.getElementById(
-        "refreshUsersBtn"
-    );
-
 if (refreshUsersBtn) {
 
     refreshUsersBtn.addEventListener(
         "click",
-        loadUserManagement
+        loadAdminData
     );
-
-}
-
-
-// ==========================================
-// ADMIN SECTIONS
-// ==========================================
-
-window.openAdminSection =
-function(section) {
-
-    if (section === "users") {
-
-        loadUserManagement();
-
-        return;
-    }
-
-    if (section === "records") {
-
-        alert(
-            "📋 All Records module अगला चरण है।"
-        );
-
-        return;
-    }
-
-    if (section === "reports") {
-
-        alert(
-            "📊 Reports module अगला चरण है।"
-        );
-
-        return;
-    }
-
-    if (section === "settings") {
-
-        alert(
-            "⚙️ Website Settings module अगला चरण है।"
-        );
-
-    }
-
-};
-
-
-// ==========================================
-// LOAD USER MANAGEMENT AFTER LOGIN
-// ==========================================
-
-const oldShowAdminPanel =
-    showAdminPanel;
-
-showAdminPanel =
-function(user) {
-
-    oldShowAdminPanel(user);
-
-    setTimeout(
-        loadUserManagement,
-        300
-    );
-
-};
-// ==========================================
-// USER PROFILE + SUBSCRIPTION
-// ==========================================
-
-async function loadUserProfiles() {
-
-    try {
-
-        const snapshot =
-            await getDocs(
-                collection(db, "users")
-            );
-
-        let users = [];
-
-        snapshot.forEach(docSnap => {
-
-            users.push({
-                uid: docSnap.id,
-                ...docSnap.data()
-            });
-
-        });
-
-        window.adminUsers = users;
-
-        showSubscriptionSummary(users);
-
-        showExpiringPlans(users);
-
-    } catch (error) {
-
-        console.error(
-            "User Profile Error:",
-            error
-        );
-
-    }
-
 }
 
 
@@ -1124,29 +1327,31 @@ function showSubscriptionSummary(users) {
     let pro = 0;
     let premium = 0;
 
+
     users.forEach(user => {
 
         const plan =
             String(
-                user.plan || "Free"
-            ).toLowerCase();
+                user.plan ||
+                "Free"
+            )
+            .toLowerCase();
+
 
         if (plan === "free") {
-
             free++;
+        }
 
-        } else if (plan === "basic") {
-
+        else if (plan === "basic") {
             basic++;
+        }
 
-        } else if (plan === "pro") {
-
+        else if (plan === "pro") {
             pro++;
+        }
 
-        } else if (plan === "premium") {
-
+        else if (plan === "premium") {
             premium++;
-
         }
 
     });
@@ -1174,17 +1379,20 @@ function showSubscriptionSummary(users) {
 
 
     if (freeBox)
-        freeBox.textContent = free;
+        freeBox.textContent =
+            free;
 
     if (basicBox)
-        basicBox.textContent = basic;
+        basicBox.textContent =
+            basic;
 
     if (proBox)
-        proBox.textContent = pro;
+        proBox.textContent =
+            pro;
 
     if (premiumBox)
-        premiumBox.textContent = premium;
-
+        premiumBox.textContent =
+            premium;
 }
 
 
@@ -1199,7 +1407,9 @@ function showExpiringPlans(users) {
             "expiringPlansList"
         );
 
-    if (!box) return;
+    if (!box) {
+        return;
+    }
 
 
     const today =
@@ -1209,13 +1419,16 @@ function showExpiringPlans(users) {
     const list =
         users.filter(user => {
 
-            if (!user.expiryDate)
+            if (!user.expiryDate) {
                 return false;
+            }
+
 
             const expiry =
                 new Date(
                     user.expiryDate
                 );
+
 
             const days =
                 Math.ceil(
@@ -1230,7 +1443,11 @@ function showExpiringPlans(users) {
                     )
                 );
 
-            return days >= 0 && days <= 30;
+
+            return (
+                days >= 0 &&
+                days <= 30
+            );
 
         });
 
@@ -1241,53 +1458,37 @@ function showExpiringPlans(users) {
             "<p>✅ अगले 30 दिनों में कोई Plan समाप्त नहीं हो रहा।</p>";
 
         return;
-
     }
 
 
     box.innerHTML =
         list.map(user => {
 
-            const expiry =
-                new Date(
-                    user.expiryDate
-                );
-
-            const days =
-                Math.ceil(
-                    (
-                        expiry - today
-                    ) /
-                    (
-                        1000 *
-                        60 *
-                        60 *
-                        24
-                    )
-                );
-
-
             return `
 
-            <div class="card">
+            <div class="card"
+                 style="width:100%;text-align:left">
 
                 <b>
-                    ${user.name || "User"}
+                    ${escapeHTML(
+                        user.name ||
+                        "Tractor Owner"
+                    )}
                 </b>
 
                 <p>
                     💳 Plan:
-                    ${user.plan || "Free"}
+                    ${escapeHTML(
+                        user.plan ||
+                        "Free"
+                    )}
                 </p>
 
                 <p>
                     📅 Expiry:
-                    ${user.expiryDate}
-                </p>
-
-                <p>
-                    ⏳ बाकी:
-                    ${days} दिन
+                    ${escapeHTML(
+                        user.expiryDate
+                    )}
                 </p>
 
             </div>
@@ -1295,127 +1496,123 @@ function showExpiringPlans(users) {
             `;
 
         }).join("");
-
 }
 
 
 // ==========================================
-// USER PROFILE SHOW
+// ADMIN SECTIONS
 // ==========================================
 
-window.showUserProfile =
-function(uid) {
+window.openAdminSection =
+function(section) {
 
-    const user =
-        (window.adminUsers || [])
-        .find(
-            u => u.uid === uid
+    if (section === "users") {
+
+        loadAdminData();
+
+        return;
+    }
+
+
+    if (section === "records") {
+
+        alert(
+            "📋 Individual किसान records Admin Panel में नहीं दिखाए जाएंगे।"
         );
 
-    if (!user) return;
+        return;
+    }
 
 
-    const box =
-        document.getElementById(
-            "selectedUserProfile"
+    if (section === "reports") {
+
+        alert(
+            "📊 Owner Usage Reports अगला module है।"
         );
 
-    if (!box) return;
+        return;
+    }
 
 
-    box.innerHTML = `
+    if (section === "settings") {
 
-        <div class="card">
+        alert(
+            "⚙️ Website Settings अगला module है."
+        );
 
-            <h3>
-                👤 ${user.name || "नाम उपलब्ध नहीं"}
-            </h3>
-
-            <p>
-                📱 Mobile:
-                ${user.mobile || "-"}
-            </p>
-
-            <p>
-                📧 Email:
-                ${user.email || "-"}
-            </p>
-
-            <p>
-                🆔 UID:
-                ${user.uid}
-            </p>
-
-            <p>
-                📅 Account Created:
-                ${user.createdAt || "-"}
-            </p>
-
-            <p>
-                🕐 Last Login:
-                ${user.lastLogin || "-"}
-            </p>
-
-            <hr>
-
-            <h3>
-                💳 Subscription
-            </h3>
-
-            <p>
-                Plan:
-                <b>
-                    ${user.plan || "Free"}
-                </b>
-            </p>
-
-            <p>
-                📅 Start:
-                ${user.planStartDate || "-"}
-            </p>
-
-            <p>
-                📅 Expiry:
-                ${user.expiryDate || "-"}
-            </p>
-
-            <p>
-                💰 Payment:
-                ${user.paymentStatus || "Free"}
-            </p>
-
-            <p>
-                🔴 Status:
-                ${user.status || "Active"}
-            </p>
-
-        </div>
-
-    `;
+        return;
+    }
 
 };
 
 
 // ==========================================
-// LOAD AFTER ADMIN LOGIN
+// AUTH STATE
 // ==========================================
 
-const oldLoadAdminStats =
-    window.RAJ_ADMIN?.loadAdminStats;
+onAuthStateChanged(
+    auth,
+    async function(user) {
+
+        if (!user) {
+
+            showLogin();
+
+            return;
+        }
 
 
-if (typeof oldLoadAdminStats === "function") {
+        if (!isAdmin(user)) {
 
-    const original =
-        oldLoadAdminStats;
+            await signOut(auth);
 
-    window.RAJ_ADMIN.loadAdminStats =
-    async function() {
+            showLogin(
+                "❌ यह account Owner/Admin account नहीं है।"
+            );
 
-        await original();
+            return;
+        }
 
-        await loadUserProfiles();
 
-    };
+        showDashboard(user);
 
-}
+    }
+);
+
+
+// ==========================================
+// GLOBAL ADMIN OBJECT
+// ==========================================
+
+window.RAJ_ADMIN = {
+
+    auth: auth,
+
+    db: db,
+
+    isAdmin: isAdmin,
+
+    loadAdminData:
+        loadAdminData,
+
+    loadRecords:
+        loadRecords,
+
+    loadUserProfiles:
+        loadUserProfiles,
+
+    showDashboard:
+        showDashboard,
+
+    showLogin:
+        showLogin,
+
+    getAdminUsers:
+        () => adminUsers
+
+};
+
+
+console.log(
+    "✅ Chhapola Agriculture FINAL Admin Panel Loaded"
+);
