@@ -46,16 +46,89 @@
       </div>
     </section>
 
-    <section class="panel info-panel">
-      <h2>⚙️ Admin Controls</h2>
-      <div class="controls">
-        <div>👥 User Add / Block / Delete <small>अगले चरण में</small></div>
-        <div>📊 User Activity <small>अगले चरण में</small></div>
-        <div>💳 Subscription / Plan <small>अगले चरण में</small></div>
-        <div>🌐 Website Settings <small>अगले चरण में</small></div>
-        <div>🛡️ System Control <small>अगले चरण में</small></div>
-      </div>
-    </section>
+    <section class="panel">
+  <div class="panel-head">
+    <h2>👥 User Management</h2>
+    <button id="refreshUsersBtn">Refresh</button>
+  </div>
+
+  <div class="user-tools">
+    <input
+      id="userSearch"
+      type="search"
+      placeholder="🔎 Name / Email / UID खोजें..."
+    >
+
+    <select id="userStatusFilter">
+      <option value="all">सभी Users</option>
+      <option value="active">Active</option>
+      <option value="blocked">Blocked</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>User / UID</th>
+          <th>Email</th>
+          <th>Status</th>
+          <th>Records</th>
+          <th>Total</th>
+          <th>Paid</th>
+          <th>Balance</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+
+      <tbody id="userManagementBody">
+        <tr>
+          <td colspan="8">Loading...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>📊 Selected User</h2>
+
+  <div id="selectedUserBox">
+    किसी User को ऊपर से select करें।
+  </div>
+</section>
+
+<section class="panel info-panel">
+  <h2>⚙️ Admin Controls</h2>
+
+  <div class="controls">
+
+    <button
+      type="button"
+      onclick="openAdminSection('users')">
+      👥 Users
+    </button>
+
+    <button
+      type="button"
+      onclick="openAdminSection('records')">
+      📋 All Records
+    </button>
+
+    <button
+      type="button"
+      onclick="openAdminSection('reports')">
+      📊 Reports
+    </button>
+
+    <button
+      type="button"
+      onclick="openAdminSection('settings')">
+      ⚙️ Website Settings
+    </button>
+
+  </div>
+            </section>
   </main>
 </div>
 
