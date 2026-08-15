@@ -619,7 +619,24 @@ async function login() {
 
   try {
     await signInWithEmailAndPassword(window.auth, email, password);
+const user = window.auth.currentUser;
 
+const userDoc = await getDocs(
+  query(
+    collection(window.db, "users"),
+    where("__name__", "==", user.uid)
+  )
+);
+
+if (!userDoc.empty) {
+  const userData = userDoc.docs[0].data();
+
+  if (userData.status === "blocked") {
+    await signOut(window.auth);
+    alert("🚫 आपका Account Block है। Owner से संपर्क करें।");
+    return;
+  }
+}
     document.getElementById("loginBox").style.display = "none";
     document.getElementById("mainApp").style.display = "block";
 
