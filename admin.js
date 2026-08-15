@@ -5,9 +5,8 @@
 
 "use strict";
 
-import {
-    initializeApp
-} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import { initializeApp }
+from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
 
 import {
     getAuth,
@@ -22,7 +21,6 @@ import {
     collection,
     getDocs
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-
 
 // ==========================================
 // FIREBASE CONFIG
@@ -39,109 +37,101 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-
 const auth = getAuth(app);
-
 const db = getFirestore(app);
 
-
 // ==========================================
-// अपना ADMIN EMAIL यहां डालें
+// ADMIN EMAIL
 // ==========================================
 
 const ADMIN_EMAIL = "jaichhapola@gmail.com";
 
-
 // ==========================================
-// ADMIN ELEMENTS
+// CURRENT admin.html ELEMENTS
 // ==========================================
 
-const loginBox =
-    document.getElementById("admin-login");
+const adminLogin =
+    document.getElementById("adminLogin");
 
-const dashboard =
-    document.getElementById("admin-dashboard");
+const adminApp =
+    document.getElementById("adminApp");
 
-const loginForm =
-    document.getElementById("admin-login-form");
+const adminEmail =
+    document.getElementById("adminEmail");
 
-const emailInput =
-    document.getElementById("admin-email");
+const adminPassword =
+    document.getElementById("adminPassword");
 
-const passwordInput =
-    document.getElementById("admin-password");
-
-const errorBox =
-    document.getElementById("admin-error");
+const adminLoginBtn =
+    document.getElementById("adminLoginBtn");
 
 const logoutBtn =
-    document.getElementById("admin-logout");
+    document.getElementById("logoutBtn");
 
+const refreshBtn =
+    document.getElementById("refreshBtn");
+
+const loginMessage =
+    document.getElementById("loginMessage");
+
+const adminUser =
+    document.getElementById("adminUser");
+
+const userCount =
+    document.getElementById("userCount");
+
+const tractorOwnerCount =
+    document.getElementById("tractorOwnerCount");
+
+const recordCount =
+    document.getElementById("recordCount");
+
+const incomeTotal =
+    document.getElementById("incomeTotal");
+
+const usersBody =
+    document.getElementById("usersBody");
 
 // ==========================================
-// SHOW LOGIN
+// LOGIN SCREEN
 // ==========================================
 
-function showLogin() {
+function showLogin(message = "") {
 
-    if (loginBox) {
-
-        loginBox.style.display = "block";
-
+    if (adminLogin) {
+        adminLogin.classList.remove("hidden");
     }
 
-    if (dashboard) {
-
-        dashboard.style.display = "none";
-
+    if (adminApp) {
+        adminApp.classList.add("hidden");
     }
 
+    if (loginMessage) {
+        loginMessage.textContent = message;
+    }
 }
 
-
 // ==========================================
-// SHOW DASHBOARD
+// ADMIN PANEL
 // ==========================================
 
-function showDashboard() {
+function showDashboard(user) {
 
-    if (loginBox) {
-
-        loginBox.style.display = "none";
-
+    if (adminLogin) {
+        adminLogin.classList.add("hidden");
     }
 
-    if (dashboard) {
-
-        dashboard.style.display = "block";
-
+    if (adminApp) {
+        adminApp.classList.remove("hidden");
     }
 
-    loadAdminStats();
+    if (adminUser) {
+        adminUser.textContent =
+            user?.email || "";
+    }
 
+    loadAdminData();
 }
-
-
-// ==========================================
-// ERROR
-// ==========================================
-
-function showError(message) {
-
-    if (errorBox) {
-
-        errorBox.textContent = message;
-
-        errorBox.style.display = "block";
-
-    } else {
-
-        alert(message);
-
-    }
-
-}
-
 
 // ==========================================
 // ADMIN CHECK
@@ -150,103 +140,71 @@ function showError(message) {
 function isAdmin(user) {
 
     if (!user || !user.email) {
-
         return false;
-
     }
 
     return (
-        user.email.toLowerCase() ===
-        ADMIN_EMAIL.toLowerCase()
+        user.email.toLowerCase().trim() ===
+        ADMIN_EMAIL.toLowerCase().trim()
     );
-
 }
 
-
 // ==========================================
-// LOGIN STATE
-// ==========================================
-
-onAuthStateChanged(auth, async (user) => {
-
-    if (!user) {
-
-        showLogin();
-
-        return;
-
-    }
-
-
-    if (!isAdmin(user)) {
-
-        await signOut(auth);
-
-        showError(
-            "यह account Owner/Admin account नहीं है।"
-        );
-
-        showLogin();
-
-        return;
-
-    }
-
-
-    showDashboard();
-
-});
-
-
-// ==========================================
-// ADMIN LOGIN
+// MONEY
 // ==========================================
 
-if (loginForm) {
+function money(value) {
 
-    loginForm.addEventListener(
-        "submit",
-        async (event) => {
+    return "₹" +
+        Number(value || 0)
+        .toLocaleString("en-IN");
+}
 
-            event.preventDefault();
+// ==========================================
+// LOGIN
+// ==========================================
 
+if (adminLoginBtn) {
+
+    adminLoginBtn.addEventListener(
+        "click",
+        async function () {
 
             const email =
-                emailInput
-                ? emailInput.value.trim()
+                adminEmail
+                ? adminEmail.value.trim()
                 : "";
-
 
             const password =
-                passwordInput
-                ? passwordInput.value
+                adminPassword
+                ? adminPassword.value
                 : "";
-
 
             if (!email || !password) {
 
-                showError(
-                    "Email और Password भरें।"
-                );
+                if (loginMessage) {
+                    loginMessage.textContent =
+                        "Email और Password भरें।";
+                }
 
                 return;
-
             }
-
 
             if (
                 email.toLowerCase() !==
                 ADMIN_EMAIL.toLowerCase()
             ) {
 
-                showError(
-                    "यह Owner/Admin email नहीं है।"
-                );
+                if (loginMessage) {
+                    loginMessage.textContent =
+                        "यह Owner/Admin email नहीं है।";
+                }
 
                 return;
-
             }
 
+            adminLoginBtn.disabled = true;
+            adminLoginBtn.textContent = "LOGIN...";
 
             try {
 
@@ -256,24 +214,89 @@ if (loginForm) {
                     password
                 );
 
+                if (loginMessage) {
+                    loginMessage.textContent = "";
+                }
+
             } catch (error) {
 
                 console.error(
-                    "Admin Login Error:",
+                    "ADMIN LOGIN ERROR:",
                     error
                 );
 
-                showError(
-                    "Login असफल हुआ। Email या Password जाँचें।"
-                );
+                let message =
+                    "❌ Login नहीं हुआ।";
+
+                if (
+                    error.code ===
+                    "auth/invalid-credential"
+                ) {
+
+                    message =
+                        "❌ Email या Password गलत है।";
+
+                } else if (
+                    error.code ===
+                    "auth/user-not-found"
+                ) {
+
+                    message =
+                        "❌ यह Admin account Firebase में नहीं है।";
+
+                } else if (
+                    error.code ===
+                    "auth/wrong-password"
+                ) {
+
+                    message =
+                        "❌ Password गलत है।";
+
+                } else if (
+                    error.code ===
+                    "auth/invalid-email"
+                ) {
+
+                    message =
+                        "❌ Email गलत है।";
+                }
+
+                if (loginMessage) {
+                    loginMessage.textContent =
+                        message;
+                }
+
+            } finally {
+
+                adminLoginBtn.disabled = false;
+                adminLoginBtn.textContent = "LOGIN";
 
             }
-
         }
     );
-
 }
 
+// ==========================================
+// ENTER KEY
+// ==========================================
+
+if (adminPassword) {
+
+    adminPassword.addEventListener(
+        "keydown",
+        function (event) {
+
+            if (
+                event.key === "Enter" &&
+                adminLoginBtn
+            ) {
+
+                adminLoginBtn.click();
+
+            }
+        }
+    );
+}
 
 // ==========================================
 // LOGOUT
@@ -283,7 +306,7 @@ if (logoutBtn) {
 
     logoutBtn.addEventListener(
         "click",
-        async () => {
+        async function () {
 
             try {
 
@@ -299,149 +322,295 @@ if (logoutBtn) {
                 );
 
             }
-
         }
     );
-
 }
-
 
 // ==========================================
 // FORGOT PASSWORD
 // ==========================================
 
-window.adminForgotPassword = async function () {
+window.adminForgotPassword =
+async function () {
 
     const email =
-        emailInput
-        ? emailInput.value.trim()
+        adminEmail
+        ? adminEmail.value.trim()
         : ADMIN_EMAIL;
-
-
-    if (!email) {
-
-        showError(
-            "पहले Admin email डालें।"
-        );
-
-        return;
-
-    }
-
 
     try {
 
         await sendPasswordResetEmail(
             auth,
-            email
+            email || ADMIN_EMAIL
         );
-
 
         alert(
-            "Password reset link आपके email पर भेज दिया गया है।"
+            "✅ Password reset link email पर भेज दिया गया।"
         );
-
 
     } catch (error) {
 
         console.error(
-            "Password Reset Error:",
+            "Reset Password Error:",
             error
         );
 
+        if (loginMessage) {
 
-        showError(
-            "Password reset email भेजने में समस्या हुई।"
-        );
-
+            loginMessage.textContent =
+                "❌ Password reset email नहीं भेजी गई।";
+        }
     }
-
 };
 
-
 // ==========================================
-// ADMIN STATISTICS
+// LOAD ADMIN DATA
 // ==========================================
 
-async function loadAdminStats() {
+async function loadAdminData() {
+
+    if (!usersBody) {
+        return;
+    }
+
+    usersBody.innerHTML =
+        `<tr>
+            <td colspan="5">
+                Loading...
+            </td>
+        </tr>`;
 
     try {
 
-        let totalRecords = 0;
-
-
-        const collectionsToCheck = [
-
-            "entries",
-
-            "records",
-
-            "farmers",
-
-            "data",
-
-            "khata"
-
-        ];
-
-
-        for (
-            const collectionName
-            of collectionsToCheck
-        ) {
-
-            try {
-
-                const snapshot =
-                    await getDocs(
-                        collection(
-                            db,
-                            collectionName
-                        )
-                    );
-
-
-                totalRecords +=
-                    snapshot.size;
-
-
-            } catch (error) {
-
-                console.log(
-                    "Collection not found:",
-                    collectionName
-                );
-
-            }
-
-        }
-
-
-        const recordElement =
-            document.getElementById(
-                "admin-total-records"
+        const snapshot =
+            await getDocs(
+                collection(db, "records")
             );
 
+        const records =
+            snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
 
-        if (recordElement) {
+        let totalIncome = 0;
 
-            recordElement.textContent =
-                totalRecords;
+        const owners = new Map();
 
+        // ==================================
+        // RECORD ANALYSIS
+        // ==================================
+
+        records.forEach(record => {
+
+            totalIncome +=
+                Number(record.total || 0);
+
+            const ownerUid =
+                record.ownerUid ||
+                "OLD / NO OWNER UID";
+
+            if (!owners.has(ownerUid)) {
+
+                owners.set(ownerUid, {
+
+                    uid: ownerUid,
+
+                    records: 0,
+
+                    farmers: new Set(),
+
+                    lastDate: ""
+
+                });
+            }
+
+            const owner =
+                owners.get(ownerUid);
+
+            owner.records++;
+
+            if (record.name) {
+
+                owner.farmers.add(
+                    record.name
+                    .trim()
+                    .toLowerCase()
+                );
+            }
+
+            if (
+                record.date &&
+                (
+                    !owner.lastDate ||
+                    record.date > owner.lastDate
+                )
+            ) {
+
+                owner.lastDate =
+                    record.date;
+            }
+        });
+
+        // ==================================
+        // DASHBOARD
+        // ==================================
+
+        if (userCount) {
+
+            userCount.textContent =
+                owners.size;
         }
 
+        if (tractorOwnerCount) {
+
+            tractorOwnerCount.textContent =
+                owners.size;
+        }
+
+        if (recordCount) {
+
+            recordCount.textContent =
+                records.length;
+        }
+
+        if (incomeTotal) {
+
+            incomeTotal.textContent =
+                money(totalIncome);
+        }
+
+        // ==================================
+        // USERS TABLE
+        // ==================================
+
+        if (owners.size === 0) {
+
+            usersBody.innerHTML =
+                `<tr>
+                    <td colspan="5">
+                        अभी कोई User/Owner record नहीं मिला।
+                    </td>
+                </tr>`;
+
+            return;
+        }
+
+        usersBody.innerHTML =
+            [...owners.values()]
+            .sort(
+                (a, b) =>
+                    String(b.lastDate)
+                    .localeCompare(
+                        String(a.lastDate)
+                    )
+            )
+            .map(owner => {
+
+                return `
+                <tr>
+
+                    <td>
+                        ${owner.uid}
+                    </td>
+
+                    <td>
+                        ${
+                            owner.uid ===
+                            "OLD / NO OWNER UID"
+                            ? "पुराना Record"
+                            : "Firebase User"
+                        }
+                    </td>
+
+                    <td>
+                        Active
+                    </td>
+
+                    <td>
+                        ${owner.lastDate || "-"}
+                    </td>
+
+                    <td>
+                        ${owner.records}
+                    </td>
+
+                </tr>
+                `;
+
+            })
+            .join("");
 
     } catch (error) {
 
         console.error(
-            "Admin Statistics Error:",
+            "ADMIN FIRESTORE ERROR:",
             error
         );
 
-    }
+        usersBody.innerHTML =
+            `<tr>
+                <td colspan="5"
+                    style="color:red">
 
+                    ❌ Firebase data load नहीं हुआ।
+
+                    <br><br>
+
+                    ${
+                        error.code ===
+                        "permission-denied"
+                        ? "Firestore Rules Admin को records पढ़ने की permission नहीं दे रहे हैं।"
+                        : error.message
+                    }
+
+                </td>
+            </tr>`;
+    }
 }
 
+// ==========================================
+// REFRESH
+// ==========================================
+
+if (refreshBtn) {
+
+    refreshBtn.addEventListener(
+        "click",
+        loadAdminData
+    );
+}
+
+// ==========================================
+// AUTH STATE
+// ==========================================
+
+onAuthStateChanged(
+    auth,
+    async function (user) {
+
+        if (!user) {
+
+            showLogin();
+
+            return;
+        }
+
+        if (!isAdmin(user)) {
+
+            await signOut(auth);
+
+            showLogin(
+                "❌ यह account Owner/Admin account नहीं है।"
+            );
+
+            return;
+        }
+
+        showDashboard(user);
+    }
+);
 
 // ==========================================
 // GLOBAL ADMIN OBJECT
@@ -455,10 +624,14 @@ window.RAJ_ADMIN = {
 
     isAdmin: isAdmin,
 
-    loadAdminStats: loadAdminStats,
+    loadAdminData: loadAdminData,
 
     showDashboard: showDashboard,
 
     showLogin: showLogin
 
 };
+
+console.log(
+    "✅ Chhapola Admin Panel Loaded"
+);
