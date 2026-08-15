@@ -74,9 +74,9 @@
           <th>Email</th>
           <th>Status</th>
           <th>Records</th>
-          <th>Total</th>
-          <th>Paid</th>
-          <th>Balance</th>
+          <th>Plan</th>
+          <th>Expiry</th>
+          <th>Used Days</th>
           <th>Action</th>
         </tr>
       </thead>
@@ -97,7 +97,50 @@
     किसी User को ऊपर से select करें।
   </div>
 </section>
+<section class="panel">
 
+  <h2>💳 Subscription Summary</h2>
+
+  <div class="stats">
+
+    <div class="stat">
+      <span>🆓</span>
+      <b id="freeUserCount">0</b>
+      <small>Free</small>
+    </div>
+
+    <div class="stat">
+      <span>🔵</span>
+      <b id="basicUserCount">0</b>
+      <small>Basic</small>
+    </div>
+
+    <div class="stat">
+      <span>🟣</span>
+      <b id="proUserCount">0</b>
+      <small>Pro</small>
+    </div>
+
+    <div class="stat">
+      <span>🟡</span>
+      <b id="premiumUserCount">0</b>
+      <small>Premium</small>
+    </div>
+
+  </div>
+
+</section>
+
+
+<section class="panel">
+
+  <h2>⏳ अगले 30 दिन में Expire होने वाले Plans</h2>
+
+  <div id="expiringPlansList">
+    Loading...
+  </div>
+
+  </section>
 <section class="panel info-panel">
   <h2>⚙️ Admin Controls</h2>
 
