@@ -635,3 +635,428 @@ window.RAJ_ADMIN = {
 console.log(
     "✅ Chhapola Admin Panel Loaded"
 );
+// ==========================================
+// PROPER USER MANAGEMENT
+// ==========================================
+
+let adminUsers = [];
+
+async function loadUserManagement() {
+
+    const body =
+        document.getElementById(
+            "userManagementBody"
+        );
+
+    if (!body) return;
+
+    body.innerHTML = `
+        <tr>
+            <td colspan="8">
+                Loading...
+            </td>
+        </tr>
+    `;
+
+    try {
+
+        const snapshot =
+            await getDocs(
+                collection(db, "records")
+            );
+
+        const users = {};
+
+        snapshot.forEach(docSnap => {
+
+            const r = docSnap.data();
+
+            const uid =
+                r.ownerUid ||
+                "OLD / NO OWNER UID";
+
+            if (!users[uid]) {
+
+                users[uid] = {
+
+                    uid: uid,
+
+                    email:
+                        r.email ||
+                        "Email उपलब्ध नहीं",
+
+                    records: 0,
+
+                    total: 0,
+
+                    paid: 0,
+
+                    balance: 0,
+
+                    status: "active"
+
+                };
+
+            }
+
+            users[uid].records++;
+
+            users[uid].total +=
+                Number(r.total || 0);
+
+            users[uid].paid +=
+                Number(r.paid || 0);
+
+            users[uid].balance +=
+                Number(r.baki || 0);
+
+        });
+
+        adminUsers =
+            Object.values(users);
+
+        renderAdminUsers();
+
+    } catch (error) {
+
+        console.error(
+            "User Management Error:",
+            error
+        );
+
+        body.innerHTML = `
+            <tr>
+                <td colspan="8">
+                    ❌ Users load नहीं हुए।
+                </td>
+            </tr>
+        `;
+    }
+}
+
+
+// ==========================================
+// RENDER USERS
+// ==========================================
+
+function renderAdminUsers() {
+
+    const body =
+        document.getElementById(
+            "userManagementBody"
+        );
+
+    if (!body) return;
+
+    const search =
+        (
+            document.getElementById(
+                "userSearch"
+            )?.value || ""
+        )
+        .toLowerCase()
+        .trim();
+
+    const filter =
+        document.getElementById(
+            "userStatusFilter"
+        )?.value || "all";
+
+
+    let list =
+        adminUsers.filter(user => {
+
+            const text =
+                (
+                    user.uid +
+                    " " +
+                    user.email
+                ).toLowerCase();
+
+            if (
+                search &&
+                !text.includes(search)
+            ) {
+                return false;
+            }
+
+            if (
+                filter !== "all" &&
+                user.status !== filter
+            ) {
+                return false;
+            }
+
+            return true;
+
+        });
+
+
+    if (!list.length) {
+
+        body.innerHTML = `
+            <tr>
+                <td colspan="8">
+                    कोई User नहीं मिला।
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+
+    body.innerHTML =
+        list.map((user, index) => {
+
+            const status =
+                user.status === "blocked"
+                    ? "🔴 Blocked"
+                    : "🟢 Active";
+
+
+            return `
+
+            <tr>
+
+                <td>
+                    <b>${escapeHTML(user.uid)}</b>
+                </td>
+
+                <td>
+                    ${escapeHTML(user.email)}
+                </td>
+
+                <td>
+                    ${status}
+                </td>
+
+                <td>
+                    ${user.records}
+                </td>
+
+                <td>
+                    ₹${user.total.toLocaleString("en-IN")}
+                </td>
+
+                <td>
+                    ₹${user.paid.toLocaleString("en-IN")}
+                </td>
+
+                <td>
+                    ₹${user.balance.toLocaleString("en-IN")}
+                </td>
+
+                <td>
+
+                    <button
+                        onclick="viewAdminUser(${index})">
+                        👁️
+                    </button>
+
+                </td>
+
+            </tr>
+
+            `;
+
+        })
+        .join("");
+
+}
+
+
+// ==========================================
+// VIEW USER
+// ==========================================
+
+window.viewAdminUser =
+function(index) {
+
+    const user =
+        adminUsers[index];
+
+    if (!user) return;
+
+    const box =
+        document.getElementById(
+            "selectedUserBox"
+        );
+
+    if (!box) return;
+
+    box.innerHTML = `
+
+        <div class="card">
+
+            <h3>
+                👤 User Details
+            </h3>
+
+            <p>
+                <b>UID:</b>
+                ${escapeHTML(user.uid)}
+            </p>
+
+            <p>
+                <b>Email:</b>
+                ${escapeHTML(user.email)}
+            </p>
+
+            <p>
+                <b>Status:</b>
+                ${user.status}
+            </p>
+
+            <p>
+                <b>Total Records:</b>
+                ${user.records}
+            </p>
+
+            <p>
+                <b>Total:</b>
+                ₹${user.total.toLocaleString("en-IN")}
+            </p>
+
+            <p>
+                <b>Paid:</b>
+                ₹${user.paid.toLocaleString("en-IN")}
+            </p>
+
+            <p>
+                <b>Balance:</b>
+                ₹${user.balance.toLocaleString("en-IN")}
+            </p>
+
+            <hr>
+
+            <button
+                onclick="alert('Block / Unblock के लिए Cloud Function जोड़ना होगा।')">
+                🚫 Block / Unblock
+            </button>
+
+            <button
+                onclick="alert('User Delete के लिए Cloud Function जोड़ना होगा।')">
+                🗑️ Delete User
+            </button>
+
+        </div>
+
+    `;
+};
+
+
+// ==========================================
+// SEARCH
+// ==========================================
+
+const userSearch =
+    document.getElementById(
+        "userSearch"
+    );
+
+if (userSearch) {
+
+    userSearch.addEventListener(
+        "input",
+        renderAdminUsers
+    );
+
+}
+
+
+const userStatusFilter =
+    document.getElementById(
+        "userStatusFilter"
+    );
+
+if (userStatusFilter) {
+
+    userStatusFilter.addEventListener(
+        "change",
+        renderAdminUsers
+    );
+
+}
+
+
+// ==========================================
+// REFRESH USERS
+// ==========================================
+
+const refreshUsersBtn =
+    document.getElementById(
+        "refreshUsersBtn"
+    );
+
+if (refreshUsersBtn) {
+
+    refreshUsersBtn.addEventListener(
+        "click",
+        loadUserManagement
+    );
+
+}
+
+
+// ==========================================
+// ADMIN SECTIONS
+// ==========================================
+
+window.openAdminSection =
+function(section) {
+
+    if (section === "users") {
+
+        loadUserManagement();
+
+        return;
+    }
+
+    if (section === "records") {
+
+        alert(
+            "📋 All Records module अगला चरण है।"
+        );
+
+        return;
+    }
+
+    if (section === "reports") {
+
+        alert(
+            "📊 Reports module अगला चरण है।"
+        );
+
+        return;
+    }
+
+    if (section === "settings") {
+
+        alert(
+            "⚙️ Website Settings module अगला चरण है।"
+        );
+
+    }
+
+};
+
+
+// ==========================================
+// LOAD USER MANAGEMENT AFTER LOGIN
+// ==========================================
+
+const oldShowAdminPanel =
+    showAdminPanel;
+
+showAdminPanel =
+function(user) {
+
+    oldShowAdminPanel(user);
+
+    setTimeout(
+        loadUserManagement,
+        300
+    );
+
+};
