@@ -13,7 +13,8 @@ import {
   updateDoc,
   doc,
   query,
-  where 
+  where,
+  setDoc
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 alert("Script Loaded");
 const recordsRef = collection(window.db, "records");
@@ -731,7 +732,30 @@ async function signup() {
       email,
       password
     );
+const credential =
+  window.auth.currentUser;
 
+await setDoc(
+  doc(window.db, "users", credential.uid),
+  {
+    uid: credential.uid,
+    name: name,
+    mobile: mobile,
+    email: email,
+
+    role: "tractorOwner",
+    status: "active",
+
+    plan: "Free",
+    planStartDate: "",
+    expiryDate: "",
+    paymentStatus: "Free",
+
+    createdAt: new Date().toISOString(),
+    lastLogin: new Date().toISOString()
+  },
+  { merge: true }
+);
     alert("✅ Tractor Account सफलतापूर्वक बन गया।");
 
     document.getElementById("signupBox").style.display = "none";
