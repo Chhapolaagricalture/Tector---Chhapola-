@@ -22,7 +22,7 @@ import {
     collection,
     getDocs,
     updateDoc,
-    Doc
+    doc
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 
@@ -1117,76 +1117,7 @@ window.viewAdminUserByUid = function(uid) {
     const works = [
         ...(usage.works || new Set())
     ];
-    // ==========================================
-// BLOCK / UNBLOCK USER
-// ==========================================
-
-window.toggleUserStatus = async function(uid) {
-
-    const user = adminUsers.find(
-        u => u.uid === uid
-    );
-
-    if (!user) {
-        alert("❌ User नहीं मिला।");
-        return;
-    }
-
-    const currentStatus =
-        String(
-            user.status || "active"
-        ).toLowerCase();
-
-    const newStatus =
-        currentStatus === "blocked"
-            ? "active"
-            : "blocked";
-
-    const confirmText =
-        newStatus === "blocked"
-            ? "क्या आप इस user को BLOCK करना चाहते हैं?"
-            : "क्या आप इस user को UNBLOCK करना चाहते हैं?";
-
-    if (!confirm(confirmText)) {
-        return;
-    }
-
-    try {
-
-        await updateDoc(
-            doc(
-                db,
-                "users",
-                uid
-            ),
-            {
-                status: newStatus
-            }
-        );
-
-        user.status = newStatus;
-
-        renderAdminUsers();
-
-        alert(
-            newStatus === "blocked"
-                ? "🚫 User Block कर दिया गया।"
-                : "✅ User Unblock कर दिया गया।"
-        );
-
-    } catch (error) {
-
-        console.error(
-            "BLOCK/UNBLOCK ERROR:",
-            error
-        );
-
-        alert(
-            "❌ Status बदल नहीं पाया: " +
-            (error.message || "Unknown error")
-        );
-    }
-};
+    
 
     // ======================================
     // OWNER KE RECORDS
@@ -1485,7 +1416,76 @@ if (refreshUsersBtn) {
     );
 }
 
+// ==========================================
+// BLOCK / UNBLOCK USER
+// ==========================================
 
+window.toggleUserStatus = async function(uid) {
+
+    const user = adminUsers.find(
+        u => u.uid === uid
+    );
+
+    if (!user) {
+        alert("❌ User नहीं मिला।");
+        return;
+    }
+
+    const currentStatus =
+        String(
+            user.status || "active"
+        ).toLowerCase();
+
+    const newStatus =
+        currentStatus === "blocked"
+            ? "active"
+            : "blocked";
+
+    const confirmText =
+        newStatus === "blocked"
+            ? "क्या आप इस user को BLOCK करना चाहते हैं?"
+            : "क्या आप इस user को UNBLOCK करना चाहते हैं?";
+
+    if (!confirm(confirmText)) {
+        return;
+    }
+
+    try {
+
+        await updateDoc(
+            doc(
+                db,
+                "users",
+                uid
+            ),
+            {
+                status: newStatus
+            }
+        );
+
+        user.status = newStatus;
+
+        renderAdminUsers();
+
+        alert(
+            newStatus === "blocked"
+                ? "🚫 User Block कर दिया गया।"
+                : "✅ User Unblock कर दिया गया।"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "BLOCK/UNBLOCK ERROR:",
+            error
+        );
+
+        alert(
+            "❌ Status बदल नहीं पाया: " +
+            (error.message || "Unknown error")
+        );
+    }
+};
 // ==========================================
 // SUBSCRIPTION SUMMARY
 // ==========================================
