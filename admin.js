@@ -1073,212 +1073,296 @@ function renderAdminUsers() {
 // VIEW OWNER USAGE
 // ==========================================
 
-window.viewAdminUserByUid =
-function(uid) {
+// ==========================================
+// VIEW OWNER FULL PROFILE + USAGE SUMMARY
+// ==========================================
 
-    const user =
-        adminUsers.find(
-            u => u.uid === uid
-        );
+window.viewAdminUserByUid = function(uid) {
 
-    if (!user) {
+    const user = adminUsers.find(
+        u => u.uid === uid
+    );
+
+    if (!user || !selectedUserBox) {
         return;
     }
 
-
-    if (!selectedUserBox) {
-        return;
-    }
-
-
-    const usage =
-        user.usage || {};
-
+    const usage = user.usage || {};
 
     const farmers =
-        usage.farmers?.size ||
-        0;
-
+        usage.farmers?.size || 0;
 
     const records =
-        usage.records ||
-        0;
-
+        usage.records || 0;
 
     const days =
-        usage.dates?.size ||
-        0;
+        usage.dates?.size || 0;
+
+    const works = [
+        ...(usage.works || new Set())
+    ];
+
+    // ======================================
+    // OWNER KE RECORDS
+    // ======================================
+
+    const ownerRecords =
+        allRecords.filter(
+            r => r.ownerUid === uid
+        );
+
+    let totalAmount = 0;
+    let totalPaid = 0;
+    let totalBalance = 0;
+
+    ownerRecords.forEach(r => {
+
+        totalAmount +=
+            Number(r.total || 0);
+
+        totalPaid +=
+            Number(r.paid || 0);
+
+        totalBalance +=
+            Number(
+                r.baki ??
+                (
+                    Number(r.total || 0) -
+                    Number(r.paid || 0)
+                )
+            );
+
+    });
 
 
-    const works =
-        [...(
-            usage.works ||
-            new Set()
-        )];
-
+    // ======================================
+    // PROFILE
+    // ======================================
 
     selectedUserBox.innerHTML = `
 
-        <div class="card"
-             style="width:100%;text-align:left">
+    <div class="card"
+         style="
+            width:100%;
+            text-align:left;
+            box-shadow:none;
+            padding:0;
+         ">
 
-            <h3>
-                🚜 ${escapeHTML(
-                    user.name ||
-                    "Tractor Owner"
-                )}
-            </h3>
+        <h3>
+            🚜 Tractor Owner Profile
+        </h3>
 
+        <hr>
 
-            <p>
-                📧 <b>Email:</b>
-                ${escapeHTML(
-                    user.email ||
-                    "-"
-                )}
-            </p>
+        <p>
+            👤 <b>Name:</b>
+            ${escapeHTML(
+                user.name ||
+                "Not Available"
+            )}
+        </p>
 
+        <p>
+            📧 <b>Email:</b>
+            ${escapeHTML(
+                user.email ||
+                "Not Available"
+            )}
+        </p>
 
-            <p>
-                📱 <b>Mobile:</b>
-                ${escapeHTML(
-                    user.mobile ||
-                    "-"
-                )}
-            </p>
+        <p>
+            📱 <b>Mobile:</b>
+            ${escapeHTML(
+                user.mobile ||
+                "Not Available"
+            )}
+        </p>
 
-
-            <p>
-                🆔 <b>UID:</b>
+        <p>
+            🆔 <b>UID:</b>
+            <small>
                 ${escapeHTML(
                     user.uid
                 )}
-            </p>
+            </small>
+        </p>
+
+        <p>
+            👤 <b>Role:</b>
+            ${escapeHTML(
+                user.role ||
+                "tractorOwner"
+            )}
+        </p>
+
+        <p>
+            🟢 <b>Status:</b>
+            ${escapeHTML(
+                user.status ||
+                "Active"
+            )}
+        </p>
 
 
-            <hr>
+        <hr>
+
+        <h3>
+            📊 Website Usage Summary
+        </h3>
+
+        <p>
+            👨‍🌾 <b>Total Farmers:</b>
+            ${farmers}
+        </p>
+
+        <p>
+            📋 <b>Total Records:</b>
+            ${records}
+        </p>
+
+        <p>
+            📅 <b>Used Days:</b>
+            ${days}
+        </p>
+
+        <p>
+            📅 <b>First Activity:</b>
+            ${escapeHTML(
+                usage.firstDate ||
+                "-"
+            )}
+        </p>
+
+        <p>
+            🕐 <b>Last Activity:</b>
+            ${escapeHTML(
+                usage.lastDate ||
+                "-"
+            )}
+        </p>
 
 
-            <h3>
-                📊 Website Usage Summary
-            </h3>
+        <p>
+            🚜 <b>Works Used:</b>
+            ${
+                works.length
+                ?
+                works.map(
+                    work => `
+                    <span
+                        style="
+                            display:inline-block;
+                            padding:5px 9px;
+                            margin:3px;
+                            border-radius:8px;
+                            background:#eef5ef;
+                        "
+                    >
+                        ${escapeHTML(work)}
+                    </span>
+                    `
+                ).join("")
+                :
+                "-"
+            }
+        </p>
 
 
-            <p>
-                👨‍🌾 <b>कुल किसान Records:</b>
-                ${farmers}
-            </p>
+        <hr>
+
+        <h3>
+            💰 Farmer Records Summary
+        </h3>
+
+        <p>
+            📋 <b>Total Entries:</b>
+            ${ownerRecords.length}
+        </p>
+
+        <p>
+            💰 <b>Total Amount:</b>
+            ${money(totalAmount)}
+        </p>
+
+        <p>
+            💵 <b>Total Paid:</b>
+            ${money(totalPaid)}
+        </p>
+
+        <p>
+            ❌ <b>Total Balance:</b>
+            ${money(totalBalance)}
+        </p>
 
 
-            <p>
-                📋 <b>कुल Entries:</b>
-                ${records}
-            </p>
+        <hr>
+
+        <h3>
+            💳 Subscription
+        </h3>
+
+        <p>
+            <b>Plan:</b>
+            ${escapeHTML(
+                user.plan ||
+                "Free"
+            )}
+        </p>
+
+        <p>
+            <b>Plan Start:</b>
+            ${escapeHTML(
+                user.planStartDate ||
+                "-"
+            )}
+        </p>
+
+        <p>
+            <b>Plan Expiry:</b>
+            ${escapeHTML(
+                user.expiryDate ||
+                "-"
+            )}
+        </p>
+
+        <p>
+            <b>Payment Status:</b>
+            ${escapeHTML(
+                user.paymentStatus ||
+                "Free"
+            )}
+        </p>
 
 
-            <p>
-                📅 <b>कुल इस्तेमाल किए गए दिन:</b>
-                ${days}
-            </p>
+        <hr>
 
+        <h3>
+            🕐 Account Information
+        </h3>
 
-            <p>
-                🕐 <b>पहली Activity:</b>
-                ${escapeHTML(
-                    usage.firstDate ||
-                    "-"
-                )}
-            </p>
+        <p>
+            <b>Created:</b>
+            ${escapeHTML(
+                user.createdAt ||
+                "-"
+            )}
+        </p>
 
+        <p>
+            <b>Last Login:</b>
+            ${escapeHTML(
+                user.lastLogin ||
+                "-"
+            )}
+        </p>
 
-            <p>
-                🔄 <b>आखिरी Activity:</b>
-                ${escapeHTML(
-                    usage.lastDate ||
-                    "-"
-                )}
-            </p>
-
-
-            <p>
-                🚜 <b>काम इस्तेमाल:</b>
-                ${
-                    works.length
-                        ? works
-                            .map(
-                                work =>
-                                    `<span style="
-                                        display:inline-block;
-                                        padding:5px 8px;
-                                        margin:3px;
-                                        border-radius:8px;
-                                        background:#eef5ef;
-                                    ">
-                                    ${escapeHTML(work)}
-                                    </span>`
-                            )
-                            .join("")
-                        : "-"
-                }
-            </p>
-
-
-            <hr>
-
-
-            <h3>
-                💳 Subscription
-            </h3>
-
-
-            <p>
-                <b>Plan:</b>
-                ${escapeHTML(
-                    user.plan ||
-                    "Free"
-                )}
-            </p>
-
-
-            <p>
-                <b>Plan Start:</b>
-                ${escapeHTML(
-                    user.planStartDate ||
-                    "-"
-                )}
-            </p>
-
-
-            <p>
-                <b>Plan Expiry:</b>
-                ${escapeHTML(
-                    user.expiryDate ||
-                    "-"
-                )}
-            </p>
-
-
-            <p>
-                <b>Payment:</b>
-                ${escapeHTML(
-                    user.paymentStatus ||
-                    "Free"
-                )}
-            </p>
-
-
-            <p>
-                <b>Account Status:</b>
-                ${escapeHTML(
-                    user.status ||
-                    "Active"
-                )}
-            </p>
-
-        </div>
+    </div>
 
     `;
 };
+
+
 
 
 // ==========================================
