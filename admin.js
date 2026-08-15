@@ -1071,3 +1071,351 @@ function(user) {
     );
 
 };
+// ==========================================
+// USER PROFILE + SUBSCRIPTION
+// ==========================================
+
+async function loadUserProfiles() {
+
+    try {
+
+        const snapshot =
+            await getDocs(
+                collection(db, "users")
+            );
+
+        let users = [];
+
+        snapshot.forEach(docSnap => {
+
+            users.push({
+                uid: docSnap.id,
+                ...docSnap.data()
+            });
+
+        });
+
+        window.adminUsers = users;
+
+        showSubscriptionSummary(users);
+
+        showExpiringPlans(users);
+
+    } catch (error) {
+
+        console.error(
+            "User Profile Error:",
+            error
+        );
+
+    }
+
+}
+
+
+// ==========================================
+// SUBSCRIPTION SUMMARY
+// ==========================================
+
+function showSubscriptionSummary(users) {
+
+    let free = 0;
+    let basic = 0;
+    let pro = 0;
+    let premium = 0;
+
+    users.forEach(user => {
+
+        const plan =
+            String(
+                user.plan || "Free"
+            ).toLowerCase();
+
+        if (plan === "free") {
+
+            free++;
+
+        } else if (plan === "basic") {
+
+            basic++;
+
+        } else if (plan === "pro") {
+
+            pro++;
+
+        } else if (plan === "premium") {
+
+            premium++;
+
+        }
+
+    });
+
+
+    const freeBox =
+        document.getElementById(
+            "freeUserCount"
+        );
+
+    const basicBox =
+        document.getElementById(
+            "basicUserCount"
+        );
+
+    const proBox =
+        document.getElementById(
+            "proUserCount"
+        );
+
+    const premiumBox =
+        document.getElementById(
+            "premiumUserCount"
+        );
+
+
+    if (freeBox)
+        freeBox.textContent = free;
+
+    if (basicBox)
+        basicBox.textContent = basic;
+
+    if (proBox)
+        proBox.textContent = pro;
+
+    if (premiumBox)
+        premiumBox.textContent = premium;
+
+}
+
+
+// ==========================================
+// EXPIRING PLANS
+// ==========================================
+
+function showExpiringPlans(users) {
+
+    const box =
+        document.getElementById(
+            "expiringPlansList"
+        );
+
+    if (!box) return;
+
+
+    const today =
+        new Date();
+
+
+    const list =
+        users.filter(user => {
+
+            if (!user.expiryDate)
+                return false;
+
+            const expiry =
+                new Date(
+                    user.expiryDate
+                );
+
+            const days =
+                Math.ceil(
+                    (
+                        expiry - today
+                    ) /
+                    (
+                        1000 *
+                        60 *
+                        60 *
+                        24
+                    )
+                );
+
+            return days >= 0 && days <= 30;
+
+        });
+
+
+    if (!list.length) {
+
+        box.innerHTML =
+            "<p>✅ अगले 30 दिनों में कोई Plan समाप्त नहीं हो रहा।</p>";
+
+        return;
+
+    }
+
+
+    box.innerHTML =
+        list.map(user => {
+
+            const expiry =
+                new Date(
+                    user.expiryDate
+                );
+
+            const days =
+                Math.ceil(
+                    (
+                        expiry - today
+                    ) /
+                    (
+                        1000 *
+                        60 *
+                        60 *
+                        24
+                    )
+                );
+
+
+            return `
+
+            <div class="card">
+
+                <b>
+                    ${user.name || "User"}
+                </b>
+
+                <p>
+                    💳 Plan:
+                    ${user.plan || "Free"}
+                </p>
+
+                <p>
+                    📅 Expiry:
+                    ${user.expiryDate}
+                </p>
+
+                <p>
+                    ⏳ बाकी:
+                    ${days} दिन
+                </p>
+
+            </div>
+
+            `;
+
+        }).join("");
+
+}
+
+
+// ==========================================
+// USER PROFILE SHOW
+// ==========================================
+
+window.showUserProfile =
+function(uid) {
+
+    const user =
+        (window.adminUsers || [])
+        .find(
+            u => u.uid === uid
+        );
+
+    if (!user) return;
+
+
+    const box =
+        document.getElementById(
+            "selectedUserProfile"
+        );
+
+    if (!box) return;
+
+
+    box.innerHTML = `
+
+        <div class="card">
+
+            <h3>
+                👤 ${user.name || "नाम उपलब्ध नहीं"}
+            </h3>
+
+            <p>
+                📱 Mobile:
+                ${user.mobile || "-"}
+            </p>
+
+            <p>
+                📧 Email:
+                ${user.email || "-"}
+            </p>
+
+            <p>
+                🆔 UID:
+                ${user.uid}
+            </p>
+
+            <p>
+                📅 Account Created:
+                ${user.createdAt || "-"}
+            </p>
+
+            <p>
+                🕐 Last Login:
+                ${user.lastLogin || "-"}
+            </p>
+
+            <hr>
+
+            <h3>
+                💳 Subscription
+            </h3>
+
+            <p>
+                Plan:
+                <b>
+                    ${user.plan || "Free"}
+                </b>
+            </p>
+
+            <p>
+                📅 Start:
+                ${user.planStartDate || "-"}
+            </p>
+
+            <p>
+                📅 Expiry:
+                ${user.expiryDate || "-"}
+            </p>
+
+            <p>
+                💰 Payment:
+                ${user.paymentStatus || "Free"}
+            </p>
+
+            <p>
+                🔴 Status:
+                ${user.status || "Active"}
+            </p>
+
+        </div>
+
+    `;
+
+};
+
+
+// ==========================================
+// LOAD AFTER ADMIN LOGIN
+// ==========================================
+
+const oldLoadAdminStats =
+    window.RAJ_ADMIN?.loadAdminStats;
+
+
+if (typeof oldLoadAdminStats === "function") {
+
+    const original =
+        oldLoadAdminStats;
+
+    window.RAJ_ADMIN.loadAdminStats =
+    async function() {
+
+        await original();
+
+        await loadUserProfiles();
+
+    };
+
+}
