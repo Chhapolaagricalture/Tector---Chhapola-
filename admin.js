@@ -641,33 +641,32 @@ console.log(
 
 let adminUsers = [];
 
+
 async function loadUserManagement() {
 
-    const body =
-        document.getElementById(
-            "userManagementBody"
-        );
+    const body = document.getElementById(
+        "userManagementBody"
+    );
 
     if (!body) return;
 
     body.innerHTML = `
         <tr>
             <td colspan="8">
-                Loading...
+                ⏳ Users Loading...
             </td>
         </tr>
     `;
 
     try {
 
-        const snapshot =
-            await getDocs(
-                collection(db, "records")
-            );
+        const snapshot = await getDocs(
+            collection(db, "records")
+        );
 
-        const users = {};
+        const usersMap = new Map();
 
-        snapshot.forEach(docSnap => {
+        snapshot.forEach((docSnap) => {
 
             const r = docSnap.data();
 
@@ -675,65 +674,77 @@ async function loadUserManagement() {
                 r.ownerUid ||
                 "OLD / NO OWNER UID";
 
-            if (!users[uid]) {
+            if (!usersMap.has(uid)) {
 
-                users[uid] = {
-
+                usersMap.set(uid, {
                     uid: uid,
-
                     email:
                         r.email ||
-                        "Email उपलब्ध नहीं",
-
+                        "Firebase User",
+                    status: "active",
                     records: 0,
-
                     total: 0,
-
                     paid: 0,
-
-                    balance: 0,
-
-                    status: "active"
-
-                };
+                    balance: 0
+                });
 
             }
 
-            users[uid].records++;
+            const user = usersMap.get(uid);
 
-            users[uid].total +=
-                Number(r.total || 0);
+            user.records++;
 
-            users[uid].paid +=
-                Number(r.paid || 0);
+            user.total += Number(
+                r.total || 0
+            );
 
-            users[uid].balance +=
-                Number(r.baki || 0);
+            user.paid += Number(
+                r.paid || 0
+            );
+
+            user.balance += Number(
+                r.baki ||
+                (
+                    Number(r.total || 0) -
+                    Number(r.paid || 0)
+                )
+            );
 
         });
 
+
         adminUsers =
-            Object.values(users);
+            Array.from(usersMap.values());
+
 
         renderAdminUsers();
+
 
     } catch (error) {
 
         console.error(
-            "User Management Error:",
+            "USER MANAGEMENT ERROR:",
             error
         );
 
         body.innerHTML = `
             <tr>
-                <td colspan="8">
-                    ❌ Users load नहीं हुए।
+                <td colspan="8" style="color:red;">
+                    ❌ Users load नहीं हुए
+                    <br>
+                    <small>
+                        ${escapeHTML(
+                            error?.message ||
+                            "Unknown error"
+                        )}
+                    </small>
                 </td>
             </tr>
         `;
-    }
-}
 
+    }
+
+}
 
 // ==========================================
 // RENDER USERS
