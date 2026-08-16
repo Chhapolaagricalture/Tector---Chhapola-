@@ -1768,7 +1768,210 @@ function showExpiringPlans(users) {
         }).join("");
 }
 
+// ==========================================
+// OWNER USAGE REPORT
+// ==========================================
 
+window.showOwnerUsageReports = function () {
+
+    if (!selectedUserBox) return;
+
+    if (!adminUsers.length) {
+        alert("❌ अभी कोई User उपलब्ध नहीं है।");
+        return;
+    }
+
+    let totalUsers = adminUsers.length;
+    let totalRecords = 0;
+    let totalFarmers = 0;
+    let totalDays = 0;
+
+    const farmerSet = new Set();
+    const dateSet = new Set();
+    const workSet = new Set();
+
+    adminUsers.forEach(user => {
+
+        const usage = user.usage || {};
+
+        totalRecords += Number(usage.records || 0);
+
+        (usage.farmers || new Set()).forEach(f => {
+            farmerSet.add(f);
+        });
+
+        (usage.dates || new Set()).forEach(d => {
+            dateSet.add(d);
+        });
+
+        (usage.works || new Set()).forEach(w => {
+            workSet.add(w);
+        });
+    });
+
+    totalFarmers = farmerSet.size;
+    totalDays = dateSet.size;
+
+    selectedUserBox.innerHTML = `
+
+    <div class="card"
+         style="
+            width:100%;
+            text-align:left;
+            box-shadow:none;
+         ">
+
+        <h3>📊 Owner Usage Reports</h3>
+
+        <hr>
+
+        <p>
+            👥 <b>Total Users:</b>
+            ${totalUsers}
+        </p>
+
+        <p>
+            👨‍🌾 <b>Total Farmers:</b>
+            ${totalFarmers}
+        </p>
+
+        <p>
+            📋 <b>Total Records:</b>
+            ${totalRecords}
+        </p>
+
+        <p>
+            📅 <b>Total Used Days:</b>
+            ${totalDays}
+        </p>
+
+        <hr>
+
+        <h3>🚜 Works Used</h3>
+
+        <p>
+            ${
+                workSet.size
+                ?
+                [...workSet].map(work => `
+                    <span
+                        style="
+                            display:inline-block;
+                            padding:6px 10px;
+                            margin:4px;
+                            border-radius:8px;
+                            background:#eef5ef;
+                        "
+                    >
+                        🚜 ${escapeHTML(work)}
+                    </span>
+                `).join("")
+                :
+                "कोई Work Data नहीं है।"
+            }
+        </p>
+
+        <hr>
+
+        <h3>👥 Owner-wise Report</h3>
+
+        <div style="overflow-x:auto;">
+
+        <table
+            border="1"
+            style="
+                width:100%;
+                border-collapse:collapse;
+                min-width:700px;
+            "
+        >
+
+            <tr>
+                <th>User</th>
+                <th>Email</th>
+                <th>Farmers</th>
+                <th>Records</th>
+                <th>Used Days</th>
+                <th>Plan</th>
+                <th>Status</th>
+            </tr>
+
+            ${
+                adminUsers.map(user => {
+
+                    const usage =
+                        user.usage || {};
+
+                    return `
+                    <tr>
+
+                        <td>
+                            ${escapeHTML(
+                                user.name ||
+                                user.uid
+                            )}
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                user.email ||
+                                "-"
+                            )}
+                        </td>
+
+                        <td>
+                            ${
+                                usage.farmers?.size ||
+                                0
+                            }
+                        </td>
+
+                        <td>
+                            ${
+                                usage.records ||
+                                0
+                            }
+                        </td>
+
+                        <td>
+                            ${
+                                usage.dates?.size ||
+                                0
+                            }
+                        </td>
+
+                        <td>
+                            ${escapeHTML(
+                                user.plan ||
+                                "Free"
+                            )}
+                        </td>
+
+                        <td>
+                            ${
+                                String(
+                                    user.status ||
+                                    "active"
+                                ).toLowerCase()
+                                === "blocked"
+                                ? "🔴 Blocked"
+                                : "🟢 Active"
+                            }
+                        </td>
+
+                    </tr>
+                    `;
+
+                }).join("")
+            }
+
+        </table>
+
+        </div>
+
+    </div>
+    `;
+};
 // ==========================================
 // ADMIN SECTIONS
 // ==========================================
@@ -1796,11 +1999,9 @@ function(section) {
 
     if (section === "reports") {
 
-        alert(
-            "📊 Owner Usage Reports अगला module है।"
-        );
+    showOwnerUsageReports();
 
-        return;
+    return;
     }
 
 
