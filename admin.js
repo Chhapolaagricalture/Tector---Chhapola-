@@ -1065,7 +1065,15 @@ function renderAdminUsers() {
         onclick="toggleUserStatus('${escapeHTML(
             user.uid
         )}')">
+<button
+    type="button"
+    onclick="manageSubscription('${escapeHTML(
+        user.uid
+    )}')">
 
+    💳 Plan
+
+</button>
         ${
             status === "blocked"
             ? "✅ Unblock"
@@ -1483,6 +1491,98 @@ window.toggleUserStatus = async function(uid) {
         alert(
             "❌ Status बदल नहीं पाया: " +
             (error.message || "Unknown error")
+        );
+    }
+};
+// ==========================================
+// SUBSCRIPTION MANAGEMENT
+// ==========================================
+
+window.manageSubscription = async function(uid) {
+
+    const user = adminUsers.find(u => u.uid === uid);
+
+    if (!user) {
+        alert("❌ User नहीं मिला।");
+        return;
+    }
+
+    const plan = prompt(
+        "Plan चुनें:\n\nFree\nBasic\nPro\nPremium",
+        user.plan || "Free"
+    );
+
+    if (plan === null) return;
+
+    const validPlans = [
+        "Free",
+        "Basic",
+        "Pro",
+        "Premium"
+    ];
+
+    const selectedPlan =
+        validPlans.find(
+            p => p.toLowerCase() === plan.trim().toLowerCase()
+        );
+
+    if (!selectedPlan) {
+        alert("❌ सही Plan डालें: Free, Basic, Pro या Premium");
+        return;
+    }
+
+    const expiryDate = prompt(
+        "Plan Expiry Date डालें (YYYY-MM-DD)\n\nFree हो तो खाली छोड़ सकते हैं।",
+        user.expiryDate || ""
+    );
+
+    if (expiryDate === null) return;
+
+    const paymentStatus = prompt(
+        "Payment Status डालें:\n\nPaid / Pending / Free",
+        user.paymentStatus || "Free"
+    );
+
+    if (paymentStatus === null) return;
+
+    try {
+
+        await updateDoc(
+            doc(db, "users", uid),
+            {
+                plan: selectedPlan,
+                planStartDate:
+                    user.planStartDate ||
+                    new Date().toISOString().split("T")[0],
+                expiryDate: expiryDate.trim(),
+                paymentStatus: paymentStatus.trim()
+            }
+        );
+
+        // Local data भी update
+        user.plan = selectedPlan;
+        user.expiryDate = expiryDate.trim();
+        user.paymentStatus = paymentStatus.trim();
+
+        renderAdminUsers();
+
+        showSubscriptionSummary(adminUsers);
+        showExpiringPlans(adminUsers);
+
+        alert(
+            "✅ Subscription सफलतापूर्वक Update हो गई।"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "SUBSCRIPTION UPDATE ERROR:",
+            error
+        );
+
+        alert(
+            "❌ Subscription Update नहीं हुई:\n" +
+            error.message
         );
     }
 };
