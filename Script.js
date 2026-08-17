@@ -42,18 +42,183 @@ async function loadMainWebsiteSettings() {
 
     console.log("✅ Owner Settings Loaded:", s);
 
-    // -----------------------------
+
+    // ==========================================
+    // SITE NAME
+    // ==========================================
+
+    const siteName =
+      s.siteName ||
+      s.businessName ||
+      "Chhapola Agriculture";
+
+    document.title = siteName;
+
+
+    // Logo
+    if (s.logoUrl) {
+
+      document.querySelectorAll(
+        "img.site-logo, #siteLogo, .site-logo"
+      ).forEach(img => {
+        img.src = s.logoUrl;
+      });
+
+    }
+
+
+    // Favicon
+    if (s.faviconUrl) {
+
+      let favicon =
+        document.querySelector(
+          'link[rel="icon"]'
+        );
+
+      if (!favicon) {
+
+        favicon =
+          document.createElement("link");
+
+        favicon.rel = "icon";
+
+        document.head.appendChild(
+          favicon
+        );
+
+      }
+
+      favicon.href =
+        s.faviconUrl;
+
+    }
+
+
+    // ==========================================
+    // PRIMARY COLOR
+    // ==========================================
+
+    if (s.primaryColor) {
+
+      document.documentElement.style.setProperty(
+        "--primary-color",
+        s.primaryColor
+      );
+
+      document.documentElement.style.setProperty(
+        "--primary",
+        s.primaryColor
+      );
+
+    }
+
+
+    // ==========================================
+    // THEME
+    // ==========================================
+
+    if (s.theme) {
+
+      if (s.theme === "dark") {
+
+        document.documentElement.classList.add(
+          "dark"
+        );
+
+        document.body.classList.add(
+          "dark"
+        );
+
+      }
+
+      else if (s.theme === "light") {
+
+        document.documentElement.classList.remove(
+          "dark"
+        );
+
+        document.body.classList.remove(
+          "dark"
+        );
+
+      }
+
+      else {
+
+        const dark =
+          window.matchMedia &&
+          window.matchMedia(
+            "(prefers-color-scheme: dark)"
+          ).matches;
+
+        document.documentElement.classList.toggle(
+          "dark",
+          dark
+        );
+
+        document.body.classList.toggle(
+          "dark",
+          dark
+        );
+
+      }
+
+    }
+
+
+    // ==========================================
+    // TAGLINE
+    // ==========================================
+
+    if (s.tagline) {
+
+      document
+        .querySelectorAll(
+          "#tagline, .tagline, .site-tagline"
+        )
+        .forEach(el => {
+
+          el.textContent =
+            s.tagline;
+
+        });
+
+    }
+
+
+    // ==========================================
+    // FOOTER
+    // ==========================================
+
+    if (s.footerText) {
+
+      document
+        .querySelectorAll(
+          "footer, #footerText"
+        )
+        .forEach(el => {
+
+          el.textContent =
+            s.footerText;
+
+        });
+
+    }
+
+
+    // ==========================================
     // MAINTENANCE MODE
-    // -----------------------------
+    // ==========================================
 
     if (s.maintenanceMode === true) {
 
-      const user = window.auth.currentUser;
+      const user =
+        window.auth?.currentUser;
 
-      // Login के बाद tractor owner को maintenance दिखाएँ
       if (user) {
 
         document.body.innerHTML = `
+
           <div style="
             min-height:100vh;
             display:flex;
@@ -63,90 +228,141 @@ async function loadMainWebsiteSettings() {
             text-align:center;
             font-family:sans-serif;
           ">
+
             <div>
-              <h1>🛠️ Website Maintenance</h1>
+
+              <h1>
+                🛠️ Website Maintenance
+              </h1>
+
               <p>
-                ${s.maintenanceMessage || 
-                "Website maintenance में है। कृपया बाद में प्रयास करें।"}
+                ${
+                  s.maintenanceMessage ||
+                  "Website maintenance में है। कृपया बाद में प्रयास करें।"
+                }
               </p>
+
             </div>
+
           </div>
+
         `;
 
         return;
+
       }
+
     }
 
 
-    // -----------------------------
+    // ==========================================
     // AI MUNSHI
-    // -----------------------------
+    // ==========================================
 
-    if (s.aiEnabled === false) {
+    const aiBox =
+      document.getElementById(
+        "ai-assistant-container"
+      );
 
-      const aiBox =
-        document.getElementById("ai-assistant-container");
+    if (aiBox) {
 
-      if (aiBox) {
-        aiBox.style.display = "none";
-      }
+      aiBox.style.display =
+        s.aiEnabled === false
+          ? "none"
+          : "";
 
     }
 
 
-    // -----------------------------
+    // AI language
+    window.AI_LANGUAGE =
+      s.aiLanguage ||
+      "hi";
+
+
+    // AI analysis
+    window.AI_ANALYSIS_ENABLED =
+      s.aiAnalysis !== false;
+
+
+    // AI daily limit
+    window.AI_DAILY_LIMIT =
+      Number(
+        s.aiDailyLimit || 0
+      );
+
+
+    // ==========================================
     // VOICE
-    // -----------------------------
+    // ==========================================
 
-    if (s.voiceEnabled === false) {
+    const voiceBtn =
+      document.getElementById(
+        "voiceBtn"
+      );
 
-      const voiceBtn =
-        document.getElementById("voiceBtn");
+    if (voiceBtn) {
 
-      if (voiceBtn) {
-        voiceBtn.style.display = "none";
-      }
+      voiceBtn.style.display =
+        s.voiceEnabled === false
+          ? "none"
+          : "";
 
     }
 
 
-    // -----------------------------
+    window.VOICE_ENABLED =
+      s.voiceEnabled !== false;
+
+
+    // ==========================================
     // SCANNER
-    // -----------------------------
+    // ==========================================
+
+    window.SCANNER_ENABLED =
+      s.scannerEnabled !== false;
+
+    window.OCR_AUTO_FILL =
+      s.ocrAutoFill !== false;
+
 
     if (s.scannerEnabled === false) {
 
-      const scannerElements = [
-        document.getElementById("register-image"),
-        document.getElementById("scan-btn"),
-        document.getElementById("scannerPreview")
-      ];
+      [
+        "register-image",
+        "scan-btn",
+        "scannerPreview"
+      ].forEach(id => {
 
-      scannerElements.forEach(el => {
+        const element =
+          document.getElementById(id);
 
-        if (el) {
+        if (element) {
 
-          if (
-            el.id === "register-image" ||
-            el.id === "scan-btn"
-          ) {
-            el.style.display = "none";
-          }
+          element.style.display =
+            "none";
 
         }
 
       });
 
-      // Scanner का पूरा box भी hide
       const scanInput =
-        document.getElementById("register-image");
+        document.getElementById(
+          "register-image"
+        );
 
       if (scanInput) {
 
-        const box = scanInput.closest("div[style]");
+        const box =
+          scanInput.closest(
+            "div[style]"
+          );
 
         if (box) {
-          box.style.display = "none";
+
+          box.style.display =
+            "none";
+
         }
 
       }
@@ -154,19 +370,26 @@ async function loadMainWebsiteSettings() {
     }
 
 
-    // -----------------------------
+    // ==========================================
     // ANNOUNCEMENT
-    // -----------------------------
+    // ==========================================
+
+    const oldAnnouncement =
+      document.getElementById(
+        "ownerAnnouncement"
+      );
+
+    if (oldAnnouncement) {
+
+      oldAnnouncement.remove();
+
+    }
+
 
     if (
       s.announcementEnabled === true &&
       s.announcementMessage
     ) {
-
-      const old =
-        document.getElementById("ownerAnnouncement");
-
-      if (old) old.remove();
 
       const announcement =
         document.createElement("div");
@@ -175,6 +398,7 @@ async function loadMainWebsiteSettings() {
         "ownerAnnouncement";
 
       announcement.style.cssText = `
+
         background:#fff3cd;
         color:#664d03;
         padding:12px;
@@ -182,71 +406,277 @@ async function loadMainWebsiteSettings() {
         border-radius:10px;
         text-align:center;
         font-weight:bold;
+
       `;
 
       announcement.innerHTML = `
-        📢 ${s.announcementTitle || "Announcement"}<br>
-        <span style="font-weight:normal;">
+
+        📢 ${
+          s.announcementTitle ||
+          "Announcement"
+        }
+
+        <br>
+
+        <span style="
+          font-weight:normal;
+        ">
+
           ${s.announcementMessage}
+
         </span>
+
       `;
 
       const mainApp =
-        document.getElementById("mainApp");
+        document.getElementById(
+          "mainApp"
+        );
 
       if (mainApp) {
-        mainApp.prepend(announcement);
+
+        mainApp.prepend(
+          announcement
+        );
+
       }
 
     }
 
 
-    // -----------------------------
-    // BUSINESS NAME
-    // -----------------------------
+    // ==========================================
+    // SIGNUP
+    // ==========================================
 
-    if (s.businessName) {
-
-      document.title =
-        s.businessName;
-
-    }
+    window.ALLOW_SIGNUP =
+      s.allowSignup !== false;
 
 
-    // -----------------------------
-    // THEME
-    // -----------------------------
-
-    if (s.primaryColor) {
-
-      document.documentElement
-        .style.setProperty(
-          "--primary-color",
-          s.primaryColor
-        );
-
-    }
+    const signupButton =
+      document.getElementById(
+        "signupButton"
+      ) ||
+      document.querySelector(
+        ".signup-button"
+      );
 
 
-    // -----------------------------
-    // FOOTER
-    // -----------------------------
+    if (signupButton) {
 
-    const footer =
-      document.querySelector("footer");
-
-    if (
-      footer &&
-      s.footerText
-    ) {
-
-      footer.innerText =
-        s.footerText;
+      signupButton.style.display =
+        s.allowSignup === false
+          ? "none"
+          : "";
 
     }
 
 
-  } catch (error) {
+    // ==========================================
+    // SUPPORT
+    // ==========================================
+
+    window.SUPPORT_MOBILE =
+      s.supportMobile ||
+      "";
+
+    window.WHATSAPP_NUMBER =
+      s.whatsappNumber ||
+      "";
+
+    window.SUPPORT_EMAIL =
+      s.supportEmail ||
+      "";
+
+    window.SUPPORT_MESSAGE =
+      s.supportMessage ||
+      "";
+
+
+    // Support mobile
+    document
+      .querySelectorAll(
+        "[data-support-mobile]"
+      )
+      .forEach(el => {
+
+        el.textContent =
+          s.supportMobile || "";
+
+      });
+
+
+    // ==========================================
+    // PDF SETTINGS
+    // ==========================================
+
+    window.PDF_SETTINGS = {
+
+      businessName:
+        s.pdfBusinessName ||
+        s.businessName ||
+        "Chhapola Agriculture",
+
+      footer:
+        s.pdfFooter ||
+        "",
+
+      logo:
+        s.pdfLogo !== false,
+
+      contact:
+        s.pdfContact !== false
+
+    };
+
+
+    // ==========================================
+    // BUSINESS SETTINGS
+    // ==========================================
+
+    window.BUSINESS_SETTINGS = {
+
+      businessName:
+        s.businessName ||
+        "Chhapola Agriculture",
+
+      ownerName:
+        s.ownerName ||
+        "",
+
+      tractorModel:
+        s.tractorModel ||
+        "",
+
+      defaultRate:
+        Number(
+          s.defaultRate || 0
+        ),
+
+      defaultUnit:
+        s.defaultUnit ||
+        "Bigha"
+
+    };
+
+
+    // ==========================================
+    // REGIONAL SETTINGS
+    // ==========================================
+
+    window.REGIONAL_SETTINGS = {
+
+      dateFormat:
+        s.dateFormat ||
+        "YYYY-MM-DD",
+
+      timezone:
+        s.timezone ||
+        "Asia/Kolkata",
+
+      numberFormat:
+        s.numberFormat ||
+        "en-IN",
+
+      currency:
+        s.currency ||
+        "₹"
+
+    };
+
+
+    // ==========================================
+    // USER SETTINGS
+    // ==========================================
+
+    window.USER_SETTINGS = {
+
+      allowSignup:
+        s.allowSignup !== false,
+
+      allowProfileEdit:
+        s.allowProfileEdit !== false,
+
+      maxUsers:
+        Number(
+          s.maxUsers || 0
+        ),
+
+      blockedMessage:
+        s.blockedMessage ||
+        "🚫 आपका Account Block है। Owner से संपर्क करें।"
+
+    };
+
+
+    // ==========================================
+    // PLAN SETTINGS
+    // ==========================================
+
+    window.PLAN_SETTINGS = {
+
+      freePrice:
+        Number(s.freePrice || 0),
+
+      basicPrice:
+        Number(s.basicPrice || 0),
+
+      proPrice:
+        Number(s.proPrice || 0),
+
+      premiumPrice:
+        Number(s.premiumPrice || 0),
+
+      basicDays:
+        Number(s.basicDays || 30),
+
+      proDays:
+        Number(s.proDays || 30),
+
+      premiumDays:
+        Number(s.premiumDays || 30),
+
+      expiryWarningDays:
+        Number(
+          s.expiryWarningDays || 7
+        )
+
+    };
+
+
+    // ==========================================
+    // NOTIFICATIONS
+    // ==========================================
+
+    window.NOTIFICATION_SETTINGS = {
+
+      expiryNotifications:
+        s.expiryNotifications !== false,
+
+      newUserNotification:
+        s.newUserNotification !== false,
+
+      featureNotification:
+        s.featureNotification !== false
+
+    };
+
+
+    // ==========================================
+    // STATUS
+    // ==========================================
+
+    window.SITE_STATUS =
+      s.siteStatus ||
+      "live";
+
+
+    console.log(
+      "✅ सभी Owner Settings Main Website पर लागू हो गईं।"
+    );
+
+  }
+
+  catch (error) {
 
     console.error(
       "❌ Main Settings Load Error:",
