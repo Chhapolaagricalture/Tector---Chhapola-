@@ -9,6 +9,7 @@ import {
   collection,
   addDoc,
   getDocs,
+  getDoc,
   deleteDoc,
   updateDoc,
   doc,
@@ -18,6 +19,246 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 alert("Script Loaded");
 const recordsRef = collection(window.db, "records");
+// ==========================================
+// MAIN WEBSITE - OWNER SETTINGS CONTROLLER
+// ==========================================
+
+async function loadMainWebsiteSettings() {
+
+  try {
+
+    const settingsSnap = await getDoc(
+      doc(window.db, "settings", "global")
+    );
+
+    if (!settingsSnap.exists()) {
+      console.log("⚠️ Owner Settings नहीं मिलीं");
+      return;
+    }
+
+    const s = settingsSnap.data();
+
+    window.MAIN_SETTINGS = s;
+
+    console.log("✅ Owner Settings Loaded:", s);
+
+    // -----------------------------
+    // MAINTENANCE MODE
+    // -----------------------------
+
+    if (s.maintenanceMode === true) {
+
+      const user = window.auth.currentUser;
+
+      // Login के बाद tractor owner को maintenance दिखाएँ
+      if (user) {
+
+        document.body.innerHTML = `
+          <div style="
+            min-height:100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding:20px;
+            text-align:center;
+            font-family:sans-serif;
+          ">
+            <div>
+              <h1>🛠️ Website Maintenance</h1>
+              <p>
+                ${s.maintenanceMessage || 
+                "Website maintenance में है। कृपया बाद में प्रयास करें।"}
+              </p>
+            </div>
+          </div>
+        `;
+
+        return;
+      }
+    }
+
+
+    // -----------------------------
+    // AI MUNSHI
+    // -----------------------------
+
+    if (s.aiEnabled === false) {
+
+      const aiBox =
+        document.getElementById("ai-assistant-container");
+
+      if (aiBox) {
+        aiBox.style.display = "none";
+      }
+
+    }
+
+
+    // -----------------------------
+    // VOICE
+    // -----------------------------
+
+    if (s.voiceEnabled === false) {
+
+      const voiceBtn =
+        document.getElementById("voiceBtn");
+
+      if (voiceBtn) {
+        voiceBtn.style.display = "none";
+      }
+
+    }
+
+
+    // -----------------------------
+    // SCANNER
+    // -----------------------------
+
+    if (s.scannerEnabled === false) {
+
+      const scannerElements = [
+        document.getElementById("register-image"),
+        document.getElementById("scan-btn"),
+        document.getElementById("scannerPreview")
+      ];
+
+      scannerElements.forEach(el => {
+
+        if (el) {
+
+          if (
+            el.id === "register-image" ||
+            el.id === "scan-btn"
+          ) {
+            el.style.display = "none";
+          }
+
+        }
+
+      });
+
+      // Scanner का पूरा box भी hide
+      const scanInput =
+        document.getElementById("register-image");
+
+      if (scanInput) {
+
+        const box = scanInput.closest("div[style]");
+
+        if (box) {
+          box.style.display = "none";
+        }
+
+      }
+
+    }
+
+
+    // -----------------------------
+    // ANNOUNCEMENT
+    // -----------------------------
+
+    if (
+      s.announcementEnabled === true &&
+      s.announcementMessage
+    ) {
+
+      const old =
+        document.getElementById("ownerAnnouncement");
+
+      if (old) old.remove();
+
+      const announcement =
+        document.createElement("div");
+
+      announcement.id =
+        "ownerAnnouncement";
+
+      announcement.style.cssText = `
+        background:#fff3cd;
+        color:#664d03;
+        padding:12px;
+        margin:10px;
+        border-radius:10px;
+        text-align:center;
+        font-weight:bold;
+      `;
+
+      announcement.innerHTML = `
+        📢 ${s.announcementTitle || "Announcement"}<br>
+        <span style="font-weight:normal;">
+          ${s.announcementMessage}
+        </span>
+      `;
+
+      const mainApp =
+        document.getElementById("mainApp");
+
+      if (mainApp) {
+        mainApp.prepend(announcement);
+      }
+
+    }
+
+
+    // -----------------------------
+    // BUSINESS NAME
+    // -----------------------------
+
+    if (s.businessName) {
+
+      document.title =
+        s.businessName;
+
+    }
+
+
+    // -----------------------------
+    // THEME
+    // -----------------------------
+
+    if (s.primaryColor) {
+
+      document.documentElement
+        .style.setProperty(
+          "--primary-color",
+          s.primaryColor
+        );
+
+    }
+
+
+    // -----------------------------
+    // FOOTER
+    // -----------------------------
+
+    const footer =
+      document.querySelector("footer");
+
+    if (
+      footer &&
+      s.footerText
+    ) {
+
+      footer.innerText =
+        s.footerText;
+
+    }
+
+
+  } catch (error) {
+
+    console.error(
+      "❌ Main Settings Load Error:",
+      error
+    );
+
+  }
+
+}
+
+window.loadMainWebsiteSettings =
+  loadMainWebsiteSettings;
 
 async function save() {
 
@@ -599,11 +840,16 @@ logo.onerror = function () {
 doc.save(farmer + ".pdf");
 
     }
-window.onload = () => {
+window.onload = async () => {
+
   if (localStorage.getItem("loggedIn") === "true") {
+
     document.getElementById("loginBox").style.display = "none";
     document.getElementById("mainApp").style.display = "block";
+
   }
+
+  await loadMainWebsiteSettings();
 
   show();
 };
