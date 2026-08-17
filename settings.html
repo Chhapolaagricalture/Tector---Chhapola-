@@ -1,1 +1,1032 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<title>Chhapola Agriculture - Settings</title>
+
+<link rel="stylesheet" href="settings.css">
+</head>
+
+<body>
+
+<header class="topbar">
+
+    <button class="backBtn" onclick="history.back()">
+        ←
+    </button>
+
+    <div>
+        <h1>⚙️ Settings Center</h1>
+        <p>Chhapola Agriculture Admin</p>
+    </div>
+
+    <button id="saveTop" class="saveTop">
+        💾 Save
+    </button>
+
+</header>
+
+
+<div class="layout">
+
+<!-- ================================= -->
+<!-- SIDEBAR -->
+<!-- ================================= -->
+
+<aside class="sidebar">
+
+<button class="nav active" data-target="general">
+🌐 General
+</button>
+
+<button class="nav" data-target="branding">
+🎨 Branding
+</button>
+
+<button class="nav" data-target="users">
+👥 Users
+</button>
+
+<button class="nav" data-target="security">
+🔐 Security
+</button>
+
+<button class="nav" data-target="plans">
+💳 Subscription
+</button>
+
+<button class="nav" data-target="business">
+🚜 Business
+</button>
+
+<button class="nav" data-target="ai">
+🤖 AI Munshi
+</button>
+
+<button class="nav" data-target="voice">
+🎤 Voice & Scanner
+</button>
+
+<button class="nav" data-target="notifications">
+🔔 Notifications
+</button>
+
+<button class="nav" data-target="announcement">
+📢 Announcement
+</button>
+
+<button class="nav" data-target="support">
+📞 Support
+</button>
+
+<button class="nav" data-target="pdf">
+📄 PDF & Reports
+</button>
+
+<button class="nav" data-target="data">
+💾 Data
+</button>
+
+<button class="nav" data-target="maintenance">
+🔧 Maintenance
+</button>
+
+<button class="nav" data-target="regional">
+🌍 Regional
+</button>
+
+<button class="nav" data-target="system">
+🛡️ System
+</button>
+
+</aside>
+
+
+<!-- ================================= -->
+<!-- CONTENT -->
+<!-- ================================= -->
+
+<main class="content">
+
+<div id="message"></div>
+
+
+<!-- GENERAL -->
+
+<section class="panel active" id="general">
+
+<h2>🌐 General Settings</h2>
+
+<label>
+Website Name
+<input id="siteName">
+</label>
+
+<label>
+Tagline
+<input id="tagline">
+</label>
+
+<label>
+Website Status
+
+<select id="siteStatus">
+
+<option value="live">
+🟢 Live
+</option>
+
+<option value="maintenance">
+🔧 Maintenance
+</option>
+
+</select>
+
+</label>
+
+<label>
+Default Language
+
+<select id="language">
+
+<option value="hi">
+Hindi
+</option>
+
+<option value="en">
+English
+</option>
+
+</select>
+
+</label>
+
+<label>
+Currency
+
+<input id="currency">
+</label>
+
+</section>
+
+
+
+<!-- BRANDING -->
+
+<section class="panel" id="branding">
+
+<h2>🎨 Branding & Appearance</h2>
+
+<label>
+Logo URL
+<input id="logoUrl">
+</label>
+
+<label>
+Favicon URL
+<input id="faviconUrl">
+</label>
+
+<label>
+Theme
+
+<select id="theme">
+
+<option value="system">
+System
+</option>
+
+<option value="light">
+Light
+</option>
+
+<option value="dark">
+Dark
+</option>
+
+</select>
+
+</label>
+
+<label>
+Primary Color
+
+<input
+id="primaryColor"
+type="color"
+>
+</label>
+
+<label>
+Footer Text
+
+<input id="footerText">
+</label>
+
+</section>
+
+
+
+<!-- USERS -->
+
+<section class="panel" id="users">
+
+<h2>👥 User Management</h2>
+
+<label class="switch">
+
+Allow New Signup
+
+<input
+id="allowSignup"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+
+<label class="switch">
+
+Allow Profile Editing
+
+<input
+id="allowProfileEdit"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+
+<label>
+
+Maximum Users
+<br>
+<small>0 = Unlimited</small>
+
+<input
+id="maxUsers"
+type="number"
+min="0"
+>
+
+</label>
+
+
+<label>
+
+Blocked User Message
+
+<textarea id="blockedMessage"></textarea>
+
+</label>
+
+</section>
+
+
+
+<!-- SECURITY -->
+
+<section class="panel" id="security">
+
+<h2>🔐 Authentication & Security</h2>
+
+<label>
+
+Session Timeout (Minutes)
+
+<input
+id="sessionTimeout"
+type="number"
+min="5"
+>
+
+</label>
+
+
+<label>
+
+Minimum Password Length
+
+<input
+id="minPasswordLength"
+type="number"
+min="6"
+>
+
+</label>
+
+
+<label class="switch">
+
+Force Blocked Account Check
+
+<input
+id="enforceBlocked"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+
+<label class="switch">
+
+Admin Only Settings
+
+<input
+id="adminOnlySettings"
+type="checkbox"
+checked
+>
+
+<span></span>
+
+</label>
+
+</section>
+
+
+
+<!-- SUBSCRIPTION -->
+
+<section class="panel" id="plans">
+
+<h2>💳 Subscription & Plans</h2>
+
+<div class="grid">
+
+<label>
+Free Price
+<input
+id="freePrice"
+type="number"
+min="0"
+>
+</label>
+
+<label>
+Basic Price
+<input
+id="basicPrice"
+type="number"
+min="0"
+>
+</label>
+
+<label>
+Pro Price
+<input
+id="proPrice"
+type="number"
+min="0"
+>
+</label>
+
+<label>
+Premium Price
+<input
+id="premiumPrice"
+type="number"
+min="0"
+>
+</label>
+
+<label>
+Basic Validity (Days)
+<input
+id="basicDays"
+type="number"
+min="0"
+>
+</label>
+
+<label>
+Pro Validity (Days)
+<input
+id="proDays"
+type="number"
+min="0"
+>
+</label>
+
+<label>
+Premium Validity (Days)
+<input
+id="premiumDays"
+type="number"
+min="0"
+>
+</label>
+
+<label>
+Expiry Warning (Days)
+<input
+id="expiryWarningDays"
+type="number"
+min="0"
+>
+</label>
+
+</div>
+
+</section>
+
+
+
+<!-- BUSINESS -->
+
+<section class="panel" id="business">
+
+<h2>🚜 Tractor / Business</h2>
+
+<label>
+Business Name
+<input id="businessName">
+</label>
+
+<label>
+Owner Name
+<input id="ownerName">
+</label>
+
+<label>
+Tractor Model
+<input id="tractorModel">
+</label>
+
+<label>
+Default Rate
+<input
+id="defaultRate"
+type="number"
+min="0"
+>
+</label>
+
+<label>
+Default Unit
+
+<select id="defaultUnit">
+
+<option>Bigha</option>
+<option>Hour</option>
+<option>Quantity</option>
+<option>Quintal</option>
+
+</select>
+
+</label>
+
+</section>
+
+
+
+<!-- AI -->
+
+<section class="panel" id="ai">
+
+<h2>🤖 AI Munshi</h2>
+
+<label class="switch">
+
+AI Munshi Enabled
+
+<input
+id="aiEnabled"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+
+<label>
+
+AI Language
+
+<select id="aiLanguage">
+
+<option value="hi">
+Hindi
+</option>
+
+<option value="en">
+English
+</option>
+
+</select>
+
+</label>
+
+
+<label>
+
+Daily AI Limit
+
+<input
+id="aiDailyLimit"
+type="number"
+min="0"
+>
+
+</label>
+
+
+<label class="switch">
+
+AI Analysis
+
+<input
+id="aiAnalysis"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+</section>
+
+
+
+<!-- VOICE -->
+
+<section class="panel" id="voice">
+
+<h2>🎤 Voice & Scanner</h2>
+
+<label class="switch">
+
+Voice Entry
+
+<input
+id="voiceEnabled"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+
+<label class="switch">
+
+AI Scanner
+
+<input
+id="scannerEnabled"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+
+<label class="switch">
+
+OCR Auto Fill
+
+<input
+id="ocrAutoFill"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+</section>
+
+
+
+<!-- NOTIFICATIONS -->
+
+<section class="panel" id="notifications">
+
+<h2>🔔 Notifications</h2>
+
+<label class="switch">
+
+Expiry Notifications
+
+<input
+id="expiryNotifications"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+
+<label class="switch">
+
+New User Notification
+
+<input
+id="newUserNotification"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+
+<label class="switch">
+
+Feature Update Notification
+
+<input
+id="featureNotification"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+</section>
+
+
+
+<!-- ANNOUNCEMENT -->
+
+<section class="panel" id="announcement">
+
+<h2>📢 Announcement</h2>
+
+<label class="switch">
+
+Show Announcement
+
+<input
+id="announcementEnabled"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+
+<label>
+
+Title
+
+<input id="announcementTitle">
+
+</label>
+
+
+<label>
+
+Message
+
+<textarea
+id="announcementMessage"
+></textarea>
+
+</label>
+
+</section>
+
+
+
+<!-- SUPPORT -->
+
+<section class="panel" id="support">
+
+<h2>📞 Support & Contact</h2>
+
+<label>
+Support Mobile
+<input id="supportMobile">
+</label>
+
+<label>
+WhatsApp Number
+<input id="whatsappNumber">
+</label>
+
+<label>
+Support Email
+<input
+id="supportEmail"
+type="email"
+>
+</label>
+
+<label>
+Support Message
+
+<textarea
+id="supportMessage"
+></textarea>
+
+</label>
+
+</section>
+
+
+
+<!-- PDF -->
+
+<section class="panel" id="pdf">
+
+<h2>📄 PDF & Reports</h2>
+
+<label>
+PDF Business Name
+<input id="pdfBusinessName">
+</label>
+
+<label>
+PDF Footer
+<input id="pdfFooter">
+</label>
+
+<label class="switch">
+
+Show Logo in PDF
+
+<input
+id="pdfLogo"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+
+<label class="switch">
+
+Show Contact in PDF
+
+<input
+id="pdfContact"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+</section>
+
+
+
+<!-- DATA -->
+
+<section class="panel" id="data">
+
+<h2>💾 Data & Backup</h2>
+
+<div class="info">
+
+Settings Firebase में:
+
+<b>
+settings/global
+</b>
+
+document में save होंगी।
+
+<br><br>
+
+यह Settings system आपके existing किसान records को delete या modify नहीं करेगा।
+
+</div>
+
+
+<button
+class="danger"
+id="resetSettings"
+>
+
+↩️ Reset Settings
+
+</button>
+
+</section>
+
+
+
+<!-- MAINTENANCE -->
+
+<section class="panel" id="maintenance">
+
+<h2>🔧 Maintenance</h2>
+
+<label class="switch">
+
+Maintenance Mode
+
+<input
+id="maintenanceMode"
+type="checkbox"
+>
+
+<span></span>
+
+</label>
+
+
+<label>
+
+Maintenance Message
+
+<textarea
+id="maintenanceMessage"
+></textarea>
+
+</label>
+
+
+<label>
+
+Maintenance Start
+
+<input
+id="maintenanceStart"
+type="datetime-local"
+>
+
+</label>
+
+
+<label>
+
+Maintenance End
+
+<input
+id="maintenanceEnd"
+type="datetime-local"
+>
+
+</label>
+
+</section>
+
+
+
+<!-- REGIONAL -->
+
+<section class="panel" id="regional">
+
+<h2>🌍 Language & Regional</h2>
+
+<label>
+
+Date Format
+
+<select id="dateFormat">
+
+<option value="YYYY-MM-DD">
+YYYY-MM-DD
+</option>
+
+<option value="DD/MM/YYYY">
+DD/MM/YYYY
+</option>
+
+<option value="DD-MM-YYYY">
+DD-MM-YYYY
+</option>
+
+</select>
+
+</label>
+
+
+<label>
+
+Timezone
+
+<input
+id="timezone"
+value="Asia/Kolkata"
+>
+
+</label>
+
+
+<label>
+
+Number Format
+
+<select id="numberFormat">
+
+<option value="en-IN">
+India (en-IN)
+</option>
+
+<option value="en-US">
+International (en-US)
+</option>
+
+</select>
+
+</label>
+
+</section>
+
+
+
+<!-- SYSTEM -->
+
+<section class="panel" id="system">
+
+<h2>🛡️ System</h2>
+
+<div class="statusbox">
+
+<span>
+Firebase
+</span>
+
+<b id="firebaseStatus">
+Checking...
+</b>
+
+</div>
+
+
+<div class="statusbox">
+
+<span>
+Admin
+</span>
+
+<b id="adminStatus">
+Checking...
+</b>
+
+</div>
+
+
+<div class="statusbox">
+
+<span>
+Last Saved
+</span>
+
+<b id="lastSaved">
+—
+</b>
+
+</div>
+
+
+<div class="warning">
+
+⚠️ Security-sensitive settings का actual enforcement Firebase Authentication और Firestore Rules में भी होना चाहिए।
+
+</div>
+
+</section>
+
+
+
+<!-- ACTIONS -->
+
+<div class="bottomActions">
+
+<button
+class="secondary"
+id="resetAll"
+>
+↩️ Reset
+</button>
+
+<button
+class="primary"
+id="saveBtn"
+>
+💾 Save Settings
+</button>
+
+</div>
+
+</main>
+
+</div>
+
+
+<script
+type="module"
+src="settings.js"
+></script>
+
+</body>
+</html>
