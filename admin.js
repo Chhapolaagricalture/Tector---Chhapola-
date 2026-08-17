@@ -2087,3 +2087,6 @@ window.RAJ_ADMIN = {
 console.log(
     "✅ Chhapola Agriculture FINAL Admin Panel Loaded"
 );
+window.openAdminSettings = function(){
+    location.href = "settings.html";
+};
