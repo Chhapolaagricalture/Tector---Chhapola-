@@ -19,6 +19,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 alert("Script Loaded");
 const recordsRef = collection(window.db, "records");
+let editingDocId = null;
 // ==========================================
 // MAIN WEBSITE - OWNER SETTINGS CONTROLLER
 // ==========================================
@@ -734,7 +735,7 @@ if (work === "Thresher") {
 
 let baki = total - paid;
 
-  await addDoc(recordsRef, {
+const recordData = {
     ownerUid: window.auth.currentUser.uid,
     name,
     mobile,
@@ -749,7 +750,14 @@ let baki = total - paid;
     total,
     baki,
     note
-});
+};
+
+if (editingDocId) {
+    await updateDoc(doc(window.db, "records", editingDocId), recordData);
+    editingDocId = null;
+} else {
+    await addDoc(recordsRef, recordData);
+}
 
   document.getElementById("name").value = "";
   document.getElementById("mobile").value = "";
@@ -1036,8 +1044,8 @@ document.getElementById("minutes").value = "";
 document.getElementById("work").dispatchEvent(new Event("change"));
 document.getElementById("crop").dispatchEvent(new Event("change"));
   document.getElementById("note").value = r.note || "";
-  await deleteDoc(doc(window.db, "records", r.id));
-  show();
+  editingDocId = r.id;
+  alert("✏️ Record edit हो रहा है। Form में बदलाव करें और Save दबाएँ।");
 }
 
 function share(i) {
