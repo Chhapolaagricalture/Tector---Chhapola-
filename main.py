@@ -47,9 +47,10 @@ db = firestore.client()
 # ==========================================
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/"
-    "models/gemini-2.0-flash:generateContent"
+    f"models/{GEMINI_MODEL}:generateContent"
 )
 
 SYSTEM_PROMPT = """
