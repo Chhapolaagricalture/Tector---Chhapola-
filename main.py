@@ -2,24 +2,27 @@
 Chhapola Agriculture — FastAPI Backend
 =======================================
 Firebase Admin SDK + Gemini AI + Farmer Records CRUD
+Security: ID Token Auth, CORS, Rate Limiting
 """
 
 from __future__ import annotations
 
 import json
 import os
+import time
+from collections import defaultdict
 from datetime import datetime
 from typing import Literal, Optional
 
 import requests
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Firebase Admin SDK
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, auth as fb_auth
 
 # ==========================================
 # FIREBASE INITIALIZATION
@@ -148,14 +151,49 @@ app = FastAPI(
     ],
 )
 
-# CORS
+# ==========================================
+# CORS — Restricted to known production domains
+# ==========================================
+
+ALLOWED_ORIGINS = [
+    "https://tector-chhapola.onrender.com",
+    "https://tector-chhapola-frontend.onrender.com",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ==========================================
+# RATE LIMITING — In-memory, per-IP
+# ==========================================
+
+_rate_limit_store: dict[str, list[float]] = defaultdict(list)
+RATE_LIMIT_WINDOW = 60  # seconds
+RATE_LIMIT_MAX_REQUESTS = 30  # max requests per window (for /api/chat)
+
+
+def check_rate_limit(ip: str, max_requests: int = RATE_LIMIT_MAX_REQUESTS) -> bool:
+    """Return True if rate limit is OK, False if exceeded."""
+    now = time.time()
+    # Remove old entries outside the window
+    _rate_limit_store[ip] = [
+        t for t in _rate_limit_store[ip] if now - t < RATE_LIMIT_WINDOW
+    ]
+    if len(_rate_limit_store[ip]) >= max_requests:
+        return False
+    _rate_limit_store[ip].append(now)
+    return True
 
 
 # ==========================================
@@ -202,6 +240,45 @@ def calculate_totals(record: dict) -> dict:
 
 
 # ==========================================
+# AUTH HELPER — Firebase ID Token Verification
+# ==========================================
+
+async def verify_firebase_token(request: Request) -> Optional[dict]:
+    """Verify Firebase ID token from Authorization header.
+
+    Returns the decoded token dict if valid, None if no token provided.
+    Raises HTTPException(401) if token is provided but invalid.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None  # No token — allow endpoint to decide
+
+    id_token = auth_header[7:]  # strip "Bearer "
+    try:
+        decoded = fb_auth.verify_id_token(id_token)
+        return decoded
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired authentication token"
+        )
+
+
+async def require_auth(request: Request) -> dict:
+    """Require a valid Firebase ID token. Returns decoded token.
+
+    Raises 401 if no token or invalid token.
+    """
+    token = await verify_firebase_token(request)
+    if token is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required. Please sign in."
+        )
+    return token
+
+
+# ==========================================
 # SYSTEM ENDPOINTS
 # ==========================================
 
@@ -231,18 +308,24 @@ async def healthz() -> HealthResponse:
 
 
 # ==========================================
-# GEMINI AI CHAT ENDPOINT
+# GEMINI AI CHAT ENDPOINT (with rate limiting)
 # ==========================================
 
 
 @app.post("/api/chat", tags=["ai"])
-async def chat_with_ai(body: ChatPromptRequest):
+async def chat_with_ai(body: ChatPromptRequest, request: Request):
     """Send a message to Gemini AI and get a Gemini-compatible response.
 
-    Accepts either {"prompt": "..."} or {"message": "..."} from the frontend.
-    Returns the raw Gemini response format so the frontend can read
-    data.candidates[0].content.parts[0].text directly.
+    Rate limited: 30 requests per minute per IP.
     """
+    # Rate limit check
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Bahut zyada requests ho rahi hain. Kuch der baad try karein."
+        )
+
     if not GEMINI_API_KEY:
         raise HTTPException(
             status_code=503,
@@ -342,13 +425,15 @@ async def process_ledger_ai(data: LedgerQuery):
 
 
 # ==========================================
-# FARMER RECORDS CRUD APIs
+# FARMER RECORDS CRUD APIs (with auth)
 # ==========================================
 
 
 @app.post("/api/records", tags=["records"])
-async def create_record(record: RecordCreate):
-    """Add a new farmer record to Firestore."""
+async def create_record(record: RecordCreate, request: Request):
+    """Add a new farmer record to Firestore. Requires auth."""
+    await require_auth(request)
+
     try:
         record_data = record.model_dump()
         record_data = calculate_totals(record_data)
@@ -365,18 +450,26 @@ async def create_record(record: RecordCreate):
             "total": record_data["total"],
             "baki": record_data["baki"],
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/records", tags=["records"])
 async def list_records(
+    request: Request,
     owner_uid: str = Query(..., description="Owner's Firebase UID"),
     search: str = Query("", description="Search by farmer name"),
     from_date: str = Query("", description="Filter from date (YYYY-MM-DD)"),
     to_date: str = Query("", description="Filter to date (YYYY-MM-DD)"),
 ):
-    """List all records for an owner with optional filters."""
+    """List all records for an owner with optional filters. Requires auth."""
+    token = await require_auth(request)
+    # Ensure user can only access their own records
+    if token.get("uid") != owner_uid:
+        raise HTTPException(status_code=403, detail="Access denied to other user's records")
+
     try:
         query = db.collection("records").where("owner_uid", "==", owner_uid)
         docs = query.stream()
@@ -404,13 +497,17 @@ async def list_records(
         records.sort(key=lambda x: x.get("date", ""))
 
         return {"status": "success", "records": records, "count": len(records)}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/records/{record_id}", tags=["records"])
-async def get_record(record_id: str):
-    """Get a single record by ID."""
+async def get_record(record_id: str, request: Request):
+    """Get a single record by ID. Requires auth."""
+    await require_auth(request)
+
     try:
         doc = db.collection("records").document(record_id).get()
         if not doc.exists:
@@ -426,8 +523,10 @@ async def get_record(record_id: str):
 
 
 @app.put("/api/records/{record_id}", tags=["records"])
-async def update_record(record_id: str, updates: RecordUpdate):
-    """Update an existing farmer record (partial update)."""
+async def update_record(record_id: str, updates: RecordUpdate, request: Request):
+    """Update an existing farmer record (partial update). Requires auth."""
+    await require_auth(request)
+
     try:
         doc = db.collection("records").document(record_id).get()
         if not doc.exists:
@@ -462,8 +561,10 @@ async def update_record(record_id: str, updates: RecordUpdate):
 
 
 @app.delete("/api/records/{record_id}", tags=["records"])
-async def delete_record(record_id: str):
-    """Delete a farmer record."""
+async def delete_record(record_id: str, request: Request):
+    """Delete a farmer record. Requires auth."""
+    await require_auth(request)
+
     try:
         doc = db.collection("records").document(record_id).get()
         if not doc.exists:
@@ -479,17 +580,23 @@ async def delete_record(record_id: str):
 
 
 # ==========================================
-# SUMMARY / CALCULATION ENDPOINT
+# SUMMARY / CALCULATION ENDPOINT (with auth)
 # ==========================================
 
 
 @app.get("/api/summary", tags=["records"])
 async def get_summary(
+    request: Request,
     owner_uid: str = Query(..., description="Owner's Firebase UID"),
     from_date: str = Query("", description="Filter from date"),
     to_date: str = Query("", description="Filter to date"),
 ):
-    """Get total/paid/balance summary for an owner."""
+    """Get total/paid/balance summary for an owner. Requires auth."""
+    token = await require_auth(request)
+    # Ensure user can only access their own summary
+    if token.get("uid") != owner_uid:
+        raise HTTPException(status_code=403, detail="Access denied to other user's data")
+
     try:
         query = db.collection("records").where("owner_uid", "==", owner_uid)
         docs = query.stream()
@@ -527,6 +634,8 @@ async def get_summary(
             "total_baki": total_baki,
             "today_income": today_amount,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

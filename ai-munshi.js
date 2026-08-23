@@ -413,11 +413,26 @@ async function callGeminiAPI(prompt, imageBase64 = null) {
         body.mime_type = mimeType;
     }
 
+    // Build headers with Firebase ID token if available
+    const headers = {
+        "Content-Type": "application/json"
+    };
+
+    try {
+        if (window.auth && window.auth.currentUser) {
+            const idToken = await window.auth.currentUser.getIdToken();
+            if (idToken) {
+                headers["Authorization"] = "Bearer " + idToken;
+            }
+        }
+    } catch (e) {
+        // Token fetch failed — request will proceed without auth
+        // Backend will use fallback behavior
+    }
+
     const response = await fetch(BACKEND_URL, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+        headers: headers,
         body: JSON.stringify(body)
     });
 

@@ -309,33 +309,60 @@ function smartReply(question,result){
 
     }
 
+
+    const records = decision.data || [];
+    let total = 0, paid = 0, baki = 0;
+    records.forEach(r => {
+        total += Number(r.total || 0);
+        paid += Number(r.paid || 0);
+        baki += Number(r.baki || 0);
+    });
+    const farmerNames = [...new Set(records.map(r => r.name || ""))].filter(Boolean);
+    const farmerList = farmerNames.join(", ");
+
     switch(context){
 
         case "BALANCE":
-
-            return
-            "बाकी राशि का रिकॉर्ड मिल गया है।";
+            if (baki > 0) {
+                return farmerList
+                    ? farmerList + " का बाकी ₹" + baki + " है। (कुल: ₹" + total + ", जमा: ₹" + paid + ")"
+                    : "बाकी राशि ₹" + baki + " है। (कुल: ₹" + total + ", जमा: ₹" + paid + ")";
+            }
+            return "कोई बाकी राशि नहीं है। सभी हिसाब चुकता है।";
 
         case "PAID":
-return "बाकी राशि का रिकॉर्ड मिल गया है.";
-            
+            return farmerList
+                ? farmerList + " ने कुल ₹" + paid + " जमा किया है। (कुल राशि: ₹" + total + ", बाकी: ₹" + baki + ")"
+                : "कुल जमा राशि ₹" + paid + " है। (कुल: ₹" + total + ", बाकी: ₹" + baki + ")";
+
         case "INCOME":
+            return "कुल आय ₹" + total + " है। जमा: ₹" + paid + ", बाकी: ₹" + baki + (farmerList ? " (किसान: " + farmerList + ")" : "");
 
-return "बाकी राशि का रिकॉर्ड मिल गया है.";
         case "WORK":
-
-            return "बाकी राशि का रिकॉर्ड मिल गया है.";
+            const works = [...new Set(records.map(r => r.work || ""))].filter(Boolean);
+            return works.length > 0
+                ? "कार्य: " + works.join(", ") + " (" + records.length + " रिकॉर्ड)"
+                : "इस कार्य का कोई रिकॉर्ड नहीं मिला।";
 
         case "FARMER":
-return "बाकी राशि का रिकॉर्ड मिल गया है.";
+            return farmerList
+                ? farmerList + " के " + records.length + " रिकॉर्ड मिले। कुल: ₹" + total + ", जमा: ₹" + paid + ", बाकी: ₹" + baki
+                : "इस किसान का कोई रिकॉर्ड नहीं मिला।";
 
         case "CROP":
-
-            return "बाकी राशि का रिकॉर्ड मिल गया है.";
+            const crops = [...new Set(records.map(r => r.crop || ""))].filter(Boolean);
+            return crops.length > 0
+                ? "फसल: " + crops.join(", ") + " (" + records.length + " रिकॉर्ड)"
+                : "इस फसल का कोई रिकॉर्ड नहीं मिला।";
 
         default:
-
-            return "बाकी राशि का रिकॉर्ड मिल गया है.";
+            if (records.length === 1) {
+                const r = records[0];
+                return (r.name || "किसान") + " - " + (r.work || "-") + " | ₹" + (r.total || 0) + " (जमा: ₹" + (r.paid || 0) + ", बाकी: ₹" + (r.baki || 0) + ")";
+            }
+            return farmerList
+                ? farmerList + " के " + records.length + " रिकॉर्ड मिले। कुल: ₹" + total + ", जमा: ₹" + paid + ", बाकी: ₹" + baki
+                : "कुल " + records.length + " रिकॉर्ड मिले। कुल: ₹" + total + ", जमा: ₹" + paid + ", बाकी: ₹" + baki;
 
     }
 

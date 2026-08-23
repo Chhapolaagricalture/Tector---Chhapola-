@@ -1270,27 +1270,30 @@ logo.onload = function () {
 };
 
 logo.onerror = function () {
-
-    alert("❌ chhapola-logo.png नहीं मिली");
-
+    // Logo load failed, still save PDF without logo
+    doc.save(farmer + ".pdf");
 };
 
-doc.save(farmer + ".pdf");
-
     }
-window.onload = async () => {
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
-  if (localStorage.getItem("loggedIn") === "true") {
-
+// Use Firebase Auth state (not localStorage) for secure auth decisions
+onAuthStateChanged(window.auth, async (user) => {
+  if (user) {
+    // User is signed in via Firebase Auth
     document.getElementById("loginBox").style.display = "none";
     document.getElementById("mainApp").style.display = "block";
-
+  } else {
+    // Not signed in
+    document.getElementById("loginBox").style.display = "block";
+    document.getElementById("mainApp").style.display = "none";
+    localStorage.removeItem("loggedIn");
   }
 
   await loadMainWebsiteSettings();
 
   show();
-};
+});
 window.save = save;
 window.show = show;
 window.del = del;
