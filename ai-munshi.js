@@ -58,6 +58,54 @@ function getCurrentFarmer() {
 // SMART FARMER FINDER
 // ==========================================
 
+// ==========================================
+// ENGLISH → HINDI PHONETIC TRANSLITERATION
+// ==========================================
+const HI = {
+    "क": "k", "ख": "kh", "ग": "g", "घ": "gh", "ङ": "n",
+    "च": "ch", "छ": "chh", "ज": "j", "झ": "jh", "ञ": "ny",
+    "ट": "t", "ठ": "th", "ड": "d", "ढ": "dh", "ण": "n",
+    "त": "t", "थ": "th", "द": "d", "ध": "dh", "न": "n",
+    "प": "p", "फ": "ph", "ब": "b", "भ": "bh", "म": "m",
+    "य": "y", "र": "r", "ल": "l", "व": "v",
+    "श": "sh", "ष": "sh", "स": "s", "ह": "h",
+    "ा": "a", "ि": "i", "ी": "ee", "ु": "u", "ू": "oo",
+    "े": "e", "ै": "ai", "ो": "o", "ौ": "au", "ं": "n", "ः": "h"
+};
+
+function transliterateHindi(name) {
+    let result = "";
+    for (const ch of name) {
+        if (HI[ch]) { result += HI[ch]; }
+        else if (/[a-z]/i.test(ch)) { result += ch; }
+        else if (/\s/.test(ch)) { result += " "; }
+        else { result += ch; }
+    }
+    return result.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function phoneticMatch(a, b) {
+    if (!a || !b) return false;
+    if (a === b) return true;
+    // Direct substring
+    if (a.includes(b) || b.includes(a)) return true;
+    // Transliterate Hindi name and compare
+    const aEng = transliterateHindi(a);
+    const bEng = transliterateHindi(b);
+    if (aEng === bEng) return true;
+    if (aEng.includes(bEng) || bEng.includes(aEng)) return true;
+    // Word overlap
+    const aWords = aEng.split(" ").filter(w => w.length >= 2);
+    const bWords = bEng.split(" ").filter(w => w.length >= 2);
+    let matchCount = 0;
+    aWords.forEach(aw => {
+        bWords.forEach(bw => {
+            if (aw === bw || aw.includes(bw) || bw.includes(aw)) matchCount++;
+        });
+    });
+    return matchCount >= Math.min(aWords.length, bWords.length);
+}
+
 // Hindi honorifics and suffixes to strip before matching
 const HONORIFICS = /(?:\s*(?:जी|ji|saab|sahab|भाई|bhai|बाबू|babu|सर|sir|मियाँ|miyan|वाले|वाला|वाली|वालों|किसान|farmer|ने|का|के|की|को|से|पर|में|को|और|तथा|व|या|का\s+हिसाब|के\s+हिसाब|की\s+हिसाब|का\s+पूरा|के\s+पूरा|की\s+पूरा|का\s+record|के\s+record|की\s+record))*$/i;
 
@@ -150,7 +198,32 @@ function findFarmer(question) {
     });
 
     // Only return if score is meaningful (at least some word overlap)
-    return score >= 3 ? best : null;
+    if (score >= 3) return best;
+
+    // PHONETIC FALLBACK: try English→Hindi transliteration matching
+    const qLower = normalizeName(qClean).toLowerCase();
+    let phoneticBest = null;
+    let phoneticScore = 0;
+
+    farmers.forEach(name => {
+        if (phoneticMatch(qLower, normalizeName(name))) {
+            // Score based on how many words match
+            const nameWords = normalizeName(name).split(" ").filter(w => w.length >= 2);
+            const qWords = qLower.split(" ").filter(w => w.length >= 2);
+            let matches = 0;
+            nameWords.forEach(nw => {
+                qWords.forEach(qw => {
+                    if (nw === qw || nw.includes(qw) || qw.includes(nw)) matches++;
+                });
+            });
+            if (matches > phoneticScore) {
+                phoneticScore = matches;
+                phoneticBest = name;
+            }
+        }
+    });
+
+    return phoneticBest || null;
 }
 
 window.findFarmer = findFarmer;
@@ -250,14 +323,22 @@ function parseQuestion(text) {
     else if (/कौन|किसका|किसके|किन|किसान.*list|farmer.*list|कौन.*किसान/.test(q) && !result.farmer) {
         result.intent = "COUNT";
     }
-    // Specific question types: "क्या किया", "कब", "कहाँ"
-    else if (/क्या.*(किया|हुआ|था)|कब|क्या है|बताओ|बता|निकाल/.test(q) && result.farmer) {
-        // If we have a farmer but no specific intent, default to LEDGER
-        result.intent = "LEDGER";
+    // Specific question types: "क्या किया", "क्या करवाया", "कब", "पिछला काम"
+    else if (/क्या.*(किया|करवाया|हुआ|था|करा|करवा)|कब|क्या है|बताओ|बता|निकाल/.test(q) && result.farmer) {
+        // "पिछला काम" → sort by date DESC, show most recent
+        if (/पिछला|पिछले|last|previous|prev/.test(q)) {
+            result.intent = "DATE";
+            result.questionType = "last";
+        } else {
+            result.intent = "WORK";
+        }
     }
     // "उसका/उसके पिछला काम" type
     else if (isFollowUp && result.farmer) {
-        if (/काम|work/.test(q)) result.intent = "WORK";
+        if (/पिछला|पिछले|last|previous/.test(q)) {
+            result.intent = "DATE";
+            result.questionType = "last";
+        } else if (/काम|work/.test(q)) result.intent = "WORK";
         else if (/कब|date|तारीख|दिन/.test(q)) result.intent = "DATE";
         else result.intent = "LEDGER";
     }
@@ -322,6 +403,7 @@ function parseQuestion(text) {
             const allMonths = { ...hindiMonths, ...engMonths };
 
             const monthPattern = Object.keys(allMonths).join("|");
+            // Try "24 अगस्त" (day + month)
             const hindiDateMatch = q.match(
                 new RegExp("(\\d{1,2})\\s*(" + monthPattern + ")(?:\\s*(\\d{4}))?")
             );
@@ -330,6 +412,23 @@ function parseQuestion(text) {
                 const monthNum = allMonths[hindiDateMatch[2].toLowerCase()];
                 const year = hindiDateMatch[3] || String(today.getFullYear());
                 result.date = year + "-" + monthNum + "-" + day;
+            } else {
+                // Try month-only: "अगस्त में", "जून में", "in august"
+                const monthOnlyMatch = q.match(
+                    new RegExp("(" + monthPattern + ")(?:\\s*में|\\s*ko|\\s*ke|\\s*ki|\\s*in)?")
+                );
+                if (monthOnlyMatch) {
+                    const monthNum = allMonths[monthOnlyMatch[1].toLowerCase()];
+                    if (monthNum) {
+                        const year = String(today.getFullYear());
+                        const monthStart = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
+                        const monthEnd = new Date(parseInt(year), parseInt(monthNum), 0);
+                        result.dateRange = {
+                            from: monthStart.toISOString().split("T")[0],
+                            to: monthEnd.toISOString().split("T")[0]
+                        };
+                    }
+                }
             }
         }
     }
@@ -454,6 +553,23 @@ function buildLocalAnswer(parsed, records) {
 
     // DATE — group by date
     if (parsed.intent === "DATE") {
+        // "पिछला काम" type — show most recent first
+        if (parsed.questionType === "last") {
+            const sorted = [...records].sort((a,b) => (b.date || "").localeCompare(a.date || ""));
+            const recent = sorted[0];
+            if (recent) {
+                return (farmerList || "") + " का सबसे पिछला काम:\n"
+                    + "📅 तारीख: " + (recent.date || "-") + "\n"
+                    + "🚜 काम: " + (recent.work || "-") + "\n"
+                    + (recent.crop ? "🌾 फसल: " + recent.crop + "\n" : "")
+                    + "📏 मात्रा: " + (recent.bigha || recent.unit || "-") + "\n"
+                    + "💰 कुल: ₹" + (recent.total || 0) + "\n"
+                    + "💵 जमा: ₹" + (recent.paid || 0) + "\n"
+                    + "❌ बाकी: ₹" + (recent.baki || recent.balance || (Number(recent.total||0) - Number(recent.paid||0)));
+            }
+            return "कोई रिकॉर्ड नहीं मिला।";
+        }
+
         const dates = {};
         records.forEach(r => {
             const d = r.date || "अज्ञात तारीख";
