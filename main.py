@@ -158,6 +158,7 @@ app = FastAPI(
 ALLOWED_ORIGINS = [
     "https://tector-chhapola.onrender.com",
     "https://tector-chhapola-frontend.onrender.com",
+    "https://chhapolaagricalture.github.io",
     "http://localhost:5173",
     "http://localhost:3000",
     "http://localhost:8080",
