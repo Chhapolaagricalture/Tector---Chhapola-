@@ -396,15 +396,37 @@ async function callGeminiAPI(prompt, imageBase64 = null) {
     // Backend proxy — API key is hidden on the server side
     const BACKEND_URL = "https://tector-chhapola.onrender.com/api/chat";
 
+    const body = { prompt: prompt || "" };
+
+    // If image data is provided, send it to backend for Gemini Vision
+    if (imageBase64) {
+        let raw = imageBase64;
+        let mimeType = "image/jpeg";
+
+        // Extract mime type from data-URL prefix
+        if (typeof raw === "string" && raw.startsWith("data:")) {
+            const match = raw.match(/^data:([^;]+);/);
+            if (match) mimeType = match[1];
+        }
+
+        body.image = raw;
+        body.mime_type = mimeType;
+    }
+
     const response = await fetch(BACKEND_URL, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-            prompt: prompt || ""
-        })
+        body: JSON.stringify(body)
     });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(
+            errData.detail || `Backend error: ${response.status}`
+        );
+    }
 
     // Returns Gemini-compatible format: { candidates: [...] }
     return await response.json();

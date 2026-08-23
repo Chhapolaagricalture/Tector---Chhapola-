@@ -976,17 +976,29 @@ async function sendScannerToGemini(base64){
 
     if(typeof callGeminiAPI!=="function"){
 
-        throw new Error("Gemini API Missing");
+        throw new Error("Gemini API Missing — AI service connected nahi hai.");
 
     }
 
-    return await callGeminiAPI(
+    // Pass OCR prompt text + image data separately
+    // callGeminiAPI forwards image to backend for Gemini Vision
+    const response = await callGeminiAPI(
 
-        buildScannerPrompt(base64),
+        buildScannerPrompt(),
 
         base64
 
     );
+
+    if(!response){
+        throw new Error("Empty response from Gemini API.");
+    }
+
+    if(response.error){
+        throw new Error(response.error.message || "Gemini API error.");
+    }
+
+    return response;
 
 }
 
@@ -1779,7 +1791,11 @@ async function startScanner(file){
 
         window.RAJ_AI.scanner.totalScans++;
 
+        scannerLog("Loading image...");
+
         const image = await loadScannerImage(file);
+
+        scannerLog("Image loaded, sending to Gemini Vision...");
 
         const response = await sendScannerToGemini(
 
@@ -1787,19 +1803,57 @@ async function startScanner(file){
 
         );
 
+        scannerLog("Gemini response received, parsing...");
+
         const parsed = parseScannerResponse(response);
 
         const records = validateScanRecords(parsed);
 
+        scannerLog("Parsed records:", records.length);
+
         await processScannedRecords(records);
 
-await finishScanner(records);
+        await finishScanner(records);
 
         window.RAJ_AI.scanner.lastResult = records;
 
         window.RAJ_AI.scanner.lastScan = new Date();
 
         return records;
+
+    }catch(e){
+
+        window.RAJ_AI.scanner.failedScans++;
+
+        window.RAJ_AI.scanner.scanning = false;
+
+        let msg = "Scanner Error: ";
+
+        if(e.message && e.message.includes("API Missing")){
+
+            msg += "AI Service connected nahi hai. Baad mein try karein.";
+
+        }else if(e.message && e.message.includes("timeout")){
+
+            msg += "AI Service timeout. Image bada hai ya network slow hai.";
+
+        }else if(e.message && e.message.includes("403")){
+
+            msg += "API Key invalid hai. Admin se contact karein.";
+
+        }else if(e.message && e.message.includes("429")){
+
+            msg += "AI Service busy hai. Kuch der baad try karein.";
+
+        }else{
+
+            msg += (e.message || "Unknown error");
+
+        }
+
+        console.error("Scanner Error:", e);
+
+        throw new Error(msg);
 
     }finally{
 

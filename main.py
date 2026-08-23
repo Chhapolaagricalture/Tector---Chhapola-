@@ -83,10 +83,12 @@ class ChatRequest(BaseModel):
 
 
 class ChatPromptRequest(BaseModel):
-    """Flexible chat request — accepts prompt or message."""
+    """Flexible chat request — accepts prompt, message, or image for Vision API."""
     prompt: Optional[str] = None
     message: Optional[str] = None
     user_id: Optional[str] = "web"
+    image: Optional[str] = None  # base64 data-URL (data:image/...;base64,...)
+    mime_type: Optional[str] = None  # e.g. "image/jpeg"
 
 
 class RecordCreate(BaseModel):
@@ -248,22 +250,42 @@ async def chat_with_ai(body: ChatPromptRequest):
         )
 
     user_text = body.prompt or body.message or ""
-    if not user_text.strip():
+    if not user_text.strip() and not body.image:
         raise HTTPException(status_code=400, detail="prompt or message is required")
 
     try:
-        prompt_content = f"{SYSTEM_PROMPT}\n\nयूजर का सवाल/इन्फो: {user_text}"
+        prompt_content = f"{SYSTEM_PROMPT}\n\nयूजर का सवाल/इन्फो: {user_text}" if user_text.strip() else SYSTEM_PROMPT
+
+        parts = [{"text": prompt_content}]
+
+        # If image is provided, add it as inline_data for Gemini Vision
+        if body.image:
+            raw_b64 = body.image
+            # Strip data-URL prefix if present, e.g. "data:image/jpeg;base64,/9j/..."
+            if "," in raw_b64 and raw_b64.startswith("data:"):
+                raw_b64 = raw_b64.split(",", 1)[1]
+
+            mime = body.mime_type or "image/jpeg"
+            parts.append({
+                "inline_data": {
+                    "mime_type": mime,
+                    "data": raw_b64,
+                }
+            })
 
         headers = {"Content-Type": "application/json"}
         payload = {
-            "contents": [{"parts": [{"text": prompt_content}]}]
+            "contents": [{"parts": parts}]
         }
+
+        # Use longer timeout for image requests (large payloads)
+        req_timeout = 90 if body.image else 30
 
         response = requests.post(
             f"{GEMINI_URL}?key={GEMINI_API_KEY}",
             json=payload,
             headers=headers,
-            timeout=30,
+            timeout=req_timeout,
         )
         res_data = response.json()
 
