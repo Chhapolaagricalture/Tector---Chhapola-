@@ -131,6 +131,12 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
+    servers=[
+        {
+            "url": "https://tector-chhapola.onrender.com",
+            "description": "Production (Render)",
+        },
+    ],
 )
 
 # CORS
