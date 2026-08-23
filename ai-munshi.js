@@ -1,5 +1,5 @@
 // ==========================================
-// AI MUNSHI MAIN CONTROLLER v4
+// AI MUNSHI MAIN CONTROLLER v5
 // ==========================================
 window.RAJ_AI = window.RAJ_AI || {};
 window.RAJ_AI.munshi = window.RAJ_AI.munshi || {};
@@ -8,7 +8,9 @@ window.RAJ_AI.munshi.context = {
     farmer: null,
     lastQuestion: "",
     lastReply: "",
-    lastRecords: []
+    lastRecords: [],
+    lastIntent: null,
+    lastDate: null
 };
 
 
@@ -94,6 +96,303 @@ function findFarmer(question){
 }
 
 window.findFarmer = findFarmer;
+
+// ==========================================
+// QUESTION PARSER
+// Extract intent, farmer, date, work from natural language
+// ==========================================
+
+function parseQuestion(text) {
+    const q = String(text || "").toLowerCase().trim();
+    const result = {
+        intent: "GENERAL",
+        farmer: null,
+        date: null,
+        dateRange: null,
+        work: null,
+        crop: null,
+        raw: text
+    };
+
+    // ---- Extract farmer name ----
+    if (typeof findFarmer === "function") {
+        result.farmer = findFarmer(text);
+    }
+
+    // ---- Detect intent ----
+    // Full ledger / history
+    if (/पूरा\s*(हिसाब|record|history)|पूरे?\s*(का|की|के)|full.*(ledger|history|record)|हिसाब.*(बता|दे|निकाल)|ledger|history/.test(q)) {
+        result.intent = "LEDGER";
+    }
+    // Balance / baki
+    else if (/बाकी|balance|baki|bakaya|उधार|pending/.test(q)) {
+        result.intent = "BALANCE";
+    }
+    // Paid / paid
+    else if (/जमा|paid|diya|दिया|भुगतान|payment/.test(q)) {
+        result.intent = "PAID";
+    }
+    // Income / total
+    else if (/कुल|income|कमाई|total|rashi|राशि|earn|kamaya|कमाया/.test(q)) {
+        result.intent = "INCOME";
+    }
+    // Count
+    else if (/कितने|count|संख्या|कितना/.test(q) && /किसान|record|entry|एंट्री|काम/.test(q)) {
+        result.intent = "COUNT";
+    }
+    // Highest/lowest
+    else if (/सबसे|highest|maximum|most|lowest|minimum|least/.test(q)) {
+        result.intent = "HIGHEST_LOWEST";
+    }
+    // Comparison
+    else if (/तुलना|compare|vs|बनाम|मुकाबले/.test(q)) {
+        result.intent = "COMPARISON";
+    }
+    // Crop
+    else if (/फसल|crop|bajra|बाजरा|gehun|गेहूं|chana|चना|guar|ग्वार/.test(q)) {
+        result.intent = "CROP";
+    }
+    // Work type
+    else if (/काम|work|hero|हीरो|calti|कल्टी|thresher|थ्रेसर|morplau|मोरप्लाउ|display|spray|दवाई/.test(q)) {
+        result.intent = "WORK";
+    }
+    // Date-specific
+    else if (/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}|\d{1,2}\s*(तारीख|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|जन|फर|मार्च|अप्र|मई|जून|जुलाई|अग|सित|अक्टू|नव|दिस)/.test(q)) {
+        result.intent = "DATE";
+    }
+    // Today/yesterday
+    else if (/कल|आज|परसों|today|yesterday|tomorrow/.test(q)) {
+        result.intent = "DATE";
+    }
+    // Summary
+    else if (/summary|सारांश|brief|संक्षिप्त|short/.test(q)) {
+        result.intent = "SUMMARY";
+    }
+
+    // ---- Extract date ----
+    const today = new Date();
+    if (/आज|today/.test(q)) {
+        result.date = today.toISOString().split("T")[0];
+    } else if (/कल|yesterday/.test(q)) {
+        const y = new Date(today);
+        y.setDate(y.getDate() - 1);
+        result.date = y.toISOString().split("T")[0];
+    } else if (/परसों|tomorrow/.test(q)) {
+        const p = new Date(today);
+        p.setDate(p.getDate() + 1);
+        result.date = p.toISOString().split("T")[0];
+    } else if (/पिछले?\s*(महीने?|month)/.test(q)) {
+        const lm = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lmEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+        result.dateRange = {
+            from: lm.toISOString().split("T")[0],
+            to: lmEnd.toISOString().split("T")[0]
+        };
+    } else if (/इस\s*महीने?|this\s*month/.test(q)) {
+        const cmStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        result.dateRange = {
+            from: cmStart.toISOString().split("T")[0],
+            to: today.toISOString().split("T")[0]
+        };
+    } else if (/पिछले?\s*(सप्ताह|week)/.test(q)) {
+        const lw = new Date(today);
+        lw.setDate(lw.getDate() - 7);
+        result.dateRange = {
+            from: lw.toISOString().split("T")[0],
+            to: today.toISOString().split("T")[0]
+        };
+    } else {
+        // Try to extract explicit date like "24 अगस्त", "24/08/2026", "24-08"
+        const dateMatch = q.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
+        if (dateMatch) {
+            const month = dateMatch[2].padStart(2, "0");
+            const year = dateMatch[3] || today.getFullYear();
+            result.date = year + "-" + month + "-" + dateMatch[1].padStart(2, "0");
+        }
+    }
+
+    // ---- Extract work type ----
+    if (/hero|हीरो/.test(q)) result.work = "Hero";
+    else if (/calti|कल्टी|cultivator/.test(q)) result.work = "Calti";
+    else if (/thresher|थ्रेसर/.test(q)) result.work = "Thresher";
+    else if (/morplau|मोरप्लाउ/.test(q)) result.work = "Morplau";
+    else if (/display/.test(q)) result.work = "Display";
+    else if (/spray|दवाई/.test(q)) result.work = "Spray Machine";
+
+    // ---- Extract crop ----
+    if (/bajra|बाजरा/.test(q)) result.crop = "Bajra";
+    else if (/gehun|गेहूं|wheat/.test(q)) result.crop = "Gehun";
+    else if (/chana|चना/.test(q)) result.crop = "Chana";
+    else if (/guar|ग्वार/.test(q)) result.crop = "Guar";
+
+    return result;
+}
+
+window.parseQuestion = parseQuestion;
+
+// ==========================================
+// LOCAL ANSWER BUILDER
+// Build answer from window.records without Gemini
+// ==========================================
+
+function buildLocalAnswer(parsed, records) {
+    if (!records || !records.length) return null;
+
+    const farmerNames = [...new Set(records.map(r => r.name || r.farmer || ""))].filter(Boolean);
+    const farmerList = farmerNames.join(", ");
+
+    // Calculate aggregates
+    let total = 0, paid = 0, baki = 0;
+    records.forEach(r => {
+        total += Number(r.total || 0);
+        paid += Number(r.paid || 0);
+        baki += Number(r.baki || r.balance || (Number(r.total||0) - Number(r.paid||0)));
+    });
+
+    // LEDGER — full farmer history
+    if (parsed.intent === "LEDGER") {
+        let reply = (farmerList ? farmerList + " का पूरा हिसाब (" + records.length + " एंट्री):\n\n" : "पूरा हिसाब:\n\n");
+        records.forEach((r, i) => {
+            reply += (i+1) + ". " + (r.date || "-") + " | " + (r.work || "-")
+                + (r.crop ? " | " + r.crop : "")
+                + " | ₹" + (r.total || 0)
+                + " (जमा: ₹" + (r.paid || 0)
+                + ", बाकी: ₹" + (r.baki || r.balance || 0) + ")\n";
+        });
+        reply += "\n📊 कुल: ₹" + total + " | जमा: ₹" + paid + " | बाकी: ₹" + baki;
+        return reply;
+    }
+
+    // BALANCE
+    if (parsed.intent === "BALANCE") {
+        if (baki > 0) {
+            return farmerList + " का बाकी ₹" + baki + " है। (कुल: ₹" + total + ", जमा: ₹" + paid + ")";
+        }
+        return "कोई बाकी राशि नहीं है। सभी हिसाब चुकता है।";
+    }
+
+    // PAID
+    if (parsed.intent === "PAID") {
+        return farmerList + " ने कुल ₹" + paid + " जमा किया है। (कुल राशि: ₹" + total + ", बाकी: ₹" + baki + ")";
+    }
+
+    // INCOME
+    if (parsed.intent === "INCOME") {
+        return "कुल आय ₹" + total + " है। जमा: ₹" + paid + ", बाकी: ₹" + baki + (farmerList ? " (किसान: " + farmerList + ")" : "");
+    }
+
+    // COUNT
+    if (parsed.intent === "COUNT") {
+        const farmerCount = new Set(records.map(r => r.name || r.farmer || "")).size;
+        return "कुल " + records.length + " रिकॉर्ड मिले, " + farmerCount + " अलग-अलग किसान।";
+    }
+
+    // WORK — group by work type
+    if (parsed.intent === "WORK") {
+        const works = {};
+        records.forEach(r => {
+            const w = r.work || "अज्ञात";
+            if (!works[w]) works[w] = { count: 0, total: 0, paid: 0 };
+            works[w].count++;
+            works[w].total += Number(r.total || 0);
+            works[w].paid += Number(r.paid || 0);
+        });
+        const workList = Object.keys(works).map(w => {
+            const wb = works[w].total - works[w].paid;
+            return w + " (" + works[w].count + " बार): ₹" + works[w].total + (wb > 0 ? ", बाकी ₹" + wb : "");
+        });
+        return (farmerList ? farmerList + " के काम:\n" : "कार्य विवरण:\n") + workList.join("\n");
+    }
+
+    // CROP — group by crop
+    if (parsed.intent === "CROP") {
+        const crops = {};
+        records.forEach(r => {
+            const c = r.crop || "बिना फसल";
+            if (!crops[c]) crops[c] = { count: 0, total: 0 };
+            crops[c].count++;
+            crops[c].total += Number(r.total || 0);
+        });
+        const cropList = Object.keys(crops).map(c => c + " (" + crops[c].count + " बार): ₹" + crops[c].total);
+        return "फसल विवरण:\n" + cropList.join("\n");
+    }
+
+    // DATE — group by date
+    if (parsed.intent === "DATE") {
+        const dates = {};
+        records.forEach(r => {
+            const d = r.date || "अज्ञात तारीख";
+            if (!dates[d]) dates[d] = [];
+            dates[d].push(r);
+        });
+        let reply = (farmerList ? farmerList + " का तारीख-वार विवरण:\n" : "तारीख-वार विवरण:\n");
+        Object.keys(dates).sort().forEach(d => {
+            const dr = dates[d];
+            const dTotal = dr.reduce((s,r) => s + Number(r.total || 0), 0);
+            const dPaid = dr.reduce((s,r) => s + Number(r.paid || 0), 0);
+            const workNames = [...new Set(dr.map(r => r.work || ""))].filter(Boolean).join(", ");
+            reply += d + ": " + dr.length + " एंट्री" + (workNames ? " (" + workNames + ")" : "") + ", ₹" + dTotal + (dPaid > 0 ? " (जमा ₹" + dPaid + ")" : "") + "\n";
+        });
+        return reply.trim();
+    }
+
+    // SUMMARY
+    if (parsed.intent === "SUMMARY") {
+        const works = [...new Set(records.map(r => r.work || ""))].filter(Boolean);
+        const farmers = [...new Set(records.map(r => r.name || r.farmer || ""))].filter(Boolean);
+        const crops = [...new Set(records.map(r => r.crop || ""))].filter(Boolean);
+        return (farmerList ? farmerList + " का सारांश:\n" : "सारांश:\n")
+            + "📝 एंट्री: " + records.length + "\n"
+            + "👨‍🌾 किसान: " + farmers.length + "\n"
+            + "🚜 काम: " + works.join(", ") + "\n"
+            + (crops.length ? "🌾 फसल: " + crops.join(", ") + "\n" : "")
+            + "💰 कुल: ₹" + total + "\n"
+            + "💵 जमा: ₹" + paid + "\n"
+            + "❌ बाकी: ₹" + baki;
+    }
+
+    // HIGHEST_LOWEST
+    if (parsed.intent === "HIGHEST_LOWEST") {
+        if (/बाकी|balance|baki|udhar|pending/.test(parsed.raw)) {
+            const sorted = [...records].sort((a,b) => {
+                const ba = Number(a.baki || a.balance || (Number(a.total||0) - Number(a.paid||0)));
+                const bb = Number(b.baki || b.balance || (Number(b.total||0) - Number(b.paid||0)));
+                return bb - ba;
+            });
+            const top = sorted[0];
+            const topBaki = Number(top.baki || top.balance || (Number(top.total||0) - Number(top.paid||0)));
+            return "सबसे ज्यादा बाकी: " + (top.name || top.farmer || "अज्ञात") + " — ₹" + topBaki + " (कुल: ₹" + (top.total || 0) + ", जमा: ₹" + (top.paid || 0) + ")";
+        }
+        if (/कमाई|income|total|rashi/.test(parsed.raw)) {
+            const sorted = [...records].sort((a,b) => Number(b.total||0) - Number(a.total||0));
+            const top = sorted[0];
+            return "सबसे ज्यादा कमाई: " + (top.name || top.farmer || "अज्ञात") + " — ₹" + (top.total || 0);
+        }
+        // Generic highest
+        const sorted = [...records].sort((a,b) => Number(b.total||0) - Number(a.total||0));
+        const top = sorted[0];
+        return "सबसे ज्यादा: " + (top.name || top.farmer || "अज्ञात") + " — ₹" + (top.total || 0) + " (" + (top.work || "") + ", " + (top.date || "") + ")";
+    }
+
+    // DEFAULT — single or multiple records
+    if (records.length === 1) {
+        const r = records[0];
+        return (r.name || r.farmer || "किसान") + " का हिसाब:\n"
+            + "📅 तारीख: " + (r.date || "-") + "\n"
+            + "🚜 काम: " + (r.work || "-") + "\n"
+            + (r.crop ? "🌾 फसल: " + r.crop + "\n" : "")
+            + "📏 मात्रा: " + (r.bigha || r.unit || "-") + "\n"
+            + "💰 कुल: ₹" + (r.total || 0) + "\n"
+            + "💵 जमा: ₹" + (r.paid || 0) + "\n"
+            + "❌ बाकी: ₹" + (r.baki || r.balance || (Number(r.total||0) - Number(r.paid||0)));
+    }
+
+    // Multiple records — give summary
+    return farmerList + " के " + records.length + " रिकॉर्ड मिले। कुल: ₹" + total + ", जमा: ₹" + paid + ", बाकी: ₹" + baki;
+}
+
+window.buildLocalAnswer = buildLocalAnswer;
+
 // ==========================================
 // PART 15
 // SMART RECORD SEARCH
@@ -115,7 +414,7 @@ function resolveQuestionContext(question){
 
     let q = question;
 
-    q = q.replace(/\b(उसका|उसके|उसने|वो|वह|इस किसान|उस किसान)\b/gi, farmer);
+    q = q.replace(/\b(उसका|उसके|उसने|वो|वह|इस किसान|उस किसान|उसमें|उससे|उसकी)\b/gi, farmer);
 
     return q;
 
@@ -230,20 +529,26 @@ if(typeof analyzeQuestion==="function"){
 }
 
 
-// 3. Brain
+// 3. Brain — now returns reply via smartReply
 if(typeof think==="function"){
 
     try{
 
         const r = await think(question);
 
-        if(r){
+        if(r && (r.reply || (r.records && r.records.length))){
 
             result.success = true;
 
             result.source = "brain";
 
-            return r;
+            if(r.reply) result.reply = r.reply;
+
+            if(r.records && r.records.length) result.records = r.records;
+
+            updateMunshiContext(question, result.records || []);
+
+            return result;
 
         }
 
@@ -262,12 +567,15 @@ if (typeof processRajRequest === "function") {
         if (coreResult && coreResult.success) {
 
             result.success = true;
+
             result.source = "core";
 
             if (coreResult.reply)
+
                 result.reply = coreResult.reply;
 
             if (coreResult.records)
+
                 result.records = coreResult.records;
 
             return result;
@@ -285,6 +593,7 @@ if (typeof processRajRequest === "function") {
 
 // 5. Gemini
 result.source = "gemini";
+
 return result;
 
 }
@@ -427,7 +736,6 @@ async function callGeminiAPI(prompt, imageBase64 = null) {
         }
     } catch (e) {
         // Token fetch failed — request will proceed without auth
-        // Backend will use fallback behavior
     }
 
     const response = await fetch(BACKEND_URL, {
@@ -479,40 +787,84 @@ window.callGeminiAPI = callGeminiAPI;
     if (window.MUNSHI_GLOBAL_MEMORY.length === 0) {
       await syncWebsiteMemory();
     }
-// ==========================================
-// MUNSHI → RAJ AI SEARCH ENGINE
-// ==========================================
 
-let filteredRecords = [];
+    // ==========================================
+    // STEP 1: PARSE QUESTION
+    // ==========================================
+    let parsed = { intent: "GENERAL", farmer: null, date: null, dateRange: null, work: null, crop: null, raw: text };
+    try {
+        if (typeof parseQuestion === "function") {
+            parsed = parseQuestion(text);
+        }
+    } catch(e) { console.log("parseQuestion error:", e); }
 
-try {
+    // ==========================================
+    // STEP 2: SMART FARMER SEARCH
+    // ==========================================
+    let filteredRecords = [];
 
-    // पहले किसान-विशेष Search
-    if (typeof searchFarmerRecords === "function") {
+    try {
+        // Use parsed farmer name for better search
+        if (parsed.farmer && typeof window.records === "object" && window.records && window.records.length) {
+            const fn = parsed.farmer.trim().toLowerCase();
+            filteredRecords = window.records.filter(r => {
+                const name = (r.name || r.farmer || "").trim().toLowerCase();
+                return name === fn;
+            });
+        }
 
-        filteredRecords = searchFarmerRecords(text) || [];
+        // If no records found from parsed farmer, try searchFarmerRecords
+        if (!filteredRecords.length && typeof searchFarmerRecords === "function") {
+            // Pass farmer name (not full question) for better matching
+            const searchTerm = parsed.farmer || text;
+            filteredRecords = searchFarmerRecords(searchTerm) || [];
+        }
 
+        // Fallback: universal search with full question
+        if (!filteredRecords.length && typeof universalSearch === "function") {
+            filteredRecords = universalSearch(text) || [];
+        }
+
+        // Apply date filter if parsed
+        if (filteredRecords.length && parsed.dateRange) {
+            filteredRecords = filteredRecords.filter(r => {
+                const d = r.date || "";
+                return d >= parsed.dateRange.from && d <= parsed.dateRange.to;
+            });
+        } else if (filteredRecords.length && parsed.date) {
+            filteredRecords = filteredRecords.filter(r => (r.date || "") === parsed.date);
+        }
+
+        // Apply work filter if parsed
+        if (filteredRecords.length && parsed.work) {
+            filteredRecords = filteredRecords.filter(r => {
+                const w = (r.work || "").toLowerCase();
+                return w === parsed.work.toLowerCase();
+            });
+        }
+
+        // Apply crop filter if parsed
+        if (filteredRecords.length && parsed.crop) {
+            filteredRecords = filteredRecords.filter(r => {
+                const c = (r.crop || "").toLowerCase();
+                return c === parsed.crop.toLowerCase();
+            });
+        }
+
+    } catch (e) {
+        console.error("Munshi Search Error:", e);
+        filteredRecords = [];
     }
 
-    // अगर किसान Search से कुछ नहीं मिला
-    if (
-        !filteredRecords.length &&
-        typeof universalSearch === "function"
-    ) {
-
-        filteredRecords = universalSearch(text) || [];
-
+    // Update context with found records
+    if (filteredRecords.length) {
+        updateMunshiContext(text, filteredRecords);
     }
 
-} catch (e) {
-
-    console.error("Munshi Search Error:", e);
-
-    filteredRecords = [];
-
-}
-
-        let munshiResult = null;
+    // ==========================================
+    // STEP 3: TRY LOCAL AI (askMunshi)
+    // ==========================================
+    let munshiResult = null;
     try {
         if (typeof askMunshi === "function") {
             munshiResult = await askMunshi(text);
@@ -528,16 +880,22 @@ try {
     } else if (munshiResult && munshiResult.records && munshiResult.records.length) {
         const records = munshiResult.records;
         reply = records.map(r => {
-            return `👨‍🌾 किसान: ${r.name || r.farmer || "अज्ञात"}
-📅 दिनांक: ${r.date || "-"}
-🚜 कार्य: ${r.work || "-"}
-🌾 फसल: ${r.crop || "-"}
-📏 मात्रा: ${r.bigha || r.unit || 0}
-💰 कुल: ₹${r.total || 0}
-💵 जमा: ₹${r.paid || 0}
-❌ बाकी: ₹${r.balance || (r.total - r.paid) || 0}`;
+            return `👨‍🌾 किसान: ${r.name || r.farmer || "अज्ञात"}\n📅 दिनांक: ${r.date || "-"}\n🚜 कार्य: ${r.work || "-"}\n🌾 फसल: ${r.crop || "-"}\n📏 मात्रा: ${r.bigha || r.unit || 0}\n💰 कुल: ₹${r.total || 0}\n💵 जमा: ₹${r.paid || 0}\n❌ बाकी: ₹${r.balance || r.baki || (r.total - r.paid) || 0}`;
         }).join("\n\n");
         foundInLocal = true;
+    }
+
+    // ==========================================
+    // STEP 4: TRY LOCAL ANSWER BUILDER
+    // ==========================================
+    if (!foundInLocal && filteredRecords.length && typeof buildLocalAnswer === "function") {
+        try {
+            const localAnswer = buildLocalAnswer(parsed, filteredRecords);
+            if (localAnswer) {
+                reply = localAnswer;
+                foundInLocal = true;
+            }
+        } catch(e) { console.log("buildLocalAnswer error:", e); }
     }
 
     if (foundInLocal && reply) {
@@ -549,6 +907,9 @@ try {
         return;
     }
 
+// ==========================================
+// STEP 5: GEMINI FALLBACK
+// ==========================================
 const fullPrompt = `You are AI Munshi 3.0 of Chhapola Agriculture.
 
 Always answer in natural, clear Hindi.
@@ -594,7 +955,17 @@ const data = await callGeminiAPI(fullPrompt);
     } catch (err) {
       loadingDiv.remove();
       console.error("Fetch Error:", err);
-      appendMessage("कनेक्शन पर नेटवर्क जाँचें।", "ai");
+      // Show actual error message from backend if available
+      const errMsg = err.message || "";
+      if (errMsg.includes("502") || errMsg.includes("high demand") || errMsg.includes("overloaded")) {
+        appendMessage("AI सर्वर अभी व्यस्त है। कुछ देर बाद फिर पूछें। 🙏", "ai");
+      } else if (errMsg.includes("429")) {
+        appendMessage("बहुत ज्यादा सवाल हो गए। थोड़ी देर रुकें। ⏳", "ai");
+      } else if (errMsg.includes("503")) {
+        appendMessage("AI सेवा अभी उपलब्ध नहीं है। बाद में प्रयास करें।", "ai");
+      } else {
+        appendMessage("कनेक्शन में समस्या हुई। नेटवर्क जाँचें और फिर पूछें।", "ai");
+      }
     } finally {
       isRequestPending = false;
     }
@@ -682,4 +1053,3 @@ const data = await callGeminiAPI(fullPrompt);
     };
   }
 });
-
