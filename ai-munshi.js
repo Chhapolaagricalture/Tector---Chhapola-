@@ -393,63 +393,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
 async function callGeminiAPI(prompt, imageBase64 = null) {
 
-    const part1 = "AQ.Ab8RN6IneFD895YMiuSHRHH-p";
-    const part2 = "fAG_Wz4ZrghWn3DykD4Q_0XVw";
-    const apiKey = part1 + part2;
+    // Backend proxy — API key is hidden on the server side
+    const BACKEND_URL = "https://tector-chhapola.onrender.com/api/chat";
 
-    const apiUrl =
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
-
-    const parts = [];
-
-    if (prompt) {
-        parts.push({ text: prompt });
-    }
-
-    if (imageBase64) {
-
-        parts.push({
-
-            inline_data: {
-
-                mime_type: "image/jpeg",
-
-                data: imageBase64.split(",")[1]
-
-            }
-
-        });
-
-    }
-
-    const response = await fetch(apiUrl, {
-
+    const response = await fetch(BACKEND_URL, {
         method: "POST",
-
         headers: {
-
-            "Content-Type": "application/json",
-
-            "X-goog-api-key": apiKey
-
+            "Content-Type": "application/json"
         },
-
         body: JSON.stringify({
-
-            contents: [
-
-                {
-
-                    parts: parts
-
-                }
-
-            ]
-
+            prompt: prompt || ""
         })
-
     });
 
+    // Returns Gemini-compatible format: { candidates: [...] }
     return await response.json();
 
 }

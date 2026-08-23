@@ -78,8 +78,15 @@ class ServiceInfo(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    user_id: str
+    user_id: Optional[str] = "web"
     message: str
+
+
+class ChatPromptRequest(BaseModel):
+    """Flexible chat request — accepts prompt or message."""
+    prompt: Optional[str] = None
+    message: Optional[str] = None
+    user_id: Optional[str] = "web"
 
 
 class RecordCreate(BaseModel):
@@ -227,17 +234,25 @@ async def healthz() -> HealthResponse:
 
 
 @app.post("/api/chat", tags=["ai"])
-async def chat_with_ai(request: ChatRequest):
-    """Send a message to Gemini AI and get a response."""
+async def chat_with_ai(body: ChatPromptRequest):
+    """Send a message to Gemini AI and get a Gemini-compatible response.
+
+    Accepts either {"prompt": "..."} or {"message": "..."} from the frontend.
+    Returns the raw Gemini response format so the frontend can read
+    data.candidates[0].content.parts[0].text directly.
+    """
     if not GEMINI_API_KEY:
         raise HTTPException(
             status_code=503,
             detail="GEMINI_API_KEY not configured on server",
         )
 
+    user_text = body.prompt or body.message or ""
+    if not user_text.strip():
+        raise HTTPException(status_code=400, detail="prompt or message is required")
+
     try:
-        # Build prompt with system instruction
-        prompt_content = f"{SYSTEM_PROMPT}\n\nयूजर का सवाल/इन्फो: {request.message}"
+        prompt_content = f"{SYSTEM_PROMPT}\n\nयूजर का सवाल/इन्फो: {user_text}"
 
         headers = {"Content-Type": "application/json"}
         payload = {
@@ -253,8 +268,8 @@ async def chat_with_ai(request: ChatRequest):
         res_data = response.json()
 
         if response.status_code == 200 and "candidates" in res_data:
-            ai_reply = res_data["candidates"][0]["content"]["parts"][0]["text"]
-            return {"status": "success", "reply": ai_reply}
+            # Return raw Gemini format so frontend can parse it directly
+            return res_data
         else:
             error_msg = res_data.get("error", {}).get("message", "Gemini API error")
             raise HTTPException(status_code=502, detail=error_msg)
