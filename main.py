@@ -169,13 +169,16 @@ class LedgerQuery(BaseModel):
 # FASTAPI APP
 # ==========================================
 
+_IS_PROD = os.getenv("ENVIRONMENT", "production") == "production"
+
 app = FastAPI(
     title="Chhapola Agriculture Tractor Ledger AI",
     description="Python API connected with Firebase and AI for tractor account management",
     version="1.0.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    # Task 24: Hide docs in production to reduce public API surface
+    docs_url="/api/docs" if not _IS_PROD else None,
+    redoc_url="/api/redoc" if not _IS_PROD else None,
+    openapi_url="/api/openapi.json" if not _IS_PROD else None,
     servers=[
         {
             "url": "https://tector-chhapola.onrender.com",
@@ -199,7 +202,21 @@ async def limit_request_size(request: Request, call_next):
             status_code=413,
             media_type="application/json",
         )
-    return await call_next(request)
+    response = await call_next(request)
+    # Task 23: Security headers on every response
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    # Task 25: Structured logging for auth/rate-limit events
+    logger.info(
+        "%s %s %s",
+        request.method,
+        request.url.path,
+        response.status_code,
+    )
+    return response
 
 # ==========================================
 # CORS — Restricted to known production domains
@@ -251,24 +268,80 @@ def check_rate_limit(ip: str, max_requests: int = RATE_LIMIT_MAX_REQUESTS) -> bo
 # HELPER: CALCULATE TOTAL & BALANCE
 # ==========================================
 
+def _normalize_work(name: str) -> str:
+    """Map common work-name variations to canonical values.
+
+    Existing Firestore records may store "Displau" instead of "Display".
+    This normalisation is display-only — we never mutate stored records.
+    """
+    _WORK_ALIASES = {
+        "displau": "Display",
+        "display": "Display",
+        "calti": "Calti",
+        "cultivator": "Calti",
+        "morplau": "Morplau",
+        "morplough": "Morplau",
+        "hero": "Hero",
+        "thresher": "Thresher",
+        "spray machine": "Spray Machine",
+        "spray": "Spray Machine",
+        "pending balance": "Pending Balance",
+        "mej (pata)": "Mej (Pata)",
+    }
+    return _WORK_ALIASES.get(name.strip().lower(), name)
+
+
+_CROP_ALIASES = {
+    "gehu": "Gehu",
+    "gehoon": "Gehu",
+    "gehun": "Gehu",
+    "wheat": "Gehu",
+    "chana": "Chana",
+    "chickpea": "Chana",
+    "bajra": "Bajra",
+    "pearl millet": "Bajra",
+    "guar": "Guar",
+    "cluster bean": "Guar",
+}
+
+
+def _normalize_crop(name: str) -> str:
+    """Map common crop-name variations to canonical values (display-only)."""
+    return _CROP_ALIASES.get(name.strip().lower(), name)
+
+
 def calculate_totals(record: dict) -> dict:
-    """Calculate total and balance based on work type."""
-    work = record.get("work", "")
-    bigha = float(record.get("bigha", 0))
-    rate = float(record.get("rate", 0))
-    paid = float(record.get("paid", 0))
-    unit = float(record.get("unit", 0))
+    """Calculate total and balance based on work type.
+
+    Server is authoritative — client-supplied total/baki are replaced.
+    NaN / Infinity values are clamped to 0.
+    """
+    # ---- sanitise inputs ----
+    def _safe_float(v, default=0.0):
+        try:
+            f = float(v)
+            if f != f or f == float("inf") or f == float("-inf"):
+                return default
+            return f
+        except (TypeError, ValueError):
+            return default
+
+    work = _normalize_work(record.get("work", ""))
+    bigha = max(_safe_float(record.get("bigha", 0)), 0)
+    rate = max(_safe_float(record.get("rate", 0)), 0)
+    paid = max(_safe_float(record.get("paid", 0)), 0)
+    unit = max(_safe_float(record.get("unit", 0)), 0)
     time_str = record.get("time", "")
 
     if work == "Thresher":
-        crop = record.get("crop", "")
+        crop = _normalize_crop(record.get("crop", ""))
         if crop == "Bajra":
             total = bigha * rate  # Quintal
         else:
             # Parse time
             hours = 0
             if time_str:
-                parts = time_str.replace("घंटा", "").replace("मिनट", "").split()
+                parts = time_str.replace("घंटा", "").replace("घंटे", "").replace("मिनट", "").split()
                 for i, p in enumerate(parts):
                     p = p.strip()
                     if p.isdigit():
@@ -285,8 +358,10 @@ def calculate_totals(record: dict) -> dict:
         total = bigha * rate
 
     baki = total - paid
-    record["total"] = total
-    record["baki"] = baki
+    record["total"] = round(total, 2)
+    record["baki"] = round(baki, 2)
+    record["work"] = work  # normalised
+    record["crop"] = _normalize_crop(record.get("crop", ""))
     return record
 
 
@@ -498,8 +573,11 @@ async def create_record(record: RecordCreate, request: Request):
         # Task 1b: Override client-supplied owner_uid with authenticated uid
         record_data["owner_uid"] = token["uid"]
         record_data = calculate_totals(record_data)
-        record_data["created_at"] = datetime.utcnow().isoformat()
-        record_data["updated_at"] = datetime.utcnow().isoformat()
+        now = datetime.utcnow().isoformat()
+        record_data["created_at"] = now
+        record_data["created_at_by"] = token["uid"]
+        record_data["updated_at"] = now
+        record_data["updated_at_by"] = token["uid"]
 
         doc_ref = db.collection("records").add(record_data)
         doc_id = doc_ref[1].id
@@ -541,6 +619,10 @@ async def list_records(
             data = doc.to_dict()
             data["id"] = doc.id
 
+            # Task 20: Skip soft-deleted records
+            if data.get("_deleted"):
+                continue
+
             # Apply date filters
             if from_date and data.get("date", "") < from_date:
                 continue
@@ -555,8 +637,8 @@ async def list_records(
 
             records.append(data)
 
-        # Sort by date
-        records.sort(key=lambda x: x.get("date", ""))
+        # Task 17: Sort by date (newest last — chronological)
+        records.sort(key=lambda x: (x.get("date", ""), x.get("created_at", "")))
 
         return {"status": "success", "records": records, "count": len(records)}
     except HTTPException:
@@ -622,6 +704,7 @@ async def update_record(record_id: str, updates: RecordUpdate, request: Request)
             update_data["baki"] = recalculated["baki"]
 
         update_data["updated_at"] = datetime.utcnow().isoformat()
+        update_data["updated_at_by"] = token["uid"]
 
         db.collection("records").document(record_id).update(update_data)
 
@@ -652,7 +735,12 @@ async def delete_record(record_id: str, request: Request):
         if record_owner and record_owner != token.get("uid"):
             raise HTTPException(status_code=403, detail="Access denied")
 
-        db.collection("records").document(record_id).delete()
+        # Task 20: Soft delete — mark as deleted instead of removing
+        db.collection("records").document(record_id).update({
+            "_deleted": True,
+            "_deleted_at": datetime.utcnow().isoformat(),
+            "_deleted_by": token["uid"],
+        })
 
         return {"status": "success", "message": "Record deleted successfully"}
     except HTTPException:
@@ -694,6 +782,10 @@ async def get_summary(
         for doc in docs:
             data = doc.to_dict()
             date = data.get("date", "")
+
+            # Task 20: Skip soft-deleted records
+            if data.get("_deleted"):
+                continue
 
             # Date filters
             if from_date and date < from_date:

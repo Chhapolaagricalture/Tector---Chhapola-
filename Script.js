@@ -831,11 +831,18 @@ const snapshot = await getDocs(userRecordsQuery);
 let records = [];
 
 snapshot.forEach((doc) => {
+  const d = doc.data();
+  // Task 20: Skip soft-deleted records in frontend too
+  if (d._deleted) return;
   records.push({
     id: doc.id,
-    ...doc.data()
+    ...d
   });
 });
+// Task 16: Pagination — track total for display
+const _totalRecords = records.length;
+const _PAGE_SIZE = 50;
+let _showAll = window._showAllRecords || false;
   let search = document.getElementById("search").value.toLowerCase();
   let fromDate = document.getElementById("fromDate").value;
 let toDate = document.getElementById("toDate").value;
@@ -960,8 +967,70 @@ records.forEach(r => {
 
 document.getElementById("todayIncome").innerText = "₹" + todayIncome;
   window.records = records;
-  document.getElementById("list").innerHTML = html;
-  
+  // Task 16: Pagination UI — show count + "Show All" button
+  const totalCount = _totalRecords || records.length;
+  let paginationHtml = `<div class="card" style="text-align:center;padding:8px;">
+    <span style="font-size:0.9em;color:#666;">📊 कुल ${totalCount} records</span>`;
+  if (totalCount > _PAGE_SIZE && !_showAll) {
+    paginationHtml += ` <button onclick="window._showAllRecords=true;show();" style="margin-left:8px;padding:4px 12px;border:1px solid #176b35;background:#e8f5e9;border-radius:6px;cursor:pointer;">सभी दिखाएं (${totalCount})</button>`;
+  } else if (totalCount > _PAGE_SIZE && _showAll) {
+    paginationHtml += ` <button onclick="window._showAllRecords=false;show();" style="margin-left:8px;padding:4px 12px;border:1px solid #176b35;background:#e8f5e9;border-radius:6px;cursor:pointer;">पहले ${_PAGE_SIZE} दिखाएं</button>`;
+  }
+  paginationHtml += `</div>`;
+  // Task 18: If not showAll, limit groups rendering
+  if (!_showAll && totalCount > _PAGE_SIZE) {
+    // Only render first PAGE_SIZE records into groups
+    const limited = records.slice(0, _PAGE_SIZE);
+    const limitedGroups = {};
+    limited.forEach((r) => {
+      let key = r.name.trim().toLowerCase();
+      if (!limitedGroups[key]) limitedGroups[key] = { name: r.name, total: 0, paid: 0, baki: 0, rows: "" };
+      limitedGroups[key].total += r.total; limitedGroups[key].paid += r.paid; limitedGroups[key].baki += r.baki;
+      limitedGroups[key].rows += `
+      <tr>
+        <td>${escapeHTML(r.date)}</td>
+<td>${escapeHTML(r.work)}</td>
+<td>${escapeHTML(r.crop) || "-"}</td>
+<td>${escapeHTML(String(r.unit ?? "-"))}</td>
+<td>${escapeHTML(r.time) || "-"}</td>
+<td>${escapeHTML(String(r.bigha ?? "-"))}</td>
+<td>\u20B9${Number(r.rate)}</td>
+<td>\u20B9${Number(r.total)}</td>
+<td>\u20B9${Number(r.paid)}</td>
+<td>\u20B9${Number(r.baki)}</td>
+        <td>
+  <div class="action">
+  <button onclick="edit(${records.indexOf(r)})">✏️</button>
+  <button onclick="share(${records.indexOf(r)})">📲</button>
+  <button onclick="pdf(${records.indexOf(r)})">📄</button>
+  <button onclick="del(${records.indexOf(r)})">🗑️</button>
+</div>
+  </td>
+      </tr>
+    `;
+    });
+    let limitedHtml = "";
+    for (let key in limitedGroups) {
+      let g = limitedGroups[key];
+      limitedHtml += `
+      <div class="card">
+        <h3>\uD83D\uDC68\u200D\uD83C\uDF3E ${escapeHTML(g.name)}</h3>
+      <div style="overflow-x:auto;">
+<table style="min-width:700px; border-collapse:collapse;">
+          <tr><th>तारीख</th><th>काम</th><th>फसल</th><th>यूनिट</th><th>समय</th><th>बीघा</th><th>रेट</th><th>कुल</th><th>जमा</th><th>बाकी</th><th>Action</th></tr>
+          ${g.rows}
+          <tr style="font-weight:bold;background:#e8f5e9;">
+            <td colspan="7">कुल हिसाब</td><td>\u20B9${g.total}</td><td>\u20B9${g.paid}</td><td>\u20B9${g.baki}</td><td></td>
+          </tr>
+        </table>
+        </div>
+      </div><br>
+    `;
+    }
+    document.getElementById("list").innerHTML = paginationHtml + limitedHtml;
+  } else {
+    document.getElementById("list").innerHTML = paginationHtml + html;
+  }
 }
 function clearDateFilter() {
     document.getElementById("fromDate").value = "";
@@ -1060,7 +1129,15 @@ function downloadPaidReportPDF() {
   doc.save("Payment_Report.pdf");
   }
 async function del(i) {
-  await deleteDoc(doc(window.db, "records", window.records[i].id));
+  const r = window.records[i];
+  const confirmMsg = `क्या ${r.name} का यह record delete करना है?\n\n⚠️ Undo के लिए Admin Panel से restore किया जा सकेगा।`;
+  if (!confirm(confirmMsg)) return;
+  // Task 20: Soft delete — mark record as deleted
+  await updateDoc(doc(window.db, "records", r.id), {
+    _deleted: true,
+    _deletedAt: new Date().toISOString(),
+    _deletedBy: window.auth.currentUser.uid
+  });
   show();
 }
 async function edit(i) {
@@ -1645,6 +1722,46 @@ if (work === "Thresher") {
 });
 window.showPaidReport = showPaidReport;
 window.downloadPaidReportPDF = downloadPaidReportPDF;
+
+// ==========================================
+// TASK 21: CSV / EXCEL EXPORT
+// ==========================================
+function downloadCSV() {
+  const user = window.auth.currentUser;
+  if (!user) return;
+  const records = (window.records || []);
+  if (!records.length) { alert("Export करने के लिए records नहीं हैं।"); return; }
+
+  // CSV header
+  const header = ["Name","Mobile","Date","Work","Crop","Unit","Time","Bigha","Rate","Total","Paid","Balance","Note"];
+  const rows = records.map(r => [
+    r.name || "",
+    r.mobile || "",
+    r.date || "",
+    r.work || "",
+    r.crop || "",
+    r.unit ?? "",
+    r.time || "",
+    r.bigha ?? "",
+    r.rate ?? "",
+    r.total ?? "",
+    r.paid ?? "",
+    r.baki ?? "",
+    (r.note || "").replace(/\n/g, " ")
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(","));
+
+  const csv = "\uFEFF" + header.join(",") + "\n" + rows.join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Chhapola_Agriculture_${new Date().toISOString().split("T")[0]}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+window.downloadCSV = downloadCSV;
 
 
 // =========================

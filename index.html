@@ -122,19 +122,19 @@
 </div>
 <div class="container">
 <div class="search-row">
-    <input id="search" type="text" placeholder="🔎 किसान खोजें">
+    <input id="search" type="text" placeholder="🔎 किसान खोजें" aria-label="किसान खोजें">
     <button onclick="show()">🔍 Search</button>
 </div>
 <div class="search-row">
 
   <div class="field">
     <label>From Date</label>
-    <input type="date" id="fromDate">
+    <input type="date" id="fromDate" aria-label="From Date">
   </div>
 
   <div class="field">
     <label>To Date</label>
-    <input type="date" id="toDate">
+    <input type="date" id="toDate" aria-label="To Date">
   </div>
 
   <button onclick="show()">🔍 Search</button>
@@ -148,6 +148,7 @@
 
   <button onclick="showPaidReport()">📊 Paid Report</button>
   <button onclick="downloadPaidReportPDF()">📄 Payment PDF</button>
+  <button onclick="downloadCSV()" style="margin-left:4px;">📥 CSV Export</button>
 
 </div>
 
@@ -170,13 +171,13 @@ document.getElementById("paidReportBox").style.display = "none";
   </div>
 </div>
   <div id="scannerPreview" style="display:none;"></div>
-<input id="name" placeholder="किसान का नाम">
-<label>Date</label>
+<input id="name" placeholder="किसान का नाम" aria-label="किसान का नाम">
+<label for="date">Date</label>
 <input type="date" id="date">
 
-<label>Mobile Number</label>
+<label for="mobile">Mobile Number</label>
 <input type="tel" id="mobile" placeholder="9079096875">
-<select id="work">
+<select id="work" aria-label="काम चुनें">
 <option value="">Select Work</option>
 <option value="Hero">Hero</option>
 <option value="Calti">Calti</option>
@@ -184,13 +185,13 @@ document.getElementById("paidReportBox").style.display = "none";
   <option value="Discount">Discount</option>
   <option value="Pending Balance">Pending Balance</option>
 <option value="Morplau">Morplau</option>
-<option value="Displau">Displau</option>
+<option value="Display">Display</option>
 <option value="Thresher">Thresher</option>
 <option value="Spray Machine">Spray Machine</option>
 </select>
 <div id="cropBox" style="display:none;">
   <label>🌾 Crop</label>
-  <select id="crop">
+  <select id="crop" aria-label="फसल चुनें">
     <option value="">Select Crop</option>
     <option value="Chana">Chana</option>
     <option value="Moong">Moong</option>
@@ -208,21 +209,21 @@ document.getElementById("paidReportBox").style.display = "none";
   </select>
   </div>
   <div id="unitBox" style="display:none;">
-  <label id="unitLabel">Hours</label>
-  <input type="number" id="unitValue" placeholder="Enter Value">
+  <label for="unitValue" id="unitLabel">Hours</label>
+  <input type="number" id="unitValue" placeholder="Enter Value" aria-label="Unit Value">
   </div>
   <div id="timeBox" style="display:none;">
-  <label>Time</label>
+  <label for="hours">Time</label>
 
-  <input type="number" id="hours" placeholder="Hours">
+  <input type="number" id="hours" placeholder="Hours" aria-label="Hours">
 
-  <input type="number" id="minutes" placeholder="Minutes" min="0" max="59">
+  <input type="number" id="minutes" placeholder="Minutes" min="0" max="59" aria-label="Minutes">
 </div>
-<input id="bigha" type="number" placeholder="बीघा">
+<input id="bigha" type="number" placeholder="बीघा" aria-label="बीघा">
 
-<input id="rate" type="number" placeholder="रेट (₹/बीघा)">
+<input id="rate" type="number" placeholder="रेट (₹/बीघा)" aria-label="रेट">
 
-<input id="paid" type="number" placeholder="जमा राशि">
+<input id="paid" type="number" placeholder="जमा राशि" aria-label="जमा राशि">
 
   <div class="form-group">
   <label for="note">📝 किसान Note / अन्य जानकारी</label>
