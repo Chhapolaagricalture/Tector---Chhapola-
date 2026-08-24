@@ -1776,6 +1776,284 @@ function downloadCSV() {
 window.downloadCSV = downloadCSV;
 
 
+// ==========================================
+// USER SETTINGS MODULE
+// ==========================================
+
+function openSideMenu() {
+  const overlay = document.getElementById('sideMenuOverlay');
+  const menu = document.getElementById('sideMenu');
+  if (overlay) overlay.style.display = 'block';
+  if (menu) menu.style.display = 'flex';
+  // Show user name
+  const user = window.auth?.currentUser;
+  if (user) {
+    getDocs(query(collection(window.db, 'users'), where('__name__', '==', user.uid))).then(snap => {
+      if (!snap.empty) {
+        const d = snap.docs[0].data();
+        document.getElementById('sideMenuUserName').innerHTML = '<strong>' + escapeHTML(d.name || user.email) + '</strong><br><span style="font-size:12px">' + escapeHTML(user.email) + '</span>';
+      } else {
+        document.getElementById('sideMenuUserName').innerHTML = '<strong>' + escapeHTML(user.email) + '</strong>';
+      }
+    });
+  }
+}
+function closeSideMenu() {
+  document.getElementById('sideMenuOverlay').style.display = 'none';
+  document.getElementById('sideMenu').style.display = 'none';
+}
+
+function openUserSettings(section) {
+  const panel = document.getElementById('userSettingsPanel');
+  const title = document.getElementById('userSettingsTitle');
+  const content = document.getElementById('userSettingsContent');
+  panel.style.display = 'block';
+  content.innerHTML = '<div style="text-align:center;padding:40px;color:#666">⏳ Loading...</div>';
+
+  if (section === 'profile') {
+    title.textContent = '👤 Profile';
+    loadProfileSettings(content);
+  } else if (section === 'rates') {
+    title.textContent = '💰 Work Rates';
+    loadWorkRates(content);
+  } else if (section === 'pdf') {
+    title.textContent = '📄 PDF Settings';
+    loadPdfSettings(content);
+  } else if (section === 'password') {
+    title.textContent = '🔐 Change Password';
+    loadPasswordSection(content);
+  } else if (section === 'feedback') {
+    title.textContent = '💬 Feedback';
+    loadFeedbackSection(content);
+  } else if (section === 'privacy') {
+    title.textContent = '🔒 Privacy Policy';
+    loadPrivacyPolicy(content);
+  }
+}
+function closeUserSettings() {
+  document.getElementById('userSettingsPanel').style.display = 'none';
+}
+
+// ---- Profile ----
+async function loadProfileSettings(el) {
+  const user = window.auth.currentUser;
+  if (!user) { el.innerHTML = '<p>❌ Login required</p>'; return; }
+  let name = '', mobile = '';
+  try {
+    const snap = await getDocs(query(collection(window.db, 'users'), where('__name__', '==', user.uid)));
+    if (!snap.empty) {
+      const d = snap.docs[0].data();
+      name = d.name || '';
+      mobile = d.mobile || '';
+    }
+  } catch(e) {}
+  el.innerHTML = '
+    <div class="card" style="margin-bottom:16px">
+      <label style="font-weight:600;font-size:13px;color:#475569">Name</label>
+      <input id="upName" value="' + escapeHTML(name) + '" placeholder="Your Name" style="margin-bottom:10px">
+      <label style="font-weight:600;font-size:13px;color:#475569">Mobile</label>
+      <input id="upMobile" value="' + escapeHTML(mobile) + '" placeholder="Mobile Number" style="margin-bottom:10px">
+      <label style="font-weight:600;font-size:13px;color:#475569">Email</label>
+      <input value="' + escapeHTML(user.email) + '" disabled style="background:#f3f4f6;color:#9ca3af;margin-bottom:10px">
+      <button onclick="saveProfile()" style="background:#176b35;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">💾 Save Profile</button>
+    </div>';
+}
+async function saveProfile() {
+  const user = window.auth.currentUser;
+  const name = document.getElementById('upName').value.trim();
+  const mobile = document.getElementById('upMobile').value.trim();
+  if (!name) { alert('Name भरें'); return; }
+  try {
+    await setDoc(doc(window.db, 'users', user.uid), { name, mobile }, { merge: true });
+    alert('✅ Profile saved!');
+  } catch(e) {
+    alert('❌ Error: ' + e.message);
+  }
+}
+
+// ---- Work Rates ----
+function loadWorkRates(el) {
+  const user = window.auth?.currentUser;
+  if (!user) { el.innerHTML = '<p>❌ Login required</p>'; return; }
+  const ratesRef = doc(window.db, 'user_rates', user.uid);
+  getDoc(ratesRef).then(snap => {
+    const saved = snap.exists() ? snap.data() : {};
+    const defaults = {Hero:250,Calti:250,'Mej (Pata)':150,Discount:0,'Pending Balance':0,Morplau:500,Display:500,Thresher:0,'Spray Machine':800};
+    const all = {...defaults,...saved};
+    let html = '<div class="card" style="margin-bottom:16px"><p style="font-size:13px;color:#475569;margin-bottom:12px">Update rates for new records. Old records unchanged.</p>';
+    for (const [work, rate] of Object.entries(all)) {
+      html += '<label style="font-weight:600;font-size:13px;color:#475569">' + escapeHTML(work) + '</label>';
+      html += '<input type="number" id="rate_' + work.replace(/[^a-zA-Z0-9]/g,'') + '" value="' + rate + '" style="margin-bottom:10px">';
+    }
+    html += '<button onclick="saveWorkRates()" style="background:#176b35;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">💾 Save Rates</button></div>';
+    el.innerHTML = html;
+  });
+}
+async function saveWorkRates() {
+  const user = window.auth.currentUser;
+  if (!user) return;
+  const works = ['Hero','Calti','Mej(Pata)','Discount','PendingBalance','Morplau','Display','Thresher','SprayMachine'];
+  const realWorks = ['Hero','Calti','Mej (Pata)','Discount','Pending Balance','Morplau','Display','Thresher','Spray Machine'];
+  const data = {};
+  for (let i = 0; i < works.length; i++) {
+    const inp = document.getElementById('rate_' + works[i]);
+    if (inp) data[realWorks[i]] = Number(inp.value) || 0;
+  }
+  try {
+    await setDoc(doc(window.db, 'user_rates', user.uid), data, { merge: true });
+    alert('✅ Rates saved! New records will use these rates.');
+  } catch(e) {
+    alert('❌ Error: ' + e.message);
+  }
+}
+
+// ---- PDF Settings ----
+function loadPdfSettings(el) {
+  const user = window.auth?.currentUser;
+  if (!user) { el.innerHTML = '<p>❌ Login required</p>'; return; }
+  const pdfRef = doc(window.db, 'user_pdf_settings', user.uid);
+  getDoc(pdfRef).then(snap => {
+    const saved = snap.exists() ? snap.data() : {};
+    el.innerHTML = '
+      <div class="card" style="margin-bottom:16px">
+        <p style="font-size:13px;color:#475569;margin-bottom:12px">PDF header always shows "CHHAPOLA AGRICULTURE". Below add your info.</p>
+        <label style="font-weight:600;font-size:13px;color:#475569">Your Name (for PDF)</label>
+        <input id="pdfOwnerName" value="' + escapeHTML(saved.ownerName || '') + '" placeholder="Your Name" style="margin-bottom:10px">
+        <label style="font-weight:600;font-size:13px;color:#475569">Contact Number</label>
+        <input id="pdfContact" value="' + escapeHTML(saved.contact || '') + '" placeholder="Contact Number" style="margin-bottom:10px">
+        <label style="font-weight:600;font-size:13px;color:#475569">Address</label>
+        <input id="pdfAddress" value="' + escapeHTML(saved.address || '') + '" placeholder="Address" style="margin-bottom:10px">
+        <button onclick="savePdfSettings()" style="background:#176b35;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">💾 Save PDF Settings</button>
+      </div>';
+  });
+}
+async function savePdfSettings() {
+  const user = window.auth.currentUser;
+  if (!user) return;
+  const data = {
+    ownerName: document.getElementById('pdfOwnerName').value.trim(),
+    contact: document.getElementById('pdfContact').value.trim(),
+    address: document.getElementById('pdfAddress').value.trim()
+  };
+  try {
+    await setDoc(doc(window.db, 'user_pdf_settings', user.uid), data, { merge: true });
+    alert('✅ PDF Settings saved!');
+  } catch(e) {
+    alert('❌ Error: ' + e.message);
+  }
+}
+
+// ---- Change Password ----
+function loadPasswordSection(el) {
+  el.innerHTML = '
+    <div class="card" style="margin-bottom:16px">
+      <label style="font-weight:600;font-size:13px;color:#475569">New Password</label>
+      <input type="password" id="newPass1" placeholder="New Password (min 6 chars)" style="margin-bottom:10px">
+      <label style="font-weight:600;font-size:13px;color:#475569">Confirm Password</label>
+      <input type="password" id="newPass2" placeholder="Confirm Password" style="margin-bottom:10px">
+      <button onclick="doChangePassword()" style="background:#176b35;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">🔐 Update Password</button>
+      <div style="margin-top:16px;border-top:1px solid #e5e7eb;padding-top:12px">
+        <button onclick="forgotPassword()" style="background:#6366f1;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">📧 Forgot Password?</button>
+      </div>
+    </div>';
+}
+async function doChangePassword() {
+  const user = window.auth.currentUser;
+  if (!user) { alert('❌ Login required'); return; }
+  const p1 = document.getElementById('newPass1').value;
+  const p2 = document.getElementById('newPass2').value;
+  const minLen = window.USER_SETTINGS?.minPasswordLength || 6;
+  if (!p1 || p1.length < minLen) { alert('❌ Password min ' + minLen + ' chars'); return; }
+  if (p1 !== p2) { alert('❌ Passwords don\'t match'); return; }
+  try {
+    await updatePassword(user, p1);
+    alert('✅ Password updated!');
+    document.getElementById('newPass1').value = '';
+    document.getElementById('newPass2').value = '';
+  } catch(e) {
+    alert('❌ ' + e.message);
+  }
+}
+
+// ---- Feedback ----
+function loadFeedbackSection(el) {
+  el.innerHTML = '
+    <div class="card" style="margin-bottom:16px">
+      <label style="font-weight:600;font-size:13px;color:#475569">Feedback Type</label>
+      <select id="fbType" style="margin-bottom:10px">
+        <option value="suggestion">💡 Suggestion</option>
+        <option value="bug">🐛 Bug Report</option>
+        <option value="praise">⭐ Praise</option>
+        <option value="other">📝 Other</option>
+      </select>
+      <label style="font-weight:600;font-size:13px;color:#475569">Your Feedback</label>
+      <textarea id="fbMessage" rows="4" placeholder="Write your feedback..." style="margin-bottom:10px"></textarea>
+      <label style="font-weight:600;font-size:13px;color:#475569">Rating (optional)</label>
+      <select id="fbRating" style="margin-bottom:10px">
+        <option value="">No rating</option>
+        <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
+        <option value="4">⭐⭐⭐⭐ Good</option>
+        <option value="3">⭐⭐⭐ Average</option>
+        <option value="2">⭐⭐ Below Average</option>
+        <option value="1">⭐ Poor</option>
+      </select>
+      <button onclick="submitFeedback()" style="background:#176b35;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">📤 Submit Feedback</button>
+    </div>';
+}
+async function submitFeedback() {
+  const user = window.auth.currentUser;
+  if (!user) { alert('❌ Login required'); return; }
+  const msg = document.getElementById('fbMessage').value.trim();
+  if (!msg) { alert('Feedback लिखें'); return; }
+  try {
+    await addDoc(collection(window.db, 'feedback'), {
+      uid: user.uid,
+      email: user.email,
+      type: document.getElementById('fbType').value,
+      message: msg,
+      rating: document.getElementById('fbRating').value || '',
+      createdAt: new Date().toISOString()
+    });
+    alert('✅ Feedback sent! धन्यवाद 🙏');
+    document.getElementById('fbMessage').value = '';
+    document.getElementById('fbRating').value = '';
+  } catch(e) {
+    alert('❌ Error: ' + e.message);
+  }
+}
+
+// ---- Privacy Policy ----
+function loadPrivacyPolicy(el) {
+  el.innerHTML = '<div style="padding:16px;font-size:14px;line-height:1.8;color:#1f2937">
+    <h3 style="color:#176b35;margin-bottom:12px">🔒 Privacy Policy</h3>
+    <p style="font-size:12px;color:#6b7280">Last updated: August 2026 | Version 1.0</p>
+    <h4 style="color:#176b35;margin-top:16px">1. डेटा संग्रह</h4>
+    <p>Chhapola Agriculture निम्नलिखित जानकारी एकत्र करता है:</p>
+    <ul><li>Account बनाते समय: नाम, मोबाइल नंबर, ईमेल</li><li>Use करते समय: किसान रिकॉर्ड, काम की जानकारी, भुगतान विवरण</li><li>Device/Browser: IP address, browser type</li></ul>
+    <h4 style="color:#176b35;margin-top:16px">2. डेटा उपयोग</h4>
+    <p>आपका डेटा केवल इन कार्यों के लिए उपयोग होता है:</p>
+    <ul><li>Tractor Account Ledger संचालन</li><li>AI Munshi द्वारा हिसाब जवाब देना</li><li>PDF/Report बनाना</li><li>Website सुधारना</li></ul>
+    <h4 style="color:#176b35;margin-top:16px">3. डेटा सुरक्षा</h4>
+    <p>हम Firebase (Google) की सुरक्षा का उपयोग करते हैं। लेकिन इंटरनेट पर 100% सुरक्षा की गारंटी नहीं दी जा सकती।</p>
+    <h4 style="color:#176b35;margin-top:16px">4. तीसरे पक्ष</h4>
+    <p>हम केवल Firebase (Authentication, Database) और Gemini AI का उपयोग करते हैं। ये Google की Privacy Policy के अधीन हैं।</p>
+    <h4 style="color:#176b35;margin-top:16px">5. आपके अधिकार</h4>
+    <ul><li>अपना डेटा देख सकते हैं</li><li>Profile update कर सकते हैं</li><li>Account delete कर सकते हैं</li><li>Feedback भेज सकते हैं</li></ul>
+    <h4 style="color:#176b35;margin-top:16px">6. संपर्क</h4>
+    <p>Privacy संबंधी प्रश्नों के लिए Website Owner से संपर्क करें।</p>
+  </div>';
+}
+
+window.openSideMenu = openSideMenu;
+window.closeSideMenu = closeSideMenu;
+window.openUserSettings = openUserSettings;
+window.closeUserSettings = closeUserSettings;
+window.saveProfile = saveProfile;
+window.saveWorkRates = saveWorkRates;
+window.savePdfSettings = savePdfSettings;
+window.doChangePassword = doChangePassword;
+window.submitFeedback = submitFeedback;
+
 // =========================
 // VOICE ENTRY - PART 2
 // =========================
