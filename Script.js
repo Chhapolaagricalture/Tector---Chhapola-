@@ -1589,6 +1589,13 @@ async function signup() {
     return;
   }
 
+  // Terms & Conditions: must be accepted
+  const termsCb = document.getElementById('termsCheckbox');
+  if (!termsCb || !termsCb.checked) {
+    alert('कृपया Terms & Conditions पढ़कर स्वीकार करें।\n\nTerms & Conditions checkbox चेक करें।');
+    return;
+  }
+
   try {
 
     await window.createUserWithEmailAndPassword(
@@ -1615,6 +1622,10 @@ await setDoc(
     expiryDate: "",
     paymentStatus: "Free",
 
+    termsAccepted: true,
+    termsVersion: "1.0",
+    termsAcceptedAt: new Date().toISOString(),
+
     createdAt: new Date().toISOString(),
     lastLogin: new Date().toISOString()
   },
@@ -1631,6 +1642,7 @@ await setDoc(
     document.getElementById("signupEmail").value = "";
     document.getElementById("signupPassword").value = "";
     document.getElementById("signupConfirmPassword").value = "";
+    if (termsCb) termsCb.checked = false;
 
   } catch (error) {
 

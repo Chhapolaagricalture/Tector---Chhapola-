@@ -69,6 +69,13 @@
     placeholder="Confirm Password"
   >
 
+  <div style="margin:12px 0; display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#475569;">
+    <input type="checkbox" id="termsCheckbox" style="margin-top:3px; flex-shrink:0; width:18px; height:18px; cursor:pointer;" aria-label="Terms & Conditions accept करें">
+    <label for="termsCheckbox" style="cursor:pointer; line-height:1.4;">
+      मैंने <a href="#" onclick="event.preventDefault();document.getElementById('termsModal').style.display='flex';" style="color:#176b35; font-weight:600; text-decoration:underline;">Terms & Conditions</a> पढ़ ली हैं और उनसे सहमत हूँ।
+    </label>
+  </div>
+
   <button onclick="signup()">
     Account बनाएं
   </button>
@@ -302,7 +309,72 @@ window.updatePassword = updatePassword;
   <script src="RAJ_AI_Diagnostic.js"></script>
 <script src="ai-munshi.js"></script>
 
- <!-- AI ASSISTANT FLOATING WIDGET -->
+<!-- TERMS & CONDITIONS MODAL -->
+<div id="termsModal" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; padding:16px;">
+  <div onclick="event.stopPropagation()" style="background:#fff; border-radius:14px; max-width:600px; width:100%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 8px 30px rgba(0,0,0,0.25); overflow:hidden;">
+    <div style="background:#176b35; color:white; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+      <h3 style="margin:0; font-size:17px;">📜 Terms & Conditions</h3>
+      <button onclick="document.getElementById('termsModal').style.display='none'" style="background:transparent; border:none; color:white; font-size:20px; cursor:pointer; padding:4px 8px;" aria-label="बंद करें">✕</button>
+    </div>
+    <div style="padding:18px 20px; overflow-y:auto; font-size:14px; line-height:1.7; color:#1f2937; flex:1;">
+      <p style="font-size:12px; color:#6b7280; margin-top:0;">Last updated: August 2026 | Version 1.0</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">1. स्वीकृति (Acceptance)</h4>
+      <p>Chhapola Agriculture ("Website") का उपयोग करके आप इन Terms & Conditions से सहमत होते हैं। यदि आप इन शर्तों से सहमत नहीं हैं, तो कृपया इस Website का उपयोग न करें।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">2. Account उपयोग</h4>
+      <p>आपका Account आपकी व्यक्तिगत जिम्मेदारी है। आप अपने Account की गोपनीयता बनाए रखने के लिए जिम्मेदार हैं। आपके Account के अंतर्गत होने वाली सभी गतिविधियों की जिम्मेदारी आपकी होगी।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">3. उपयोगकर्ता की जिम्मेदारी</h4>
+      <p>आप इस Website पर जो भी जानकारी दर्ज करते हैं वह आपकी अपनी जिम्मेदारी है। आप यह सुनिश्चित करने के लिए उत्तरदायी हैं कि दर्ज की गई जानकारी सही और सटीक है। Website प्रशासन उपयोगकर्ता द्वारा दर्ज की गई जानकारी की सत्यता की गारंटी नहीं देता।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">4. किसान रिकॉर्ड और लेजर</h4>
+      <p>Website पर दर्ज किसान रिकॉर्ड, लेजर और हिसाब पूरी तरह उपयोगकर्ता द्वारा दर्ज किए गए डेटा पर आधारित होते हैं। Website इन रिकॉर्ड्स की वास्तविकता या सटीकता की पुष्टि नहीं करता।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">5. AI मुंशी (AI Munshi)</h4>
+      <p>AI मुंशी एक सहायक उपकरण है जो Gemini AI पर आधारित है। AI द्वारा दिए गए उत्तर, विश्लेषण, सुझाव और गणनाएँ केवल सामान्य सहायता के लिए हैं। AI के उत्तरों में गलतियाँ हो सकती हैं। कृपया AI उत्तरों को अंतिम और सटीक न मानें। वित्तीय निर्णयों के लिए स्वयं सत्यापित करें। Website प्रशासन AI उत्तरों में होने वाली गलतियों की जिम्मेदारी नहीं लेता।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">6. गणनाएँ और रिपोर्ट</h4>
+      <p>Website द्वारा प्रदान की जाने वाली गणनाएँ (कुल, जमा, बाकी आदि) दर्ज डेटा पर आधारित होती हैं। यदि दर्ज डेटा में गलती है तो गणनाएँ भी गलत हो सकती हैं। Website की गणनाओं में होने वाली त्रुटियों के लिए Website प्रशासन जिम्मेदार नहीं है।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">7. PDF और निर्यात सुविधा</h4>
+      <p>PDF, CSV और WhatsApp साझाकरण सुविधाएँ केवल उपयोगकर्ता सुविधा के लिए हैं। इन सुविधाओं में त्रुटियाँ हो सकती हैं। निर्यात किए गए डेटा की सटीकता की पुष्टि स्वयं करें।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">8. Website की उपलब्धता</h4>
+      <p>Website को बिना किसी गारंटी के "जैसा है" आधार पर प्रदान किया जाता है। Website की निरंतर उपलब्धता की गारंटी नहीं दी जाती। रखरखाव, अपडेट, तकनीकी समस्याएँ या तीसरे पक्ष की सेवाओं में बाधा के कारण Website अस्थायी रूप से अनुपलब्ध हो सकती है।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">9. तीसरे पक्ष की सेवाएँ</h4>
+      <p>यह Website Firebase (Google), Gemini AI (Google) और अन्य तीसरे पक्ष की सेवाओं का उपयोग करती है। इन सेवाओं की उपलब्धता और कार्यक्षमता उनकी अपनी शर्तों के अधीन है। Website प्रशासन तीसरे पक्ष की सेवाओं में बाधा या बदलाव के कारण होने वाली समस्याओं की जिम्मेदारी नहीं लेता।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">10. निषिद्ध गतिविधियाँ</h4>
+      <p>आप इस Website का दुरुपयोग नहीं करेंगे। इसमें शामिल हैं: अनधिकृत पहुँच का प्रयास, दूसरे उपयोगकर्ताओं के डेटा तक पहुँचना, Website में बाधा डालना, या गैरकानूनी गतिविधियाँ करना। ऐसी गतिविधियों के परिणामस्वरूप Account बंद किया जा सकता है।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">11. डेटा और सुरक्षा</h4>
+      <p>Website आपके डेटा की सुरक्षा का प्रयास करती है, लेकिन इंटरनेट पर कोई भी डेटा ट्रांसमिशन 100% सुरक्षित नहीं होता। Website प्रशासन डेटा चोरी, हैकिंग या अनधिकृत पहुँच की स्थिति में जिम्मेदार नहीं है। कृपया नियमित रूप से अपने डेटा का बैकअप लें।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">12. सेवा में बदलाव</h4>
+      <p>Website प्रशासन को किसी भी समय Website की सुविधाओं में बदलाव, अपडेट या बंद करने का अधिकार है। ऐसे बदलावों की पूर्व सूचना दी जा सकती है, लेकिन हमेशा नहीं।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">13. Account निलंबन और समाप्ति</h4>
+      <p>Website प्रशासन किसी भी समय, किसी भी कारण से, बिना पूर्व सूचना के आपका Account निलंबित या समाप्त कर सकता है। Account बंद होने पर आपके डेटा की उपलब्धता की गारंटी नहीं दी जाती।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">14. दायित्व की सीमा</h4>
+      <p>Website प्रशासन किसी भी अप्रत्यक्ष, विशेष, आकस्मिक या परिणामी नुकसान के लिए जिम्मेदार नहीं होगा, जिसमें डेटा की हानि, व्यापार की हानि, या अन्य आर्थिक नुकसान शामिल हैं। Website जैसी है वैसी प्रदान की जाती है।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">15. शासी कानून</h4>
+      <p>इन शर्तों का भारतीय कानूनों के अनुसार व्याख्यान और प्रवर्तन किया जाएगा। कोई भी विवाद राजस्थान, भारत के न्यायालयों में हल किया जाएगा।</p>
+
+      <h4 style="margin-top:16px; color:#176b35;">16. संपर्क</h4>
+      <p>इन Terms & Conditions के बारे में कोई प्रश्न हो तो कृपया Website Owner से संपर्क करें।</p>
+
+      <div style="margin-top:24px; padding-top:16px; border-top:1px solid #e5e7eb; text-align:center;">
+        <button onclick="document.getElementById('termsModal').style.display='none'" style="background:#176b35; color:white; border:none; padding:10px 28px; border-radius:8px; font-size:15px; cursor:pointer; font-weight:600;">समझ गया</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI ASSISTANT FLOATING WIDGET -->
 <div id="ai-assistant-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; font-family: sans-serif;">
   <!-- गोल तैरता हुआ बटन -->
   <button id="ai-toggle-btn" style="background: #10b981; color: white; border: none; border-radius: 50%; width: 60px; height: 60px; font-size: 26px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
