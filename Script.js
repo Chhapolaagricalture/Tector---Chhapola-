@@ -1847,16 +1847,16 @@ async function loadProfileSettings(el) {
       mobile = d.mobile || '';
     }
   } catch(e) {}
-  el.innerHTML = '
+  el.innerHTML = `
     <div class="card" style="margin-bottom:16px">
       <label style="font-weight:600;font-size:13px;color:#475569">Name</label>
-      <input id="upName" value="' + escapeHTML(name) + '" placeholder="Your Name" style="margin-bottom:10px">
+      <input id="upName" value="${escapeHTML(name)}" placeholder="Your Name" style="margin-bottom:10px">
       <label style="font-weight:600;font-size:13px;color:#475569">Mobile</label>
-      <input id="upMobile" value="' + escapeHTML(mobile) + '" placeholder="Mobile Number" style="margin-bottom:10px">
+      <input id="upMobile" value="${escapeHTML(mobile)}" placeholder="Mobile Number" style="margin-bottom:10px">
       <label style="font-weight:600;font-size:13px;color:#475569">Email</label>
-      <input value="' + escapeHTML(user.email) + '" disabled style="background:#f3f4f6;color:#9ca3af;margin-bottom:10px">
+      <input value="${escapeHTML(user.email)}" disabled style="background:#f3f4f6;color:#9ca3af;margin-bottom:10px">
       <button onclick="saveProfile()" style="background:#176b35;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">💾 Save Profile</button>
-    </div>';
+    </div>`;
 }
 async function saveProfile() {
   const user = window.auth.currentUser;
@@ -1914,7 +1914,7 @@ function loadPdfSettings(el) {
   const pdfRef = doc(window.db, 'user_pdf_settings', user.uid);
   getDoc(pdfRef).then(snap => {
     const saved = snap.exists() ? snap.data() : {};
-    el.innerHTML = '
+    el.innerHTML = `
       <div class="card" style="margin-bottom:16px">
         <p style="font-size:13px;color:#475569;margin-bottom:12px">PDF header always shows "CHHAPOLA AGRICULTURE". Below add your info.</p>
         <label style="font-weight:600;font-size:13px;color:#475569">Your Name (for PDF)</label>
@@ -1924,7 +1924,7 @@ function loadPdfSettings(el) {
         <label style="font-weight:600;font-size:13px;color:#475569">Address</label>
         <input id="pdfAddress" value="' + escapeHTML(saved.address || '') + '" placeholder="Address" style="margin-bottom:10px">
         <button onclick="savePdfSettings()" style="background:#176b35;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">💾 Save PDF Settings</button>
-      </div>';
+      </div>`;
   });
 }
 async function savePdfSettings() {
@@ -1945,7 +1945,7 @@ async function savePdfSettings() {
 
 // ---- Change Password ----
 function loadPasswordSection(el) {
-  el.innerHTML = '
+  el.innerHTML = `
     <div class="card" style="margin-bottom:16px">
       <label style="font-weight:600;font-size:13px;color:#475569">New Password</label>
       <input type="password" id="newPass1" placeholder="New Password (min 6 chars)" style="margin-bottom:10px">
@@ -1955,7 +1955,7 @@ function loadPasswordSection(el) {
       <div style="margin-top:16px;border-top:1px solid #e5e7eb;padding-top:12px">
         <button onclick="forgotPassword()" style="background:#6366f1;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">📧 Forgot Password?</button>
       </div>
-    </div>';
+    </div>`;
 }
 async function doChangePassword() {
   const user = window.auth.currentUser;
@@ -1977,7 +1977,7 @@ async function doChangePassword() {
 
 // ---- Feedback ----
 function loadFeedbackSection(el) {
-  el.innerHTML = '
+  el.innerHTML = `
     <div class="card" style="margin-bottom:16px">
       <label style="font-weight:600;font-size:13px;color:#475569">Feedback Type</label>
       <select id="fbType" style="margin-bottom:10px">
@@ -1998,7 +1998,7 @@ function loadFeedbackSection(el) {
         <option value="1">⭐ Poor</option>
       </select>
       <button onclick="submitFeedback()" style="background:#176b35;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">📤 Submit Feedback</button>
-    </div>';
+    </div>`;
 }
 async function submitFeedback() {
   const user = window.auth.currentUser;
@@ -2024,7 +2024,7 @@ async function submitFeedback() {
 
 // ---- Privacy Policy ----
 function loadPrivacyPolicy(el) {
-  el.innerHTML = '<div style="padding:16px;font-size:14px;line-height:1.8;color:#1f2937">
+  el.innerHTML = `<div style="padding:16px;font-size:14px;line-height:1.8;color:#1f2937">
     <h3 style="color:#176b35;margin-bottom:12px">🔒 Privacy Policy</h3>
     <p style="font-size:12px;color:#6b7280">Last updated: August 2026 | Version 1.0</p>
     <h4 style="color:#176b35;margin-top:16px">1. डेटा संग्रह</h4>
@@ -2041,7 +2041,7 @@ function loadPrivacyPolicy(el) {
     <ul><li>अपना डेटा देख सकते हैं</li><li>Profile update कर सकते हैं</li><li>Account delete कर सकते हैं</li><li>Feedback भेज सकते हैं</li></ul>
     <h4 style="color:#176b35;margin-top:16px">6. संपर्क</h4>
     <p>Privacy संबंधी प्रश्नों के लिए Website Owner से संपर्क करें।</p>
-  </div>';
+  </div>`;
 }
 
 window.openSideMenu = openSideMenu;
