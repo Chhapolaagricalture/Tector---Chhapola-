@@ -18,8 +18,22 @@ import {
   setDoc
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 alert("Script Loaded");
+
+// ==========================================
+// SECURITY: HTML ESCAPE UTILITY
+// ==========================================
+function escapeHTML(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 const recordsRef = collection(window.db, "records");
 let editingDocId = null;
+let _sessionStartTime = Date.now();
 // ==========================================
 // MAIN WEBSITE - OWNER SETTINGS CONTROLLER
 // ==========================================
@@ -604,7 +618,20 @@ async function loadMainWebsiteSettings() {
 
       blockedMessage:
         s.blockedMessage ||
-        "🚫 आपका Account Block है। Owner से संपर्क करें।"
+        "🚫 आपका Account Block है। Owner से संपर्क करें।",
+
+      minPasswordLength:
+        Number(
+          s.minPasswordLength || 6
+        ),
+
+      sessionTimeout:
+        Number(
+          s.sessionTimeout || 60
+        ),
+
+      enforceBlocked:
+        s.enforceBlocked !== false
 
     };
 
@@ -735,6 +762,16 @@ if (work === "Thresher") {
 
 let baki = total - paid;
 
+// Security: Validate financial fields
+if (bigha < 0 || rate < 0 || paid < 0 || hours < 0 || minutes < 0) {
+  alert("❌ Negative values are not allowed.");
+  return;
+}
+if (total > 10000000) {
+  alert("❌ Total amount is too large.");
+  return;
+}
+
 const recordData = {
     ownerUid: window.auth.currentUser.uid,
     name,
@@ -836,16 +873,16 @@ totalBaki += r.baki;
 
     groups[key].rows += `
       <tr>
-        <td>${r.date}</td>
-<td>${r.work}</td>
-<td>${r.crop || "-"}</td>
-<td>${r.unit || "-"}</td>
-<td>${r.time || "-"}</td>
-<td>${r.bigha || "-"}</td>
-<td>₹${r.rate}</td>
-<td>₹${r.total}</td>
-<td>₹${r.paid}</td>
-<td>₹${r.baki}</td>
+        <td>${escapeHTML(r.date)}</td>
+<td>${escapeHTML(r.work)}</td>
+<td>${escapeHTML(r.crop) || "-"}</td>
+<td>${escapeHTML(String(r.unit ?? "-"))}</td>
+<td>${escapeHTML(r.time) || "-"}</td>
+<td>${escapeHTML(String(r.bigha ?? "-"))}</td>
+<td>₹${Number(r.rate)}</td>
+<td>₹${Number(r.total)}</td>
+<td>₹${Number(r.paid)}</td>
+<td>₹${Number(r.baki)}</td>
         <td>
   <div class="action">
   <button onclick="edit(${i})">✏️</button>
@@ -864,9 +901,9 @@ totalBaki += r.baki;
 
     html += `
       <div class="card">
-        <h3>👨‍🌾 ${g.name}</h3>
-<p>📱 ${records.find(r => r.name.trim().toLowerCase() === key).mobile}</p>
-<p>📅 ${records.find(r => r.name.trim().toLowerCase() === key).date}</p>
+        <h3>👨‍🌾 ${escapeHTML(g.name)}</h3>
+<p>📱 ${escapeHTML(records.find(r => r.name.trim().toLowerCase() === key).mobile)}</p>
+<p>📅 ${escapeHTML(records.find(r => r.name.trim().toLowerCase() === key).date)}</p>
 
       <div style="overflow-x:auto;">
 <table style="min-width:700px; border-collapse:collapse;">
@@ -964,9 +1001,9 @@ document.getElementById("summary").style.display = "none";
 
       html += `
       <tr>
-        <td>${r.date}</td>
-        <td>${r.name}</td>
-        <td>₹${r.paid}</td>
+        <td>${escapeHTML(r.date)}</td>
+        <td>${escapeHTML(r.name)}</td>
+        <td>₹${Number(r.paid)}</td>
       </tr>
       `;
     });
@@ -1053,13 +1090,13 @@ function share(i) {
 
   let msg = `🚜 Chhapola Agriculture
 
-👨‍🌾 किसान: ${r.name}
-🌾 काम: ${r.work}
-📏 बीघा: ${r.bigha}
-💰 रेट: ₹${r.rate}
-🧾 कुल: ₹${r.total}
-💵 जमा: ₹${r.paid}
-❌ बाकी: ₹${r.baki}`;
+👨‍🌾 किसान: ${escapeHTML(r.name)}
+🌾 काम: ${escapeHTML(r.work)}
+📏 बीघा: ${Number(r.bigha)}
+💰 रेट: ₹${Number(r.rate)}
+🧾 कुल: ₹${Number(r.total)}
+💵 जमा: ₹${Number(r.paid)}
+❌ बाकी: ₹${Number(r.baki)}`;
 
   window.open("https://wa.me/?text=" + encodeURIComponent(msg));
 }
@@ -1280,18 +1317,55 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/fi
 // Use Firebase Auth state (not localStorage) for secure auth decisions
 onAuthStateChanged(window.auth, async (user) => {
   if (user) {
-    // User is signed in via Firebase Auth
+    // Task 10: Check blocked status on session refresh
+    try {
+      const userDoc = await getDocs(
+        query(collection(window.db, "users"), where("__name__", "==", user.uid))
+      );
+      if (!userDoc.empty) {
+        const userData = userDoc.docs[0].data();
+
+        // Task 10: Enforce blocked status
+        if (userData.status === "blocked") {
+          await signOut(window.auth);
+          alert(window.USER_SETTINGS?.blockedMessage || "🚫 आपका Account Block है। Owner से संपर्क करें।");
+          return;
+        }
+
+        // Task 11: Enforce plan expiry
+        if (userData.expiryDate && userData.plan && userData.plan !== "Free") {
+          const expiry = new Date(userData.expiryDate);
+          const now = new Date();
+          if (now > expiry) {
+            alert(`⚠️ आपका ${userData.plan} plan समाप्त हो गया है (${userData.expiryDate})।\nOwner से संपर्क करें।`);
+          }
+        }
+
+        // Task 8: Enforce maxUsers (if set)
+        const maxU = window.USER_SETTINGS?.maxUsers || window.MAIN_SETTINGS?.maxUsers || 0;
+        if (maxU > 0) {
+          const allUsers = await getDocs(collection(window.db, "users"));
+          if (allUsers.size >= maxU && userData.status !== "admin") {
+            await signOut(window.auth);
+            alert("⚠️ Maximum user limit reached. Contact admin.");
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Session security check skipped:", e.message);
+    }
+
     document.getElementById("loginBox").style.display = "none";
     document.getElementById("mainApp").style.display = "block";
   } else {
-    // Not signed in
     document.getElementById("loginBox").style.display = "block";
     document.getElementById("mainApp").style.display = "none";
     localStorage.removeItem("loggedIn");
   }
 
+  _sessionStartTime = Date.now();
   await loadMainWebsiteSettings();
-
   show();
 });
 window.save = save;
@@ -1414,6 +1488,15 @@ async function signup() {
   const confirmPassword =
     document.getElementById("signupConfirmPassword").value;
 
+  // Task 9: Enforce allowSignup setting
+  if (window.ALLOW_SIGNUP === false) {
+    alert("❌ Signup is currently disabled by the admin.");
+    return;
+  }
+
+  // Task 8: Enforce minPasswordLength from settings
+  const minLen = window.USER_SETTINGS?.minPasswordLength || window.MAIN_SETTINGS?.minPasswordLength || 6;
+
   if (!name || !mobile || !email || !password) {
     alert("सभी जानकारी भरें");
     return;
@@ -1424,8 +1507,8 @@ async function signup() {
     return;
   }
 
-  if (password.length < 6) {
-    alert("Password कम से कम 6 अक्षर का होना चाहिए");
+  if (password.length < minLen) {
+    alert(`Password कम से कम ${minLen} अक्षर का होना चाहिए`);
     return;
   }
 

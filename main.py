@@ -8,6 +8,7 @@ Security: ID Token Auth, CORS, Rate Limiting
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from collections import defaultdict
@@ -18,7 +19,7 @@ import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 # Firebase Admin SDK
 import firebase_admin
@@ -85,6 +86,11 @@ class ChatRequest(BaseModel):
     message: str
 
 
+MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024  # 10 MB
+
+logger = logging.getLogger("chhapola")
+
+
 class ChatPromptRequest(BaseModel):
     """Flexible chat request — accepts prompt, message, or image for Vision API."""
     prompt: Optional[str] = None
@@ -93,38 +99,65 @@ class ChatPromptRequest(BaseModel):
     image: Optional[str] = None  # base64 data-URL (data:image/...;base64,...)
     mime_type: Optional[str] = None  # e.g. "image/jpeg"
 
+    @field_validator("prompt", "message")
+    @classmethod
+    def _truncate_text(cls, v: Optional[str]) -> Optional[str]:
+        if v and len(v) > 50000:
+            return v[:50000]
+        return v
+
 
 class RecordCreate(BaseModel):
-    owner_uid: str
-    name: str
-    mobile: str = ""
-    date: str = ""
-    work: str = ""
-    crop: str = ""
+    owner_uid: str = ""  # Ignored server-side; overridden by Firebase token
+    name: str = Field(..., max_length=200)
+    mobile: str = Field("", max_length=20)
+    date: str = Field("", max_length=20)
+    work: str = Field("", max_length=100)
+    crop: str = Field("", max_length=100)
     unit: float = 0
-    time: str = ""
+    time: str = Field("", max_length=50)
     bigha: float = 0
     rate: float = 0
     paid: float = 0
     total: float = 0
     baki: float = 0
-    note: str = ""
+    note: str = Field("", max_length=1000)
+
+    @field_validator("unit", "bigha", "rate", "paid", "total", "baki")
+    @classmethod
+    def _clamp_financial(cls, v: float) -> float:
+        if v < 0:
+            return 0.0
+        if v > 10_000_000:
+            return 10_000_000.0
+        return v
 
 
 class RecordUpdate(BaseModel):
-    name: Optional[str] = None
-    mobile: Optional[str] = None
-    date: Optional[str] = None
-    work: Optional[str] = None
-    crop: Optional[str] = None
+    name: Optional[str] = Field(None, max_length=200)
+    mobile: Optional[str] = Field(None, max_length=20)
+    date: Optional[str] = Field(None, max_length=20)
+    work: Optional[str] = Field(None, max_length=100)
+    crop: Optional[str] = Field(None, max_length=100)
     unit: Optional[float] = None
-    time: Optional[str] = None
+    time: Optional[str] = Field(None, max_length=50)
     bigha: Optional[float] = None
     rate: Optional[float] = None
     paid: Optional[float] = None
     total: Optional[float] = None
     baki: Optional[float] = None
-    note: Optional[str] = None
+    note: Optional[str] = Field(None, max_length=1000)
+
+    @field_validator("unit", "bigha", "rate", "paid", "total", "baki")
+    @classmethod
+    def _clamp_financial(cls, v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return v
+        if v < 0:
+            return 0.0
+        if v > 10_000_000:
+            return 10_000_000.0
+        return v
 
 
 class LedgerQuery(BaseModel):
@@ -150,6 +183,23 @@ app = FastAPI(
         },
     ],
 )
+
+
+# ==========================================
+# REQUEST SIZE LIMIT MIDDLEWARE
+# ==========================================
+
+@app.middleware("http")
+async def limit_request_size(request: Request, call_next):
+    """Reject requests larger than MAX_REQUEST_BODY_BYTES."""
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
+        return Response(
+            content=json.dumps({"detail": "Request too large"}),
+            status_code=413,
+            media_type="application/json",
+        )
+    return await call_next(request)
 
 # ==========================================
 # CORS — Restricted to known production domains
@@ -279,6 +329,12 @@ async def require_auth(request: Request) -> dict:
     return token
 
 
+def _get_record_owner(doc_data: dict) -> str:
+    """Extract owner UID from record, handling both ownerUid (frontend Firestore)
+    and owner_uid (backend API) field names."""
+    return doc_data.get("owner_uid") or doc_data.get("ownerUid") or ""
+
+
 # ==========================================
 # SYSTEM ENDPOINTS
 # ==========================================
@@ -385,7 +441,8 @@ async def chat_with_ai(body: ChatPromptRequest, request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("chat_with_ai error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.post("/api/ledger-chat", tags=["ai"])
@@ -422,21 +479,24 @@ async def process_ledger_ai(data: LedgerQuery):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("process_ledger_ai error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ==========================================
-# FARMER RECORDS CRUD APIs (with auth)
+# FARMER RECORDS CRUD APIs (with auth + ownership)
 # ==========================================
 
 
 @app.post("/api/records", tags=["records"])
 async def create_record(record: RecordCreate, request: Request):
     """Add a new farmer record to Firestore. Requires auth."""
-    await require_auth(request)
+    token = await require_auth(request)
 
     try:
         record_data = record.model_dump()
+        # Task 1b: Override client-supplied owner_uid with authenticated uid
+        record_data["owner_uid"] = token["uid"]
         record_data = calculate_totals(record_data)
         record_data["created_at"] = datetime.utcnow().isoformat()
         record_data["updated_at"] = datetime.utcnow().isoformat()
@@ -454,7 +514,8 @@ async def create_record(record: RecordCreate, request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("create_record error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/records", tags=["records"])
@@ -501,13 +562,14 @@ async def list_records(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("list_records error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/records/{record_id}", tags=["records"])
 async def get_record(record_id: str, request: Request):
-    """Get a single record by ID. Requires auth."""
-    await require_auth(request)
+    """Get a single record by ID. Requires auth + ownership."""
+    token = await require_auth(request)
 
     try:
         doc = db.collection("records").document(record_id).get()
@@ -516,22 +578,35 @@ async def get_record(record_id: str, request: Request):
 
         data = doc.to_dict()
         data["id"] = doc.id
+
+        # Task 1: Verify record belongs to authenticated user
+        record_owner = _get_record_owner(data)
+        if record_owner and record_owner != token.get("uid"):
+            raise HTTPException(status_code=403, detail="Access denied")
+
         return {"status": "success", "record": data}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("get_record error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.put("/api/records/{record_id}", tags=["records"])
 async def update_record(record_id: str, updates: RecordUpdate, request: Request):
-    """Update an existing farmer record (partial update). Requires auth."""
-    await require_auth(request)
+    """Update an existing farmer record (partial update). Requires auth + ownership."""
+    token = await require_auth(request)
 
     try:
         doc = db.collection("records").document(record_id).get()
         if not doc.exists:
             raise HTTPException(status_code=404, detail="Record not found")
+
+        # Task 1: Verify record belongs to authenticated user
+        existing = doc.to_dict()
+        record_owner = _get_record_owner(existing)
+        if record_owner and record_owner != token.get("uid"):
+            raise HTTPException(status_code=403, detail="Access denied")
 
         update_data = {k: v for k, v in updates.model_dump().items() if v is not None}
         if not update_data:
@@ -540,9 +615,9 @@ async def update_record(record_id: str, updates: RecordUpdate, request: Request)
         # Recalculate totals if financial fields changed
         financial_fields = {"work", "bigha", "rate", "paid", "unit", "time", "crop", "total", "baki"}
         if financial_fields.intersection(update_data.keys()):
-            existing = doc.to_dict()
-            existing.update(update_data)
-            recalculated = calculate_totals(existing)
+            merged = dict(existing)
+            merged.update(update_data)
+            recalculated = calculate_totals(merged)
             update_data["total"] = recalculated["total"]
             update_data["baki"] = recalculated["baki"]
 
@@ -558,18 +633,24 @@ async def update_record(record_id: str, updates: RecordUpdate, request: Request)
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("update_record error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.delete("/api/records/{record_id}", tags=["records"])
 async def delete_record(record_id: str, request: Request):
-    """Delete a farmer record. Requires auth."""
-    await require_auth(request)
+    """Delete a farmer record. Requires auth + ownership."""
+    token = await require_auth(request)
 
     try:
         doc = db.collection("records").document(record_id).get()
         if not doc.exists:
             raise HTTPException(status_code=404, detail="Record not found")
+
+        # Task 1: Verify record belongs to authenticated user
+        record_owner = _get_record_owner(doc.to_dict())
+        if record_owner and record_owner != token.get("uid"):
+            raise HTTPException(status_code=403, detail="Access denied")
 
         db.collection("records").document(record_id).delete()
 
@@ -577,7 +658,8 @@ async def delete_record(record_id: str, request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("delete_record error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ==========================================
@@ -638,7 +720,8 @@ async def get_summary(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("get_summary error")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ==========================================
