@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tractor Maintenance — Chhapola Agriculture</title>
+  <link rel="stylesheet" href="maintenance.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192-v2.png">
+  <link rel="apple-touch-icon" href="icon-512-v2.png">
+</head>
+<body class="m-body">
+
+  <!-- AUTH GATE (shown when not logged in) -->
+  <div id="authGate" class="m-auth-gate" style="display:none;">
+    <div style="font-size:64px;margin-bottom:16px;">🔐</div>
+    <h2>Login Required</h2>
+    <p>Tractor Maintenance access के लिए login करें।</p>
+    <a href="index.html">Login Page पर जाएं →</a>
+  </div>
+
+  <!-- LOADING -->
+  <div id="appLoading" class="m-loading">Loading...</div>
+
+  <!-- MAIN APP (shown after auth) -->
+  <div id="appMain" style="display:none;">
+
+    <!-- HEADER -->
+    <div class="m-header">
+      <button class="m-header-back" onclick="window.location.href='index.html'" aria-label="Back">←</button>
+      <div>
+        <div class="m-header-title">🚜 Tractor Maintenance</div>
+        <span class="m-header-sub">Chhapola Agriculture</span>
+      </div>
+    </div>
+
+    <!-- TAB NAVIGATION -->
+    <div class="m-tabs" id="mTabs">
+      <button class="m-tab active" data-tab="dashboard">📊 Dashboard</button>
+      <button class="m-tab" data-tab="tractor">🚜 Tractor</button>
+      <button class="m-tab" data-tab="service">🛠️ Service</button>
+      <button class="m-tab" data-tab="diesel">⛽ Diesel</button>
+      <button class="m-tab" data-tab="reminders">📅 Reminders</button>
+      <button class="m-tab" data-tab="analysis">📈 Analysis</button>
+      <button class="m-tab" data-tab="history">📋 History</button>
+    </div>
+
+    <!-- CONTENT AREA -->
+    <div class="m-content" id="mContent"></div>
+  </div>
+
+  <!-- ADD/EDIT MODAL -->
+  <div class="m-modal-overlay" id="mModal">
+    <div class="m-modal" id="mModalContent"></div>
+  </div>
+
+  <!-- FIREBASE SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDJiW2pdtRFOtz__jAhZl7tYd4rQmmlUwA",
+      authDomain: "chhapola-agriculture-e7313.firebaseapp.com",
+      projectId: "chhapola-agriculture-e7313",
+      storageBucket: "chhapola-agriculture-e7313.firebasestorage.app",
+      messagingSenderId: "717143487417",
+      appId: "1:717143487417:web:cabdec68e69ac794197c68",
+      measurementId: "G-YZPYMQEDMC"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // Expose to maintenance.js
+    window.firebaseModules = { collection, doc, addDoc, setDoc, getDoc, getDocs, deleteDoc, updateDoc, query, where, orderBy };
+    window.firebaseAuth = { onAuthStateChanged, signOut };
+    window.db = db;
+    window.auth = auth;
+
+    // Auth state check
+    onAuthStateChanged(auth, (user) => {
+      document.getElementById('appLoading').style.display = 'none';
+      if (user) {
+        document.getElementById('appMain').style.display = 'block';
+        document.getElementById('authGate').style.display = 'none';
+        window._maintenanceUser = user;
+        if (window.initMaintenance) window.initMaintenance(user);
+      } else {
+        document.getElementById('appMain').style.display = 'none';
+        document.getElementById('authGate').style.display = 'flex';
+      }
+    });
+  </script>
+
+  <!-- MAINTENANCE LOGIC -->
+  <script src="maintenance.js"></script>
+
+</body>
+</html>
