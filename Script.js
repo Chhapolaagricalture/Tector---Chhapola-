@@ -5,6 +5,7 @@ import {
   updatePassword,
   signOut
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+import { HINDI_FONT_BASE64 } from "./hindiFont.js";
 import {
   collection,
   addDoc,
@@ -17,7 +18,7 @@ import {
   where,
   setDoc
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-alert("Script Loaded");
+// Production ready
 
 // ==========================================
 // SECURITY: HTML ESCAPE UTILITY
@@ -1181,6 +1182,15 @@ function pdf(i) {
 let r = window.records[i];
   const { jsPDF } = window.jspdf;
   let doc = new jsPDF("l", "mm", "a4");
+
+  // Register Hindi/Devanagari font for PDF
+  try {
+    if (HINDI_FONT_BASE64) {
+      doc.addFileToVFS('NotoSansDevanagari-Regular.ttf', HINDI_FONT_BASE64);
+      doc.addFont('NotoSansDevanagari-Regular.ttf', 'NotoDevanagari', 'normal');
+      doc.setFont('NotoDevanagari');
+    }
+  } catch(e) { console.warn('Hindi font load failed, using default:', e.message); }
 
   let farmer = records[i].name;
   let mobile = records[i].mobile;

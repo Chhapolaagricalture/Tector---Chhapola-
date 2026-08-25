@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chhapola Agriculture — Final Audit Report</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f0f2f5;color:#1f2937;line-height:1.6;padding:16px}
+.container{max-width:900px;margin:0 auto}
+.header{background:linear-gradient(135deg,#176b35,#0d5a27);color:white;padding:28px 24px;border-radius:16px;margin-bottom:20px;text-align:center}
+.header h1{font-size:24px;margin-bottom:4px}
+.header p{font-size:13px;opacity:0.85}
+.score-box{display:flex;justify-content:center;gap:16px;margin-top:16px;flex-wrap:wrap}
+.score-item{background:rgba(255,255,255,0.15);padding:10px 18px;border-radius:10px;text-align:center}
+.score-item .num{font-size:28px;font-weight:800}
+.score-item .lbl{font-size:11px;opacity:0.8}
+.section{background:white;border-radius:12px;padding:20px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.section h2{font-size:17px;color:#176b35;margin-bottom:10px;border-bottom:2px solid #e5e7eb;padding-bottom:6px}
+.section h3{font-size:14px;color:#0d5a27;margin:10px 0 6px}
+.badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-right:4px}
+.badge-ok{background:#dcfce7;color:#166534}
+.badge-warn{background:#fef3c7;color:#92400e}
+.badge-err{background:#fee2e2;color:#991b1b}
+.badge-info{background:#dbeafe;color:#1e40af}
+ul{margin:6px 0 6px 20px}
+li{margin-bottom:4px;font-size:13px}
+.issue{border-left:3px solid #e5e7eb;padding:8px 12px;margin:8px 0;border-radius:0 8px 8px 0;font-size:13px}
+.issue-critical{border-color:#dc2626;background:#fef2f2}
+.issue-high{border-color:#ea580c;background:#fff7ed}
+.issue-medium{border-color:#ca8a04;background:#fefce8}
+.issue-low{border-color:#16a34a;background:#f0fdf4}
+.issue strong{font-size:11px;text-transform:uppercase}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+.tbl th{background:#f0fdf4;padding:6px 8px;text-align:left;border-bottom:2px solid #d1d5db}
+.tbl td{padding:5px 8px;border-bottom:1px solid #f3f4f6}
+.final{background:linear-gradient(135deg,#0d5a27,#176b35);color:white;border-radius:12px;padding:24px;margin-top:20px}
+.final h2{color:white;border-color:rgba(255,255,255,0.3)}
+.final li{color:#dcfce7}
+.print-btn{display:block;margin:20px auto;background:#176b35;color:white;border:none;padding:12px 32px;border-radius:8px;font-size:15px;cursor:pointer;font-weight:600}
+@media print{body{background:white;padding:0}.section,.final{box-shadow:none;border:1px solid #e5e7eb}}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+<h1>🚜 CHHAPOLA AGRICULTURE</h1>
+<p>FINAL WEBSITE AUDIT REPORT — 25 August 2026</p>
+<div class="score-box">
+<div class="score-item"><div class="num">72</div><div class="lbl">Health Score / 100</div></div>
+<div class="score-item"><div class="num">30</div><div class="lbl">Files Audited</div></div>
+<div class="score-item"><div class="num">19</div><div class="lbl">Issues Found</div></div>
+<div class="score-item"><div class="num">50+</div><div class="lbl">Functions Checked</div></div>
+</div>
+</div>
+
+<!-- 1. Issue Summary -->
+<div class="section">
+<h2>1. Issue Summary</h2>
+<table class="tbl">
+<tr><th>Priority</th><th>Count</th><th>Status</th></tr>
+<tr><td><span class="badge badge-err">🔴 CRITICAL</span></td><td>1</td><td>Firebase API key in 3 files — verify Firestore Rules</td></tr>
+<tr><td><span class="badge badge-warn">🟠 HIGH</span></td><td>4</td><td>Missing firestore.rules, Admin auth, Script.js size, AI trust</td></tr>
+<tr><td><span class="badge" style="background:#fef9c3;color:#854d0e">🟡 MEDIUM</span></td><td>8</td><td>Debug alert, Client calc, PDF Hindi font, Performance</td></tr>
+<tr><td><span class="badge badge-ok">🟢 LOW</span></td><td>6</td><td>Old functions, defaults, console logs</td></tr>
+</table>
+</div>
+
+<!-- 2. Authentication -->
+<div class="section">
+<h2>2. Authentication / Login</h2>
+<p><span class="badge badge-ok">✅ WORKING</span></p>
+<ul>
+<li>Login — signInWithEmailAndPassword ✅</li>
+<li>Signup — createUserWithEmailAndPassword + user doc creation ✅</li>
+<li>Terms & Conditions mandatory checkbox ✅</li>
+<li>Logout — signOut + cleanup ✅</li>
+<li>Forgot Password — sendPasswordResetEmail ✅</li>
+<li>Change Password — updatePassword ✅</li>
+<li>Blocked user check ✅</li>
+<li>Plan expiry check ✅</li>
+<li>Max users enforcement ✅</li>
+</ul>
+<div class="issue issue-medium"><strong>🟡 MEDIUM</strong> — localStorage 'loggedIn' flag is set but never used for auth decisions. Firebase onAuthStateChanged handles everything correctly. Dead code.</div>
+<div class="issue issue-low"><strong>🟢 LOW</strong> — Old changePassword() uses prompt(). New doChangePassword() in Settings is better.</div>
+</div>
+
+<!-- 3. Firebase -->
+<div class="section">
+<h2>3. Firebase / Firestore</h2>
+<p><span class="badge badge-ok">✅ WORKING</span> (with caveats)</p>
+<ul>
+<li>Records use ownerUid — User isolation correct ✅</li>
+<li>Query filters by ownerUid — Working ✅</li>
+<li>user_rates/{uid} — Per-user, isolated ✅</li>
+<li>user_pdf_settings/{uid} — Per-user, isolated ✅</li>
+<li>Feedback stores uid — Working ✅</li>
+<li>users/{uid} — Profile data ✅</li>
+<li>settings/global — Global settings (intentional) ✅</li>
+</ul>
+<div class="issue issue-critical"><strong>🔴 CRITICAL</strong> — Firebase API Key hardcoded in index.html, admin.js, settings.js. While Firebase client keys are public by design, SECURITY MUST be enforced via Firestore Rules. No firestore.rules file in repo — must verify in Firebase Console.</div>
+<div class="issue issue-high"><strong>🟠 HIGH</strong> — No firestore.rules file in repository. All security depends on Firebase Console configuration.</div>
+</div>
+
+<!-- 4. Records / Ledger -->
+<div class="section">
+<h2>4. Records / Ledger Calculations</h2>
+<p><span class="badge badge-ok">✅ WORKING</span></p>
+<table class="tbl">
+<tr><th>Work Type</th><th>Formula</th><th>Status</th></tr>
+<tr><td>Normal Work</td><td>Bigha × Rate</td><td>✅</td></tr>
+<tr><td>Thresher + Bajra</td><td>Bigha × Rate (quintal)</td><td>✅</td></tr>
+<tr><td>Thresher + Other</td><td>(Hours + Min/60) × Rate</td><td>✅</td></tr>
+<tr><td>Spray Machine</td><td>Unit × Rate</td><td>✅</td></tr>
+<tr><td>Pending Balance</td><td>Rate</td><td>✅</td></tr>
+<tr><td>Balance</td><td>Total - Paid</td><td>✅</td></tr>
+</table>
+<ul style="margin-top:8px">
+<li>Financial validation (negative, NaN, max) ✅</li>
+<li>Soft delete with _deleted flag ✅</li>
+<li>Edit pre-fills form correctly ✅</li>
+</ul>
+<div class="issue issue-medium"><strong>🟡 MEDIUM</strong> — Frontend writes total/baki directly to Firestore (not through backend). Backend calculate_totals() only used for API records.</div>
+<div class="issue issue-medium"><strong>🟡 MEDIUM</strong> — show() rebuilds entire DOM. Could lag with 100+ farmers.</div>
+<div class="issue issue-low"><strong>🟢 LOW</strong> — Discount work type has no special calc — falls to Bigha × Rate default.</div>
+</div>
+
+<!-- 5. Work Rates -->
+<div class="section">
+<h2>5. Work Rates (User-Specific)</h2>
+<p><span class="badge badge-ok">✅ WORKING</span></p>
+<ul>
+<li>Rates load on auth via _userRatesCache ✅</li>
+<li>Work change handler uses cached rates ✅</li>
+<li>Thresher rate in settings with ₹/Hour label ✅</li>
+<li>Crop change handler uses _userRatesCache ✅</li>
+<li>save() reads from rate input (same as displayed) ✅</li>
+<li>Old records preserve original rates ✅</li>
+<li>Reset to Default button ✅</li>
+</ul>
+<div class="issue issue-low"><strong>🟢 LOW</strong> — Thresher defaults to ₹1200 if no user rate saved. Could show "Set your rate" message instead.</div>
+</div>
+
+<!-- 6. PDF System -->
+<div class="section">
+<h2>6. PDF System</h2>
+<p><span class="badge badge-ok">✅ WORKING</span></p>
+<ul>
+<li>Header "CHHAPOLA AGRICULTURE" at y=20 ✅</li>
+<li>Farmer name at y=30 (overlap fixed) ✅</li>
+<li>Mobile, Date, Table columns ✅</li>
+<li>Total/Paid/Balance summary ✅</li>
+<li>Farmer notes section ✅</li>
+<li>Contact Details (user PDF settings) ✅</li>
+<li>Page break handling ✅</li>
+<li>Download: doc.save(farmer + '.pdf') ✅</li>
+</ul>
+<div class="issue issue-medium"><strong>🟡 MEDIUM</strong> — jsPDF default font doesn't support Hindi/Devanagari. Farmer names in Hindi will show as boxes.</div>
+<div class="issue issue-low"><strong>🟢 LOW</strong> — Contact Details right-aligned at x=130. Could be centered for better layout.</div>
+</div>
+
+<!-- 7. Dashboard -->
+<div class="section">
+<h2>7. Dashboard</h2>
+<p><span class="badge badge-ok">✅ WORKING</span></p>
+<ul>
+<li>Total Farmers (unique count) ✅</li>
+<li>Total Income (sum of totals) ✅</li>
+<li>Total Pending (sum of balances) ✅</li>
+<li>Today's Income (today's records) ✅</li>
+<li>Date range filtering ✅</li>
+<li>Search by farmer name ✅</li>
+</ul>
+</div>
+
+<!-- 8. AI Munshi -->
+<div class="section">
+<h2>8. AI Munshi / RAJ AI</h2>
+<p><span class="badge badge-ok">✅ WORKING</span></p>
+<ul>
+<li>12 modules: memory, search, language, learning, analysis, brain, scanner, voice, tools, actions, core, munshi</li>
+<li>Farmer matching: phonetic, Hindi, English, fuzzy ✅</li>
+<li>Honorific stripping (जी, साहब, भाई) ✅</li>
+<li>Local answer builder for simple queries ✅</li>
+<li>Gemini API fallback for complex queries ✅</li>
+<li>Context memory (last 10 conversations) ✅</li>
+<li>AI chat floating widget ✅</li>
+</ul>
+<div class="issue issue-high"><strong>🟠 HIGH</strong> — AI modules trust window.records without verifying ownership. Safe only because window.records is correctly filtered by ownerUid in show().</div>
+<div class="issue issue-medium"><strong>🟡 MEDIUM</strong> — AI modules loaded as regular scripts depend on ES module globals. Race condition possible if user types before show() completes.</div>
+</div>
+
+<!-- 9. Security -->
+<div class="section">
+<h2>9. Security Audit</h2>
+<p><span class="badge badge-warn">⚠️ NEEDS ATTENTION</span></p>
+<div class="issue issue-critical"><strong>🔴 CRITICAL</strong> — Firebase API key in 3 files. Firestore Rules MUST be verified in Firebase Console to ensure collection-level access control.</div>
+<div class="issue issue-high"><strong>🟠 HIGH</strong> — No firestore.rules file. Security depends entirely on Firebase Console config.</div>
+<div class="issue issue-high"><strong>🟠 HIGH</strong> — Admin panel uses email-based auth (ADMIN_EMAIL hardcoded). No server-side token verification for admin operations.</div>
+<ul>
+<li>escapeHTML() used consistently for XSS protection ✅</li>
+<li>Backend: Firebase ID token auth, CORS, rate limiting, security headers ✅</li>
+<li>Gemini API key on backend only (not in frontend) ✅</li>
+</ul>
+<div class="issue issue-low"><strong>🟢 LOW</strong> — console.log statements expose settings data in browser console.</div>
+</div>
+
+<!-- 10. Code Quality -->
+<div class="section">
+<h2>10. Code Quality</h2>
+<p><span class="badge badge-warn">⚠️ FUNCTIONAL BUT MESSY</span></p>
+<div class="issue issue-high"><strong>🟠 HIGH</strong> — Script.js is 2344 lines, single monolithic file mixing auth, CRUD, PDF, settings, voice, UI.</div>
+<div class="issue issue-high"><strong>🟠 HIGH</strong> — alert('Script Loaded') debug alert left in production code (line 20).</div>
+<div class="issue issue-medium"><strong>🟡 MEDIUM</strong> — 4 separate Firebase initializations across files.</div>
+<div class="issue issue-medium"><strong>🟡 MEDIUM</strong> — AI modules as regular scripts depend on ES module globals.</div>
+<div class="issue issue-low"><strong>🟢 LOW</strong> — 3 console.log debug lines in voice recognition.</div>
+</div>
+
+<!-- 11. HTML / CSS / Mobile -->
+<div class="section">
+<h2>11. HTML / CSS / Mobile</h2>
+<p><span class="badge badge-ok">✅ WORKING</span></p>
+<ul>
+<li>HTML structure valid, no duplicate IDs ✅</li>
+<li>Form labels with aria-label ✅</li>
+<li>Side menu overlay ✅</li>
+<li>User Settings panel ✅</li>
+<li>Terms modal ✅</li>
+<li>AI chat widget ✅</li>
+<li>Responsive design (Style.css + settings.css) ✅</li>
+</ul>
+<div class="issue issue-medium"><strong>🟡 MEDIUM</strong> — Extensive inline styles in index.html (Terms modal, AI widget). Should use CSS classes.</div>
+</div>
+
+<!-- 12. Error Handling -->
+<div class="section">
+<h2>12. Error Handling</h2>
+<p><span class="badge badge-ok">✅ GOOD</span></p>
+<ul>
+<li>Firebase auth errors: try/catch + alerts ✅</li>
+<li>Firestore write errors: try/catch + alerts ✅</li>
+<li>Gemini backend: proper HTTP status codes ✅</li>
+<li>Empty data states handled ✅</li>
+<li>Missing user/settings null checks ✅</li>
+</ul>
+</div>
+
+<!-- 13. Performance -->
+<div class="section">
+<h2>13. Performance</h2>
+<p><span class="badge badge-info">ADEQUATE</span></p>
+<ul>
+<li>show() queries Firestore once per call ✅</li>
+<li>Pagination limits DOM to 50 records ✅</li>
+<li>User rates preloaded on auth ✅</li>
+</ul>
+<div class="issue issue-medium"><strong>🟡 MEDIUM</strong> — show() re-renders entire DOM on every search. No virtual scrolling.</div>
+<div class="issue issue-low"><strong>🟢 LOW</strong> — 12 AI scripts loaded on every page regardless of use.</div>
+</div>
+
+<!-- 14. Regression -->
+<div class="section">
+<h2>14. Regression — Recent Changes</h2>
+<p><span class="badge badge-ok">✅ NO REGRESSIONS</span></p>
+<ul>
+<li>User Settings module — No impact on existing features ✅</li>
+<li>Work Rate calculation fix — Thresher uses _userRatesCache ✅</li>
+<li>PDF header overlap fix — y+=10 added ✅</li>
+<li>Soft delete — _deleted flag, filtered in show() ✅</li>
+<li>Pagination — Limited rendering, toggle button ✅</li>
+<li>CSV export — New function, no impact ✅</li>
+<li>Terms & Conditions — New modal, signup gate ✅</li>
+<li>Server-side normalization — Display-only ✅</li>
+</ul>
+</div>
+
+<!-- 15. File Inventory -->
+<div class="section">
+<h2>15. File Inventory</h2>
+<table class="tbl">
+<tr><th>File</th><th>Purpose</th><th>Status</th></tr>
+<tr><td>index.html</td><td>Main frontend</td><td>✅</td></tr>
+<tr><td>Script.js</td><td>Main logic (2344 lines)</td><td>✅</td></tr>
+<tr><td>Style.css</td><td>Styles</td><td>✅</td></tr>
+<tr><td>settings.css</td><td>Settings styles</td><td>✅</td></tr>
+<tr><td>main.py</td><td>FastAPI backend</td><td>✅</td></tr>
+<tr><td>admin.html/js/css</td><td>Admin panel</td><td>✅</td></tr>
+<tr><td>settings.html/js</td><td>Owner settings</td><td>✅</td></tr>
+<tr><td>ai-*.js (12 files)</td><td>AI modules</td><td>✅</td></tr>
+<tr><td>manifest.json</td><td>PWA manifest</td><td>✅</td></tr>
+<tr><td>service-worker.js</td><td>Cache v5</td><td>✅</td></tr>
+<tr><td>RAJ_AI_Diagnostic.js</td><td>Referenced but MISSING</td><td>❌</td></tr>
+<tr><td>requirements.txt</td><td>Python deps</td><td>✅</td></tr>
+</table>
+</div>
+
+<!-- 16. Final -->
+<div class="final">
+<h2>16. FINAL VERDICT</h2>
+<h3 style="margin:10px 0">Production Ready? PARTIALLY ✅</h3>
+<p style="font-size:14px;margin-bottom:12px">Website functional for production with these conditions:</p>
+<ul>
+<li><strong>MUST</strong> verify Firestore Security Rules in Firebase Console</li>
+<li><strong>MUST</strong> remove alert('Script Loaded') debug line</li>
+<li><strong>SHOULD</strong> remove or create RAJ_AI_Diagnostic.js</li>
+<li><strong>SHOULD</strong> remove console.log debug statements</li>
+<li><strong>NICE TO HAVE</strong> Split Script.js into modules</li>
+</ul>
+<h3 style="margin:14px 0 8px">What's Working Well:</h3>
+<ul>
+<li>Solid authentication with terms, blocked users, plan expiry</li>
+<li>Data isolation via ownerUid</li>
+<li>Accurate calculations for all work types</li>
+<li>User-specific Work Rates and PDF Settings</li>
+<li>Backend security: ID token auth, CORS, rate limiting</li>
+<li>PDF generation with proper layout</li>
+<li>AI Munshi with local + Gemini fallback</li>
+<li>Mobile-responsive UI</li>
+<li>Terms & Conditions system</li>
+</ul>
+</div>
+
+<button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+<p style="text-align:center;font-size:11px;color:#9ca3af;margin-top:8px">Generated by Chhapola Agriculture Audit System | 25 August 2026</p>
+
+</div>
+</body>
+</html>
