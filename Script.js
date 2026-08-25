@@ -1793,51 +1793,7 @@ window.downloadCSV = downloadCSV;
 
 
 // ==========================================
-// USER SETTINGS MODULE
-// ==========================================
-
-let _settingsCurrentSection = 'home';
-function openSideMenu() {
-  document.getElementById('sideMenuOverlay').classList.add('active');
-  document.getElementById('sideMenu').classList.add('active');
-  const user = window.auth?.currentUser;
-  if (user) {
-    getDocs(query(collection(window.db, 'users'), where('__name__', '==', user.uid))).then(snap => {
-      const el = document.getElementById('sideMenuUserName');
-      if (!snap.empty) {
-        const d = snap.docs[0].data();
-        el.innerHTML = `<div class="side-menu-user-name">${escapeHTML(d.name || user.email)}</div><div class="side-menu-user-email">${escapeHTML(user.email)}</div>`;
-      } else {
-        el.innerHTML = `<div class="side-menu-user-name">${escapeHTML(user.email)}</div>`;
-      }
-    });
-  }
-}
-function closeSideMenu() {
-  document.getElementById('sideMenuOverlay').classList.remove('active');
-  document.getElementById('sideMenu').classList.remove('active');
-}
-function openUserSettings(section) {
-  _settingsCurrentSection = section || 'home';
-  document.getElementById('userSettingsPanel').classList.add('active');
-  const title = document.getElementById('userSettingsTitle');
-  const content = document.getElementById('userSettingsContent');
-  content.innerHTML = '<div class="settings-loading">Loading...</div>';
-  const _h = { home: '⚙️ Settings', profile: '👤 Profile', rates: '💰 Work Rates', pdfSettings: '📄 PDF Settings', security: '🔐 Security', feedback: '💬 Feedback', privacy: '🔒 Privacy Policy' };
-  title.textContent = _h[section] || 'Settings';
-  const _r = { home: renderSettingsHome, profile: renderProfile, rates: renderWorkRates, pdfSettings: renderPdfSettings, security: renderSecurity, feedback: renderFeedback, privacy: renderPrivacy };
-  if (_r[section]) _r[section](content);
-}
-function handleSettingsBack() {
-  openUserSettings('home');
-}
-function openTermsFromSettings() {
-  document.getElementById('termsModal').style.display = 'flex';
-}
-
-
-// ==========================================
-// USER SETTINGS MODULE (Professional v2)
+// USER SETTINGS MODULE (Professional)
 // ==========================================
 
 let _settingsCurrentSection = 'home';
