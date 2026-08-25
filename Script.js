@@ -1183,14 +1183,21 @@ let r = window.records[i];
   const { jsPDF } = window.jspdf;
   let doc = new jsPDF("l", "mm", "a4");
 
-  // Register Hindi/Devanagari font for PDF
+  // Register Hindi/Devanagari font for PDF (don't set as default)
   try {
     if (HINDI_FONT_BASE64) {
       doc.addFileToVFS('NotoSansDevanagari-Regular.ttf', HINDI_FONT_BASE64);
       doc.addFont('NotoSansDevanagari-Regular.ttf', 'NotoDevanagari', 'normal');
-      doc.setFont('NotoDevanagari');
     }
   } catch(e) { console.warn('Hindi font load failed, using default:', e.message); }
+  // Helper: use Hindi font only for text that needs it
+  const _hiRe = /[\u0900-\u097F]/;
+  function pdfText(text, x, y, opts) {
+    const needsHindi = _hiRe.test(text);
+    if (needsHindi) doc.setFont('NotoDevanagari');
+    doc.text(text, x, y, opts);
+    if (needsHindi) doc.setFont('helvetica');
+  }
 
   let farmer = records[i].name;
   let mobile = records[i].mobile;
@@ -1202,32 +1209,32 @@ let r = window.records[i];
   let y = 20;
 
   doc.setFontSize(18);
-  doc.text("CHHAPOLA AGRICULTURE", 20, y);
+  pdfText("CHHAPOLA AGRICULTURE", 20, y);
 
 y += 10;
   doc.setFontSize(14);
-  doc.text("Farmer : " + farmer, 20, y);
+  pdfText("Farmer : " + farmer, 20, y);
 y += 10;
-doc.text("Mobile : " + mobile, 20, y);
+pdfText("Mobile : " + mobile, 20, y);
 
 y += 10;
-doc.text("Date : " + date, 20, y);
+pdfText("Date : " + date, 20, y);
 
 y += 10;
   y += 10;
 
 doc.setFontSize(11);
 
-doc.text("Date", 10, y);
-doc.text("Work", 35, y);
-doc.text("Crop", 60, y);
-doc.text("Unit", 85, y);
-doc.text("Time", 105, y);
-doc.text("Bigha", 132, y);
-doc.text("Rate", 148, y);
-doc.text("Total", 166, y);
-doc.text("Paid", 184, y);
-doc.text("Balance", 205, y);
+pdfText("Date", 10, y);
+pdfText("Work", 35, y);
+pdfText("Crop", 60, y);
+pdfText("Unit", 85, y);
+pdfText("Time", 105, y);
+pdfText("Bigha", 132, y);
+pdfText("Rate", 148, y);
+pdfText("Total", 166, y);
+pdfText("Paid", 184, y);
+pdfText("Balance", 205, y);
 
 y += 8;
    window.records
@@ -1242,22 +1249,22 @@ y += 8;
 
     if (r.name.trim().toLowerCase() === farmer.trim().toLowerCase()) {
 
-doc.text(r.date || "-", 10, y);
-doc.text(r.work || "-", 35, y);
-doc.text(r.crop || "-", 60, y);
-doc.text(String(r.unit ?? "-"), 85, y);
+pdfText(r.date || "-", 10, y);
+pdfText(r.work || "-", 35, y);
+pdfText(r.crop || "-", 60, y);
+pdfText(String(r.unit ?? "-"), 85, y);
 
 let pdfTime = (r.time || "-")
   .replace("घंटा", "h")
   .replace("घंटे", "h")
   .replace("मिनट", "m");
 
-doc.text(pdfTime, 105, y);
-doc.text(String(r.bigha ?? "-"), 132, y);
-doc.text(String(r.rate ?? 0), 148, y);
-doc.text(String(r.total ?? 0), 166, y);
-doc.text(String(r.paid ?? 0), 184, y);
-doc.text(String(r.baki ?? 0), 205, y);
+pdfText(pdfTime, 105, y);
+pdfText(String(r.bigha ?? "-"), 132, y);
+pdfText(String(r.rate ?? 0), 148, y);
+pdfText(String(r.total ?? 0), 166, y);
+pdfText(String(r.paid ?? 0), 184, y);
+pdfText(String(r.baki ?? 0), 205, y);
      total += Number(r.total || 0);
       paid += Number(r.paid || 0);
       baki += Number(r.baki || 0);
@@ -1270,16 +1277,16 @@ if (y > 260) {
 
     // हर नए पेज पर हेडिंग दोबारा प्रिंट करें
     doc.setFontSize(11);
-    doc.text("Date", 10, y);
-    doc.text("Work", 35, y);
-    doc.text("Crop", 60, y);
-    doc.text("Unit", 85, y);
-    doc.text("Time", 105, y);
-    doc.text("Bigha", 132, y);
-    doc.text("Rate", 148, y);
-    doc.text("Total", 166, y);
-    doc.text("Paid", 184, y);
-    doc.text("Balance", 205, y);
+    pdfText("Date", 10, y);
+    pdfText("Work", 35, y);
+    pdfText("Crop", 60, y);
+    pdfText("Unit", 85, y);
+    pdfText("Time", 105, y);
+    pdfText("Bigha", 132, y);
+    pdfText("Rate", 148, y);
+    pdfText("Total", 166, y);
+    pdfText("Paid", 184, y);
+    pdfText("Balance", 205, y);
 
     y += 8;
 }
@@ -1299,13 +1306,13 @@ y += 20;
 doc.setFontSize(13);
 y += 12;
 doc.setFontSize(12);
-doc.text("Total Amount : rs." + total, 10, y);
+pdfText("Total Amount : rs." + total, 10, y);
 
 y += 8;
-doc.text("Paid Amount : rs." + paid, 10, y);
+pdfText("Paid Amount : rs." + paid, 10, y);
 
 y += 8;
-doc.text("Balance : rs." + baki, 10, y);
+pdfText("Balance : rs." + baki, 10, y);
 // ===============================
 // FARMER NOTES
 // ===============================
@@ -1329,7 +1336,7 @@ if (farmerNotes.length > 0) {
     }
 
     doc.setFontSize(13);
-    doc.text("Farmer Notes / Kisan Note", 10, y);
+    pdfText("Farmer Notes / Kisan Note", 10, y);
 
     y += 8;
     doc.setFontSize(11);
@@ -1346,12 +1353,12 @@ if (farmerNotes.length > 0) {
             y = 25;
 
             doc.setFontSize(11);
-            doc.text("Farmer Notes / Kisan Note (continued)", 10, y);
+            pdfText("Farmer Notes / Kisan Note (continued)", 10, y);
 
             y += 8;
         }
 
-        doc.text(line, 10, y);
+        pdfText(line, 10, y);
         y += 6;
     });
 }
@@ -1373,12 +1380,12 @@ if (_pdfOwner.ownerName || _pdfOwner.contact || _pdfOwner.address) {
     y += 8;
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text("Contact Details", 130, y);
+    pdfText("Contact Details", 130, y);
     doc.setFont("helvetica", "normal");
     y += 6;
-    if (_pdfOwner.ownerName) { doc.text(_pdfOwner.ownerName, 130, y); y += 5; }
-    if (_pdfOwner.contact) { doc.text(_pdfOwner.contact, 130, y); y += 5; }
-    if (_pdfOwner.address) { doc.text(_pdfOwner.address, 130, y); y += 5; }
+    if (_pdfOwner.ownerName) { pdfText(_pdfOwner.ownerName, 130, y); y += 5; }
+    if (_pdfOwner.contact) { pdfText(_pdfOwner.contact, 130, y); y += 5; }
+    if (_pdfOwner.address) { pdfText(_pdfOwner.address, 130, y); y += 5; }
 }
 
 doc.save(farmer + ".pdf");
