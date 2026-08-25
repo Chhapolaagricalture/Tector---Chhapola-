@@ -1194,7 +1194,7 @@ let r = window.records[i];
   doc.setFontSize(18);
   doc.text("CHHAPOLA AGRICULTURE", 20, y);
 
-
+y += 10;
   doc.setFontSize(14);
   doc.text("Farmer : " + farmer, 20, y);
 y += 10;
