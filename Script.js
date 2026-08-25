@@ -1194,15 +1194,6 @@ let r = window.records[i];
   doc.setFontSize(18);
   doc.text("CHHAPOLA AGRICULTURE", 20, y);
 
-  // Add user PDF settings (owner info) below header
-  const _pdfOwner = window._userPdfCache || {};
-  if (_pdfOwner.ownerName || _pdfOwner.contact || _pdfOwner.address) {
-    let _py = 30;
-    doc.setFontSize(10);
-    if (_pdfOwner.ownerName) { doc.text('Owner: ' + _pdfOwner.ownerName, 20, _py); _py += 6; }
-    if (_pdfOwner.contact) { doc.text('Contact: ' + _pdfOwner.contact, 20, _py); _py += 6; }
-    if (_pdfOwner.address) { doc.text('Address: ' + _pdfOwner.address, 20, _py); _py += 6; }
-  }
 
   doc.setFontSize(14);
   doc.text("Farmer : " + farmer, 20, y);
@@ -1366,36 +1357,21 @@ if (y > 245) {
     y += 10;
 }
 
-// Logo image
-const logo = new Image();
+// User PDF owner details (replaces logo)
+const _pdfOwner = window._userPdfCache || {};
+if (_pdfOwner.ownerName || _pdfOwner.contact || _pdfOwner.address) {
+    y += 8;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Contact Details", 130, y);
+    doc.setFont("helvetica", "normal");
+    y += 6;
+    if (_pdfOwner.ownerName) { doc.text(_pdfOwner.ownerName, 130, y); y += 5; }
+    if (_pdfOwner.contact) { doc.text(_pdfOwner.contact, 130, y); y += 5; }
+    if (_pdfOwner.address) { doc.text(_pdfOwner.address, 130, y); y += 5; }
+}
 
-logo.src = "chhapola-logo.png";
-
-logo.onload = function () {
-
-    // छोटा logo
-    const logoW = 32;
-    const logoH = 32;
-
-    // बीच में
-    const logoX = (297 - logoW) / 2+ 20;
-
-    doc.addImage(
-        logo,
-        "PNG",
-        logoX,
-        y - 30,
-        logoW,
-        logoH
-    );
-
-    doc.save(farmer + ".pdf");
-};
-
-logo.onerror = function () {
-    // Logo load failed, still save PDF without logo
-    doc.save(farmer + ".pdf");
-};
+doc.save(farmer + ".pdf");
 
     }
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
@@ -1684,7 +1660,7 @@ document.getElementById("work").addEventListener("change", function () {
 
 // Auto Rate — use user-specific rates if saved, else defaults
 const _defaultRates = {Hero:250,Calti:250,'Mej (Pata)':150,Morplau:500,Display:500,'Spray Machine':800,Thresher:0,'Pending Balance':0,Discount:0};
-if (work && work !== 'Thresher' && work !== 'Pending Balance') {
+if (work && work !== 'Pending Balance') {
   const user = window.auth?.currentUser;
   if (user && !window._userRatesCache) {
     getDoc(doc(window.db, 'user_rates', user.uid)).then(snap => {
@@ -1735,11 +1711,8 @@ const work = document.getElementById("work").value;
 const rateInput = document.getElementById("rate");
 
 if (work === "Thresher") {
-    if (crop === "Bajra") {
-        rateInput.value = 150;
-    } else {
-        rateInput.value = 1200;
-    }
+    const tRates = window._userRatesCache || {};
+    rateInput.value = ('Thresher' in tRates) ? tRates['Thresher'] : (1200);
 }
   if (crop === "Bajra") {
     unitLabel.innerHTML = "Quintal";
