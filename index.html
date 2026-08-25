@@ -6,6 +6,7 @@
 <title>Tector---Chhapola-</title>
 
 <link rel="stylesheet" href="Style.css">
+<link rel="stylesheet" href="settings.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icon-192-v2.png">
@@ -308,38 +309,63 @@ window.updatePassword = updatePassword;
   <script src="RAJ_AI_Diagnostic.js"></script>
 <script src="ai-munshi.js"></script>
 
+<!-- SIDE MENU OVERLAY -->
+<div id="sideMenuOverlay" class="settings-overlay" onclick="if(event.target===this)closeSideMenu()"></div>
+
 <!-- SIDE MENU -->
-<div id="sideMenuOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1998" onclick="if(event.target===this)closeSideMenu()"></div>
-<div id="sideMenu" style="display:none;position:fixed;top:0;right:0;width:290px;max-width:85vw;height:100%;background:#fff;z-index:1999;box-shadow:-4px 0 20px rgba(0,0,0,0.25);flex-direction:column;overflow-y:auto">
-  <div style="background:linear-gradient(135deg,#0b5d1e,#2e7d32);color:#fff;padding:20px 18px;display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:18px;font-weight:700">⚙️ Menu</span>
-    <button onclick="closeSideMenu()" style="background:transparent;border:none;color:#fff;font-size:22px;cursor:pointer">✕</button>
+<div id="sideMenu" class="side-menu">
+  <div class="side-menu-header">
+    <h2>⚙️ Settings</h2>
+    <p>Chhapola Agriculture</p>
+    <button class="side-menu-close" onclick="closeSideMenu()" aria-label="Close menu">✕</button>
   </div>
-  <div id="sideMenuUserName" style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-size:14px;color:#475569"></div>
-  <div style="padding:8px 0">
-    <button onclick="closeSideMenu();openUserSettings('profile')" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;font-size:15px;color:#1f2937;cursor:pointer;text-align:left">👤 User Settings</button>
-    <button onclick="closeSideMenu();openUserSettings('rates')" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;font-size:15px;color:#1f2937;cursor:pointer;text-align:left">💰 Work Rates</button>
-    <button onclick="closeSideMenu();openUserSettings('pdf')" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;font-size:15px;color:#1f2937;cursor:pointer;text-align:left">📄 PDF Settings</button>
-    <button onclick="closeSideMenu();openUserSettings('password')" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;font-size:15px;color:#1f2937;cursor:pointer;text-align:left">🔐 Change Password</button>
-    <button onclick="closeSideMenu();openUserSettings('feedback')" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;font-size:15px;color:#1f2937;cursor:pointer;text-align:left">💬 Feedback</button>
-    <button onclick="closeSideMenu();document.getElementById('termsModal').style.display='flex'" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;font-size:15px;color:#1f2937;cursor:pointer;text-align:left">📜 Terms & Conditions</button>
-    <button onclick="closeSideMenu();openUserSettings('privacy')" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;font-size:15px;color:#1f2937;cursor:pointer;text-align:left">🔒 Privacy Policy</button>
-    <div style="border-top:1px solid #e5e7eb;margin:8px 0"></div>
-    <button onclick="closeSideMenu();logout()" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;font-size:15px;color:#dc2626;cursor:pointer;text-align:left;font-weight:600">🚪 Logout</button>
+  <div class="side-menu-user" id="sideMenuUserName">
+    <div class="side-menu-user-name">Loading...</div>
+  </div>
+  <div class="side-menu-nav">
+    <button class="side-menu-item" onclick="closeSideMenu();openUserSettings('home')">
+      <span class="side-menu-item-icon">🏠</span> Settings Home
+    </button>
+    <button class="side-menu-item" onclick="closeSideMenu();openUserSettings('profile')">
+      <span class="side-menu-item-icon">👤</span> Profile
+    </button>
+    <button class="side-menu-item" onclick="closeSideMenu();openUserSettings('rates')">
+      <span class="side-menu-item-icon">💰</span> Work Rates
+    </button>
+    <button class="side-menu-item" onclick="closeSideMenu();openUserSettings('pdfSettings')">
+      <span class="side-menu-item-icon">📄</span> PDF Settings
+    </button>
+    <button class="side-menu-item" onclick="closeSideMenu();openUserSettings('security')">
+      <span class="side-menu-item-icon">🔐</span> Security & Password
+    </button>
+    <button class="side-menu-item" onclick="closeSideMenu();openUserSettings('feedback')">
+      <span class="side-menu-item-icon">💬</span> Feedback
+    </button>
+    <div class="side-menu-divider"></div>
+    <button class="side-menu-item" onclick="closeSideMenu();openUserSettings('privacy')">
+      <span class="side-menu-item-icon">🔒</span> Privacy Policy
+    </button>
+    <button class="side-menu-item" onclick="closeSideMenu();openTermsFromSettings()">
+      <span class="side-menu-item-icon">📜</span> Terms & Conditions
+    </button>
+    <div class="side-menu-divider"></div>
+    <button class="side-menu-item side-menu-logout" onclick="closeSideMenu();logout()">
+      <span class="side-menu-item-icon">🚪</span> Logout
+    </button>
   </div>
 </div>
 
 <!-- USER SETTINGS PANEL -->
-<div id="userSettingsPanel" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#f4f4f4;z-index:2001;overflow-y:auto">
-  <div style="background:linear-gradient(135deg,#0b5d1e,#2e7d32);color:#fff;padding:16px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10">
-    <button onclick="closeUserSettings()" style="background:transparent;border:none;color:#fff;font-size:22px;cursor:pointer">←</button>
-    <h2 style="margin:0;font-size:18px" id="userSettingsTitle">User Settings</h2>
+<div id="userSettingsPanel" class="settings-panel">
+  <div class="settings-topbar">
+    <button class="settings-back" onclick="handleSettingsBack()" aria-label="Back">←</button>
+    <h2 id="userSettingsTitle">Settings</h2>
   </div>
-  <div id="userSettingsContent" style="padding:16px"></div>
+  <div class="settings-body" id="userSettingsContent"></div>
 </div>
 
 <!-- TERMS & CONDITIONS MODAL -->
-<div id="termsModal" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; padding:16px;">
+<div id="termsModal" onclick="if(event.target===this)this.style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2002; align-items:center; justify-content:center; padding:16px;">
   <div onclick="event.stopPropagation()" style="background:#fff; border-radius:14px; max-width:600px; width:100%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 8px 30px rgba(0,0,0,0.25); overflow:hidden;">
     <div style="background:#176b35; color:white; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
       <h3 style="margin:0; font-size:17px;">📜 Terms & Conditions</h3>

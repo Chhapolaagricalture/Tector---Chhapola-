@@ -1192,9 +1192,18 @@ let r = window.records[i];
   let y = 20;
 
   doc.setFontSize(18);
-  doc.text("Chhapola Agriculture", 20, y);
+  doc.text("CHHAPOLA AGRICULTURE", 20, y);
 
-  y += 10;
+  // Add user PDF settings (owner info) below header
+  const _pdfOwner = window._userPdfCache || {};
+  if (_pdfOwner.ownerName || _pdfOwner.contact || _pdfOwner.address) {
+    let _py = 30;
+    doc.setFontSize(10);
+    if (_pdfOwner.ownerName) { doc.text('Owner: ' + _pdfOwner.ownerName, 20, _py); _py += 6; }
+    if (_pdfOwner.contact) { doc.text('Contact: ' + _pdfOwner.contact, 20, _py); _py += 6; }
+    if (_pdfOwner.address) { doc.text('Address: ' + _pdfOwner.address, 20, _py); _py += 6; }
+  }
+
   doc.setFontSize(14);
   doc.text("Farmer : " + farmer, 20, y);
 y += 10;
@@ -1442,6 +1451,17 @@ onAuthStateChanged(window.auth, async (user) => {
   }
 
   _sessionStartTime = Date.now();
+  // Preload user-specific rates and PDF settings for form/PDF
+  if (user) {
+    try {
+      const _ratesSnap = await getDoc(doc(window.db, 'user_rates', user.uid));
+      window._userRatesCache = _ratesSnap.exists() ? _ratesSnap.data() : {};
+    } catch(e) {}
+    try {
+      const _pdfSnap = await getDoc(doc(window.db, 'user_pdf_settings', user.uid));
+      window._userPdfCache = _pdfSnap.exists() ? _pdfSnap.data() : {};
+    } catch(e) {}
+  }
   await loadMainWebsiteSettings();
   show();
 });
@@ -1662,23 +1682,19 @@ document.getElementById("work").addEventListener("change", function () {
   const work = this.value;
   const rateInput = document.getElementById("rate");
 
-// Auto Rate
-if (work === "Hero") {
-    rateInput.value = 250;
-} else if (work === "Calti") {
-    rateInput.value = 250;
-} else if (work === "Mej (Pata)") {
-    rateInput.value = 150;
-} else if (work === "Morplau") {
-    rateInput.value = 500;
-} else if (work === "Display") {
-    rateInput.value = 500;
-} else if (work === "Spray Machine") {
-    rateInput.value = 800;
-} else if (work === "Thresher") {
-    rateInput.value = "";
-}else if (work === "Pending Balance") {
-    rateInput.value = "";
+// Auto Rate — use user-specific rates if saved, else defaults
+const _defaultRates = {Hero:250,Calti:250,'Mej (Pata)':150,Morplau:500,Display:500,'Spray Machine':800,Thresher:0,'Pending Balance':0,Discount:0};
+if (work && work !== 'Thresher' && work !== 'Pending Balance') {
+  const user = window.auth?.currentUser;
+  if (user && !window._userRatesCache) {
+    getDoc(doc(window.db, 'user_rates', user.uid)).then(snap => {
+      window._userRatesCache = snap.exists() ? snap.data() : {};
+    });
+  }
+  const rates = window._userRatesCache || {};
+  rateInput.value = (work in rates) ? rates[work] : (_defaultRates[work] || 0);
+} else {
+  rateInput.value = '';
 }
   const cropBox = document.getElementById("cropBox");
 const unitBox = document.getElementById("unitBox");
@@ -1780,84 +1796,168 @@ window.downloadCSV = downloadCSV;
 // USER SETTINGS MODULE
 // ==========================================
 
+let _settingsCurrentSection = 'home';
 function openSideMenu() {
-  const overlay = document.getElementById('sideMenuOverlay');
-  const menu = document.getElementById('sideMenu');
-  if (overlay) overlay.style.display = 'block';
-  if (menu) menu.style.display = 'flex';
-  // Show user name
+  document.getElementById('sideMenuOverlay').classList.add('active');
+  document.getElementById('sideMenu').classList.add('active');
   const user = window.auth?.currentUser;
   if (user) {
     getDocs(query(collection(window.db, 'users'), where('__name__', '==', user.uid))).then(snap => {
+      const el = document.getElementById('sideMenuUserName');
       if (!snap.empty) {
         const d = snap.docs[0].data();
-        document.getElementById('sideMenuUserName').innerHTML = '<strong>' + escapeHTML(d.name || user.email) + '</strong><br><span style="font-size:12px">' + escapeHTML(user.email) + '</span>';
+        el.innerHTML = `<div class="side-menu-user-name">${escapeHTML(d.name || user.email)}</div><div class="side-menu-user-email">${escapeHTML(user.email)}</div>`;
       } else {
-        document.getElementById('sideMenuUserName').innerHTML = '<strong>' + escapeHTML(user.email) + '</strong>';
+        el.innerHTML = `<div class="side-menu-user-name">${escapeHTML(user.email)}</div>`;
       }
     });
   }
 }
 function closeSideMenu() {
-  document.getElementById('sideMenuOverlay').style.display = 'none';
-  document.getElementById('sideMenu').style.display = 'none';
+  document.getElementById('sideMenuOverlay').classList.remove('active');
+  document.getElementById('sideMenu').classList.remove('active');
+}
+function openUserSettings(section) {
+  _settingsCurrentSection = section || 'home';
+  document.getElementById('userSettingsPanel').classList.add('active');
+  const title = document.getElementById('userSettingsTitle');
+  const content = document.getElementById('userSettingsContent');
+  content.innerHTML = '<div class="settings-loading">Loading...</div>';
+  const _h = { home: '⚙️ Settings', profile: '👤 Profile', rates: '💰 Work Rates', pdfSettings: '📄 PDF Settings', security: '🔐 Security', feedback: '💬 Feedback', privacy: '🔒 Privacy Policy' };
+  title.textContent = _h[section] || 'Settings';
+  const _r = { home: renderSettingsHome, profile: renderProfile, rates: renderWorkRates, pdfSettings: renderPdfSettings, security: renderSecurity, feedback: renderFeedback, privacy: renderPrivacy };
+  if (_r[section]) _r[section](content);
+}
+function handleSettingsBack() {
+  openUserSettings('home');
+}
+function openTermsFromSettings() {
+  document.getElementById('termsModal').style.display = 'flex';
+}
+
+
+// ==========================================
+// USER SETTINGS MODULE (Professional v2)
+// ==========================================
+
+let _settingsCurrentSection = 'home';
+
+function openSideMenu() {
+  document.getElementById('sideMenuOverlay').classList.add('active');
+  document.getElementById('sideMenu').classList.add('active');
+  const user = window.auth?.currentUser;
+  if (user) {
+    getDocs(query(collection(window.db, 'users'), where('__name__', '==', user.uid))).then(snap => {
+      const el = document.getElementById('sideMenuUserName');
+      if (!snap.empty) {
+        const d = snap.docs[0].data();
+        el.innerHTML = `<div class="side-menu-user-name">${escapeHTML(d.name || user.email)}</div><div class="side-menu-user-email">${escapeHTML(user.email)}</div>`;
+      } else {
+        el.innerHTML = `<div class="side-menu-user-name">${escapeHTML(user.email)}</div>`;
+      }
+    });
+  }
+}
+
+function closeSideMenu() {
+  document.getElementById('sideMenuOverlay').classList.remove('active');
+  document.getElementById('sideMenu').classList.remove('active');
 }
 
 function openUserSettings(section) {
-  const panel = document.getElementById('userSettingsPanel');
+  _settingsCurrentSection = section || 'home';
+  document.getElementById('userSettingsPanel').classList.add('active');
   const title = document.getElementById('userSettingsTitle');
   const content = document.getElementById('userSettingsContent');
-  panel.style.display = 'block';
-  content.innerHTML = '<div style="text-align:center;padding:40px;color:#666">⏳ Loading...</div>';
+  content.innerHTML = '<div class="settings-loading">Loading...</div>';
+  const _h = { home: '⚙️ Settings', profile: '👤 Profile', rates: '💰 Work Rates', pdfSettings: '📄 PDF Settings', security: '🔐 Security', feedback: '💬 Feedback', privacy: '🔒 Privacy Policy' };
+  title.textContent = _h[section] || 'Settings';
+  const _r = { home: renderSettingsHome, profile: renderProfile, rates: renderWorkRates, pdfSettings: renderPdfSettings, security: renderSecurity, feedback: renderFeedback, privacy: renderPrivacy };
+  if (_r[section]) _r[section](content);
+}
 
-  if (section === 'profile') {
-    title.textContent = '👤 Profile';
-    loadProfileSettings(content);
-  } else if (section === 'rates') {
-    title.textContent = '💰 Work Rates';
-    loadWorkRates(content);
-  } else if (section === 'pdf') {
-    title.textContent = '📄 PDF Settings';
-    loadPdfSettings(content);
-  } else if (section === 'password') {
-    title.textContent = '🔐 Change Password';
-    loadPasswordSection(content);
-  } else if (section === 'feedback') {
-    title.textContent = '💬 Feedback';
-    loadFeedbackSection(content);
-  } else if (section === 'privacy') {
-    title.textContent = '🔒 Privacy Policy';
-    loadPrivacyPolicy(content);
+function handleSettingsBack() { openUserSettings('home'); }
+function openTermsFromSettings() { document.getElementById('termsModal').style.display = 'flex'; }
+
+// ---- SETTINGS HOME ----
+function renderSettingsHome(el) {
+  el.innerHTML = `
+    <div class="settings-home-header">
+      <div class="settings-home-avatar">👨‍🌾</div>
+      <h2>Welcome</h2>
+      <p>Manage your Chhapola Agriculture account</p>
+    </div>
+    <div class="settings-grid">
+      <div class="settings-card" onclick="openUserSettings('profile')"><div class="settings-card-icon">👤</div><div class="settings-card-label">Profile</div><div class="settings-card-desc">Your personal info</div></div>
+      <div class="settings-card" onclick="openUserSettings('rates')"><div class="settings-card-icon">💰</div><div class="settings-card-label">Work Rates</div><div class="settings-card-desc">Manage your rates</div></div>
+      <div class="settings-card" onclick="openUserSettings('pdfSettings')"><div class="settings-card-icon">📄</div><div class="settings-card-label">PDF Settings</div><div class="settings-card-desc">Your PDF info</div></div>
+      <div class="settings-card" onclick="openUserSettings('security')"><div class="settings-card-icon">🔐</div><div class="settings-card-label">Security</div><div class="settings-card-desc">Password & account</div></div>
+      <div class="settings-card" onclick="openUserSettings('feedback')"><div class="settings-card-icon">💬</div><div class="settings-card-label">Feedback</div><div class="settings-card-desc">Share your thoughts</div></div>
+      <div class="settings-card" onclick="openUserSettings('privacy')"><div class="settings-card-icon">🔒</div><div class="settings-card-label">Privacy</div><div class="settings-card-desc">Privacy Policy</div></div>
+      <div class="settings-card" onclick="openTermsFromSettings()"><div class="settings-card-icon">📜</div><div class="settings-card-label">Terms</div><div class="settings-card-desc">Terms & Conditions</div></div>
+    </div>
+  `;
+  // Load user name for welcome
+  const user = window.auth?.currentUser;
+  if (user) {
+    getDocs(query(collection(window.db, 'users'), where('__name__', '==', user.uid))).then(snap => {
+      if (!snap.empty) {
+        const d = snap.docs[0].data();
+        const h2 = el.querySelector('.settings-home-header h2');
+        if (h2) h2.textContent = `Welcome, ${d.name || user.email}`;
+      }
+    });
   }
 }
-function closeUserSettings() {
-  document.getElementById('userSettingsPanel').style.display = 'none';
-}
 
-// ---- Profile ----
-async function loadProfileSettings(el) {
+// ---- PROFILE ----
+async function renderProfile(el) {
   const user = window.auth.currentUser;
-  if (!user) { el.innerHTML = '<p>❌ Login required</p>'; return; }
-  let name = '', mobile = '';
+  if (!user) { el.innerHTML = '<p style="color:#dc2626">❌ Login required</p>'; return; }
+  let name = '', mobile = '', plan = 'Free', createdAt = '';
   try {
     const snap = await getDocs(query(collection(window.db, 'users'), where('__name__', '==', user.uid)));
     if (!snap.empty) {
       const d = snap.docs[0].data();
-      name = d.name || '';
-      mobile = d.mobile || '';
+      name = d.name || ''; mobile = d.mobile || ''; plan = d.plan || 'Free'; createdAt = d.createdAt || '';
     }
   } catch(e) {}
+  const initials = (name || user.email || '?')[0].toUpperCase();
+  const createdDate = createdAt ? new Date(createdAt).toLocaleDateString('en-IN') : 'N/A';
   el.innerHTML = `
-    <div class="card" style="margin-bottom:16px">
-      <label style="font-weight:600;font-size:13px;color:#475569">Name</label>
-      <input id="upName" value="${escapeHTML(name)}" placeholder="Your Name" style="margin-bottom:10px">
-      <label style="font-weight:600;font-size:13px;color:#475569">Mobile</label>
-      <input id="upMobile" value="${escapeHTML(mobile)}" placeholder="Mobile Number" style="margin-bottom:10px">
-      <label style="font-weight:600;font-size:13px;color:#475569">Email</label>
-      <input value="${escapeHTML(user.email)}" disabled style="background:#f3f4f6;color:#9ca3af;margin-bottom:10px">
-      <button onclick="saveProfile()" style="background:#176b35;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">💾 Save Profile</button>
-    </div>`;
+    <h3 class="settings-section-title">👤 Profile</h3>
+    <p class="settings-section-desc">Manage your personal information</p>
+    <div class="settings-card-section" style="text-align:center">
+      <div class="profile-avatar-large">${initials}</div>
+      <div style="font-size:18px;font-weight:700;color:#1f2937">${escapeHTML(name || 'Not set')}</div>
+      <div style="font-size:13px;color:#6b7280">${escapeHTML(user.email)}</div>
+    </div>
+    <div class="settings-card-section">
+      <div class="settings-card-section-title">📝 Edit Profile</div>
+      <div class="field-group">
+        <label class="field-label">Full Name</label>
+        <input class="field-input" id="upName" value="${escapeHTML(name)}" placeholder="Your name">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Mobile Number</label>
+        <input class="field-input" id="upMobile" type="tel" value="${escapeHTML(mobile)}" placeholder="Mobile number">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Email (read-only)</label>
+        <input class="field-input" value="${escapeHTML(user.email)}" disabled>
+      </div>
+      <button class="settings-btn-primary" onclick="saveProfile()">💾 Save Profile</button>
+    </div>
+    <div class="settings-card-section">
+      <div class="settings-card-section-title">ℹ️ Account Info</div>
+      <div class="info-row"><span class="info-label">Account ID</span><span class="info-value" style="font-size:11px;word-break:break-all;max-width:180px;text-align:right">${user.uid}</span></div>
+      <div class="info-row"><span class="info-label">Status</span><span class="info-badge badge-green">Active</span></div>
+      <div class="info-row"><span class="info-label">Plan</span><span class="info-badge badge-blue">${escapeHTML(plan)}</span></div>
+      <div class="info-row"><span class="info-label">Created</span><span class="info-value">${createdDate}</span></div>
+    </div>
+  `;
 }
+
 async function saveProfile() {
   const user = window.auth.currentUser;
   const name = document.getElementById('upName').value.trim();
@@ -1866,29 +1966,32 @@ async function saveProfile() {
   try {
     await setDoc(doc(window.db, 'users', user.uid), { name, mobile }, { merge: true });
     alert('✅ Profile saved!');
-  } catch(e) {
-    alert('❌ Error: ' + e.message);
-  }
+  } catch(e) { alert('❌ Error: ' + e.message); }
 }
 
-// ---- Work Rates ----
-function loadWorkRates(el) {
+// ---- WORK RATES ----
+function renderWorkRates(el) {
   const user = window.auth?.currentUser;
-  if (!user) { el.innerHTML = '<p>❌ Login required</p>'; return; }
-  const ratesRef = doc(window.db, 'user_rates', user.uid);
-  getDoc(ratesRef).then(snap => {
+  if (!user) { el.innerHTML = '<p style="color:#dc2626">❌ Login required</p>'; return; }
+  getDoc(doc(window.db, 'user_rates', user.uid)).then(snap => {
     const saved = snap.exists() ? snap.data() : {};
-    const defaults = {Hero:250,Calti:250,'Mej (Pata)':150,Discount:0,'Pending Balance':0,Morplau:500,Display:500,Thresher:0,'Spray Machine':800};
-    const all = {...defaults,...saved};
-    let html = '<div class="card" style="margin-bottom:16px"><p style="font-size:13px;color:#475569;margin-bottom:12px">Update rates for new records. Old records unchanged.</p>';
+    const defaults = { Hero: 250, Calti: 250, 'Mej (Pata)': 150, Discount: 0, 'Pending Balance': 0, Morplau: 500, Display: 500, Thresher: 0, 'Spray Machine': 800 };
+    const all = { ...defaults, ...saved };
+    const desc = { Hero: '₹/Bigha', Calti: '₹/Bigha', 'Mej (Pata)': '₹/Bigha', Discount: '₹', 'Pending Balance': '₹', Morplau: '₹/Bigha', Display: '₹/Bigha', Thresher: '₹/Hour', 'Spray Machine': '₹/Qty' };
+    let html = `<h3 class="settings-section-title">💰 Work Rates</h3>
+      <p class="settings-section-desc">Update rates for new records. Old records remain unchanged.</p>
+      <div class="settings-card-section"><div class="settings-card-section-title">📋 Your Rates</div>`;
     for (const [work, rate] of Object.entries(all)) {
-      html += '<label style="font-weight:600;font-size:13px;color:#475569">' + escapeHTML(work) + '</label>';
-      html += '<input type="number" id="rate_' + work.replace(/[^a-zA-Z0-9]/g,'') + '" value="' + rate + '" style="margin-bottom:10px">';
+      const id = 'rate_' + work.replace(/[^a-zA-Z0-9]/g, '');
+      html += `<div class="rate-row"><div><div class="rate-label">${escapeHTML(work)}</div><div class="rate-desc">${escapeHTML(desc[work] || '')}</div></div><input class="rate-input" type="number" id="${id}" value="${rate}"></div>`;
     }
-    html += '<button onclick="saveWorkRates()" style="background:#176b35;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">💾 Save Rates</button></div>';
+    html += `</div>
+      <button class="settings-btn-primary" onclick="saveWorkRates()">💾 Save Rates</button>
+      <button class="settings-btn-secondary" onclick="if(confirm('Reset all rates to default?')){resetWorkRates()}">↺ Reset to Default</button>`;
     el.innerHTML = html;
   });
 }
+
 async function saveWorkRates() {
   const user = window.auth.currentUser;
   if (!user) return;
@@ -1902,31 +2005,57 @@ async function saveWorkRates() {
   try {
     await setDoc(doc(window.db, 'user_rates', user.uid), data, { merge: true });
     alert('✅ Rates saved! New records will use these rates.');
-  } catch(e) {
-    alert('❌ Error: ' + e.message);
-  }
+  } catch(e) { alert('❌ Error: ' + e.message); }
 }
 
-// ---- PDF Settings ----
-function loadPdfSettings(el) {
-  const user = window.auth?.currentUser;
-  if (!user) { el.innerHTML = '<p>❌ Login required</p>'; return; }
-  const pdfRef = doc(window.db, 'user_pdf_settings', user.uid);
-  getDoc(pdfRef).then(snap => {
-    const saved = snap.exists() ? snap.data() : {};
-    el.innerHTML = `
-      <div class="card" style="margin-bottom:16px">
-        <p style="font-size:13px;color:#475569;margin-bottom:12px">PDF header always shows "CHHAPOLA AGRICULTURE". Below add your info.</p>
-        <label style="font-weight:600;font-size:13px;color:#475569">Your Name (for PDF)</label>
-        <input id="pdfOwnerName" value="' + escapeHTML(saved.ownerName || '') + '" placeholder="Your Name" style="margin-bottom:10px">
-        <label style="font-weight:600;font-size:13px;color:#475569">Contact Number</label>
-        <input id="pdfContact" value="' + escapeHTML(saved.contact || '') + '" placeholder="Contact Number" style="margin-bottom:10px">
-        <label style="font-weight:600;font-size:13px;color:#475569">Address</label>
-        <input id="pdfAddress" value="' + escapeHTML(saved.address || '') + '" placeholder="Address" style="margin-bottom:10px">
-        <button onclick="savePdfSettings()" style="background:#176b35;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">💾 Save PDF Settings</button>
-      </div>`;
-  });
+async function resetWorkRates() {
+  const user = window.auth.currentUser;
+  if (!user) return;
+  try {
+    await setDoc(doc(window.db, 'user_rates', user.uid), { Hero:250, Calti:250, 'Mej (Pata)':150, Discount:0, 'Pending Balance':0, Morplau:500, Display:500, Thresher:0, 'Spray Machine':800 }, { merge: true });
+    alert('✅ Rates reset to default!');
+    renderWorkRates(document.getElementById('userSettingsContent'));
+  } catch(e) { alert('❌ Error: ' + e.message); }
 }
+
+// ---- PDF SETTINGS ----
+async function renderPdfSettings(el) {
+  const user = window.auth?.currentUser;
+  if (!user) { el.innerHTML = '<p style="color:#dc2626">❌ Login required</p>'; return; }
+  let saved = {};
+  try {
+    const snap = await getDoc(doc(window.db, 'user_pdf_settings', user.uid));
+    if (snap.exists()) saved = snap.data();
+  } catch(e) {}
+  el.innerHTML = `
+    <h3 class="settings-section-title">📄 PDF Settings</h3>
+    <p class="settings-section-desc">Customize your PDF output. Header always shows "CHHAPOLA AGRICULTURE".</p>
+    <div class="settings-card-section">
+      <div class="settings-card-section-title">📝 Your PDF Information</div>
+      <div class="field-group">
+        <label class="field-label">Owner Name (for PDF)</label>
+        <input class="field-input" id="pdfOwnerName" value="${escapeHTML(saved.ownerName || '')}" placeholder="Your name">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Contact Number</label>
+        <input class="field-input" id="pdfContact" type="tel" value="${escapeHTML(saved.contact || '')}" placeholder="Contact number">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Address</label>
+        <input class="field-input" id="pdfAddress" value="${escapeHTML(saved.address || '')}" placeholder="Address">
+      </div>
+      <button class="settings-btn-primary" onclick="savePdfSettings()">💾 Save PDF Settings</button>
+    </div>
+    <div class="settings-card-section">
+      <div class="settings-card-section-title">ℹ️ PDF Preview Info</div>
+      <div class="info-row"><span class="info-label">Header</span><span class="info-value">CHHAPOLA AGRICULTURE</span></div>
+      <div class="info-row"><span class="info-label">Name</span><span class="info-value">${escapeHTML(saved.ownerName || 'Not set')}</span></div>
+      <div class="info-row"><span class="info-label">Contact</span><span class="info-value">${escapeHTML(saved.contact || 'Not set')}</span></div>
+      <div class="info-row"><span class="info-label">Address</span><span class="info-value">${escapeHTML(saved.address || 'Not set')}</span></div>
+    </div>
+  `;
+}
+
 async function savePdfSettings() {
   const user = window.auth.currentUser;
   if (!user) return;
@@ -1938,25 +2067,41 @@ async function savePdfSettings() {
   try {
     await setDoc(doc(window.db, 'user_pdf_settings', user.uid), data, { merge: true });
     alert('✅ PDF Settings saved!');
-  } catch(e) {
-    alert('❌ Error: ' + e.message);
-  }
+  } catch(e) { alert('❌ Error: ' + e.message); }
 }
 
-// ---- Change Password ----
-function loadPasswordSection(el) {
+// ---- SECURITY & PASSWORD ----
+function renderSecurity(el) {
+  const user = window.auth?.currentUser;
+  if (!user) { el.innerHTML = '<p style="color:#dc2626">❌ Login required</p>'; return; }
   el.innerHTML = `
-    <div class="card" style="margin-bottom:16px">
-      <label style="font-weight:600;font-size:13px;color:#475569">New Password</label>
-      <input type="password" id="newPass1" placeholder="New Password (min 6 chars)" style="margin-bottom:10px">
-      <label style="font-weight:600;font-size:13px;color:#475569">Confirm Password</label>
-      <input type="password" id="newPass2" placeholder="Confirm Password" style="margin-bottom:10px">
-      <button onclick="doChangePassword()" style="background:#176b35;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">🔐 Update Password</button>
-      <div style="margin-top:16px;border-top:1px solid #e5e7eb;padding-top:12px">
-        <button onclick="forgotPassword()" style="background:#6366f1;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">📧 Forgot Password?</button>
+    <h3 class="settings-section-title">🔐 Security & Password</h3>
+    <p class="settings-section-desc">Manage your account security</p>
+    <div class="settings-card-section">
+      <div class="settings-card-section-title">🔑 Change Password</div>
+      <div class="field-group">
+        <label class="field-label">New Password</label>
+        <input class="field-input" type="password" id="newPass1" placeholder="New password (min 6 chars)">
       </div>
-    </div>`;
+      <div class="field-group">
+        <label class="field-label">Confirm Password</label>
+        <input class="field-input" type="password" id="newPass2" placeholder="Confirm password">
+      </div>
+      <button class="settings-btn-primary" onclick="doChangePassword()">🔐 Update Password</button>
+    </div>
+    <div class="settings-card-section">
+      <div class="settings-card-section-title">📧 Account Info</div>
+      <div class="info-row"><span class="info-label">Email</span><span class="info-value">${escapeHTML(user.email)}</span></div>
+      <div class="info-row"><span class="info-label">Account Status</span><span class="info-badge badge-green">Active</span></div>
+    </div>
+    <div class="settings-card-section">
+      <div class="settings-card-section-title">🔄 Password Reset</div>
+      <p style="font-size:13px;color:#6b7280;margin-bottom:12px">Send a password reset link to your email.</p>
+      <button class="settings-btn-secondary" onclick="forgotPassword()">📧 Send Reset Email</button>
+    </div>
+  `;
 }
+
 async function doChangePassword() {
   const user = window.auth.currentUser;
   if (!user) { alert('❌ Login required'); return; }
@@ -1970,89 +2115,118 @@ async function doChangePassword() {
     alert('✅ Password updated!');
     document.getElementById('newPass1').value = '';
     document.getElementById('newPass2').value = '';
-  } catch(e) {
-    alert('❌ ' + e.message);
-  }
+  } catch(e) { alert('❌ ' + e.message); }
 }
 
-// ---- Feedback ----
-function loadFeedbackSection(el) {
+// ---- FEEDBACK ----
+function renderFeedback(el) {
+  const user = window.auth?.currentUser;
+  if (!user) { el.innerHTML = '<p style="color:#dc2626">❌ Login required</p>'; return; }
   el.innerHTML = `
-    <div class="card" style="margin-bottom:16px">
-      <label style="font-weight:600;font-size:13px;color:#475569">Feedback Type</label>
-      <select id="fbType" style="margin-bottom:10px">
-        <option value="suggestion">💡 Suggestion</option>
-        <option value="bug">🐛 Bug Report</option>
-        <option value="praise">⭐ Praise</option>
-        <option value="other">📝 Other</option>
-      </select>
-      <label style="font-weight:600;font-size:13px;color:#475569">Your Feedback</label>
-      <textarea id="fbMessage" rows="4" placeholder="Write your feedback..." style="margin-bottom:10px"></textarea>
-      <label style="font-weight:600;font-size:13px;color:#475569">Rating (optional)</label>
-      <select id="fbRating" style="margin-bottom:10px">
-        <option value="">No rating</option>
-        <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
-        <option value="4">⭐⭐⭐⭐ Good</option>
-        <option value="3">⭐⭐⭐ Average</option>
-        <option value="2">⭐⭐ Below Average</option>
-        <option value="1">⭐ Poor</option>
-      </select>
-      <button onclick="submitFeedback()" style="background:#176b35;color:white;border:none;padding:12px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%">📤 Submit Feedback</button>
-    </div>`;
+    <h3 class="settings-section-title">💬 Feedback</h3>
+    <p class="settings-section-desc">Share your suggestions, report bugs, or leave a review</p>
+    <div class="settings-card-section">
+      <div class="settings-card-section-title">📝 Send Feedback</div>
+      <div class="field-group">
+        <label class="field-label">Feedback Type</label>
+        <select class="field-select" id="fbType">
+          <option value="suggestion">💡 Suggestion</option>
+          <option value="bug">🐛 Bug Report</option>
+          <option value="praise">⭐ Praise</option>
+          <option value="other">📝 Other</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Your Message</label>
+        <textarea class="field-textarea" id="fbMessage" placeholder="Write your feedback here..." rows="4"></textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Rating (optional)</label>
+        <div class="rating-group">
+          <label class="rating-option" onclick="this.querySelector('input').checked=true;this.parentElement.querySelectorAll('.rating-option').forEach(r=>r.classList.remove('selected'));this.classList.add('selected')"><input type="radio" name="fbRating" value="1"><div class="rating-stars">⭐</div><div class="rating-label">Poor</div></label>
+          <label class="rating-option" onclick="this.querySelector('input').checked=true;this.parentElement.querySelectorAll('.rating-option').forEach(r=>r.classList.remove('selected'));this.classList.add('selected')"><input type="radio" name="fbRating" value="2"><div class="rating-stars">⭐⭐</div><div class="rating-label">Fair</div></label>
+          <label class="rating-option" onclick="this.querySelector('input').checked=true;this.parentElement.querySelectorAll('.rating-option').forEach(r=>r.classList.remove('selected'));this.classList.add('selected')"><input type="radio" name="fbRating" value="3"><div class="rating-stars">⭐⭐⭐</div><div class="rating-label">Good</div></label>
+          <label class="rating-option" onclick="this.querySelector('input').checked=true;this.parentElement.querySelectorAll('.rating-option').forEach(r=>r.classList.remove('selected'));this.classList.add('selected')"><input type="radio" name="fbRating" value="4"><div class="rating-stars">⭐⭐⭐⭐</div><div class="rating-label">Great</div></label>
+          <label class="rating-option" onclick="this.querySelector('input').checked=true;this.parentElement.querySelectorAll('.rating-option').forEach(r=>r.classList.remove('selected'));this.classList.add('selected')"><input type="radio" name="fbRating" value="5"><div class="rating-stars">⭐⭐⭐⭐⭐</div><div class="rating-label">Excellent</div></label>
+        </div>
+      </div>
+      <button class="settings-btn-primary" onclick="submitFeedback()">📤 Submit Feedback</button>
+    </div>
+  `;
 }
+
 async function submitFeedback() {
   const user = window.auth.currentUser;
   if (!user) { alert('❌ Login required'); return; }
   const msg = document.getElementById('fbMessage').value.trim();
-  if (!msg) { alert('Feedback लिखें'); return; }
+  if (!msg) { alert('Feedback message लिखें'); return; }
+  const ratingEl = document.querySelector('input[name="fbRating"]:checked');
   try {
     await addDoc(collection(window.db, 'feedback'), {
-      uid: user.uid,
-      email: user.email,
+      uid: user.uid, email: user.email,
       type: document.getElementById('fbType').value,
-      message: msg,
-      rating: document.getElementById('fbRating').value || '',
+      message: msg, rating: ratingEl ? ratingEl.value : '',
       createdAt: new Date().toISOString()
     });
     alert('✅ Feedback sent! धन्यवाद 🙏');
     document.getElementById('fbMessage').value = '';
-    document.getElementById('fbRating').value = '';
-  } catch(e) {
-    alert('❌ Error: ' + e.message);
-  }
+  } catch(e) { alert('❌ Error: ' + e.message); }
 }
 
-// ---- Privacy Policy ----
-function loadPrivacyPolicy(el) {
-  el.innerHTML = `<div style="padding:16px;font-size:14px;line-height:1.8;color:#1f2937">
-    <h3 style="color:#176b35;margin-bottom:12px">🔒 Privacy Policy</h3>
-    <p style="font-size:12px;color:#6b7280">Last updated: August 2026 | Version 1.0</p>
-    <h4 style="color:#176b35;margin-top:16px">1. डेटा संग्रह</h4>
-    <p>Chhapola Agriculture निम्नलिखित जानकारी एकत्र करता है:</p>
-    <ul><li>Account बनाते समय: नाम, मोबाइल नंबर, ईमेल</li><li>Use करते समय: किसान रिकॉर्ड, काम की जानकारी, भुगतान विवरण</li><li>Device/Browser: IP address, browser type</li></ul>
-    <h4 style="color:#176b35;margin-top:16px">2. डेटा उपयोग</h4>
-    <p>आपका डेटा केवल इन कार्यों के लिए उपयोग होता है:</p>
-    <ul><li>Tractor Account Ledger संचालन</li><li>AI Munshi द्वारा हिसाब जवाब देना</li><li>PDF/Report बनाना</li><li>Website सुधारना</li></ul>
-    <h4 style="color:#176b35;margin-top:16px">3. डेटा सुरक्षा</h4>
-    <p>हम Firebase (Google) की सुरक्षा का उपयोग करते हैं। लेकिन इंटरनेट पर 100% सुरक्षा की गारंटी नहीं दी जा सकती।</p>
-    <h4 style="color:#176b35;margin-top:16px">4. तीसरे पक्ष</h4>
-    <p>हम केवल Firebase (Authentication, Database) और Gemini AI का उपयोग करते हैं। ये Google की Privacy Policy के अधीन हैं।</p>
-    <h4 style="color:#176b35;margin-top:16px">5. आपके अधिकार</h4>
-    <ul><li>अपना डेटा देख सकते हैं</li><li>Profile update कर सकते हैं</li><li>Account delete कर सकते हैं</li><li>Feedback भेज सकते हैं</li></ul>
-    <h4 style="color:#176b35;margin-top:16px">6. संपर्क</h4>
-    <p>Privacy संबंधी प्रश्नों के लिए Website Owner से संपर्क करें।</p>
-  </div>`;
+// ---- PRIVACY POLICY ----
+let _privacyLang = 'hi';
+function renderPrivacy(el) {
+  _privacyLang = 'hi';
+  _renderPrivacyContent(el);
+}
+
+function _renderPrivacyContent(el) {
+  const hi = _privacyLang === 'hi';
+  el.innerHTML = `
+    <h3 class="settings-section-title">🔒 Privacy Policy</h3>
+    <p class="settings-section-desc">Last updated: August 2026 | Version 1.0</p>
+    <div class="lang-toggle">
+      <button class="lang-toggle-btn ${hi ? 'active' : ''}" onclick="_privacyLang='hi';_renderPrivacyContent(document.getElementById('userSettingsContent'))">हिंदी</button>
+      <button class="lang-toggle-btn ${!hi ? 'active' : ''}" onclick="_privacyLang='en';_renderPrivacyContent(document.getElementById('userSettingsContent'))">English</button>
+    </div>
+    <div class="settings-card-section">
+      <div class="policy-content">
+        ${hi ? `
+          <h4>1. डेटा संग्रह</h4><p>Chhapola Agriculture निम्नलिखित जानकारी एकत्र करता है:</p>
+          <ul><li>Account बनाते समय: नाम, मोबाइल नंबर, ईमेल</li><li>Use करते समय: किसान रिकॉर्ड, काम की जानकारी, भुगतान विवरण</li><li>Device/Browser: IP address, browser type</li></ul>
+          <h4>2. डेटा उपयोग</h4><p>आपका डेटा केवल इन कार्यों के लिए उपयोग होता है:</p>
+          <ul><li>Tractor Account Ledger संचालन</li><li>AI Munshi द्वारा हिसाब जवाब देना</li><li>PDF/Report बनाना</li><li>Website सुधारना</li></ul>
+          <h4>3. डेटा सुरक्षा</h4><p>हम Firebase (Google) की सुरक्षा का उपयोग करते हैं। लेकिन इंटरनेट पर 100% सुरक्षा की गारंटी नहीं दी जा सकती।</p>
+          <h4>4. तीसरे पक्ष</h4><p>हम केवल Firebase (Authentication, Database) और Gemini AI का उपयोग करते हैं। ये Google की Privacy Policy के अधीन हैं।</p>
+          <h4>5. आपके अधिकार</h4><ul><li>अपना डेटा देख सकते हैं</li><li>Profile update कर सकते हैं</li><li>Account delete कर सकते हैं</li><li>Feedback भेज सकते हैं</li></ul>
+          <h4>6. संपर्क</h4><p>Privacy संबंधी प्रश्नों के लिए Website Owner से संपर्क करें।</p>
+        ` : `
+          <h4>1. Data Collection</h4><p>Chhapola Agriculture collects the following information:</p>
+          <ul><li>Account creation: Name, mobile number, email</li><li>During use: Farmer records, work details, payment data</li><li>Device/Browser: IP address, browser type</li></ul>
+          <h4>2. Data Usage</h4><p>Your data is used only for:</p>
+          <ul><li>Operating the Tractor Account Ledger</li><li>AI Munshi answering queries</li><li>Generating PDF/Reports</li><li>Improving the website</li></ul>
+          <h4>3. Data Security</h4><p>We use Firebase (Google) security. However, 100% security on the internet cannot be guaranteed.</p>
+          <h4>4. Third Parties</h4><p>We only use Firebase (Authentication, Database) and Gemini AI. These are subject to Google's Privacy Policy.</p>
+          <h4>5. Your Rights</h4><ul><li>View your data</li><li>Update your profile</li><li>Delete your account</li><li>Submit feedback</li></ul>
+          <h4>6. Contact</h4><p>For privacy-related questions, contact the Website Owner.</p>
+        `}
+      </div>
+    </div>
+  `;
 }
 
 window.openSideMenu = openSideMenu;
 window.closeSideMenu = closeSideMenu;
 window.openUserSettings = openUserSettings;
-window.closeUserSettings = closeUserSettings;
+window.handleSettingsBack = handleSettingsBack;
+window.openTermsFromSettings = openTermsFromSettings;
 window.saveProfile = saveProfile;
 window.saveWorkRates = saveWorkRates;
+window.resetWorkRates = resetWorkRates;
 window.savePdfSettings = savePdfSettings;
 window.doChangePassword = doChangePassword;
 window.submitFeedback = submitFeedback;
+window._renderPrivacyContent = _renderPrivacyContent;
 
 // =========================
 // VOICE ENTRY - PART 2
