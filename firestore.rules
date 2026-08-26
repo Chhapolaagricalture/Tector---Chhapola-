@@ -97,6 +97,27 @@ service cloud.firestore {
     }
 
     // ============================================
+    // PHASE 3: Spare Parts Collections
+    // ============================================
+
+    // --- Part Search History ---
+    match /part_search_history/{historyId} {
+      allow read: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      allow update: if false;
+    }
+
+    // --- User Spare Part Lists (saved/favourite parts) ---
+    match /spare_part_lists/{listId} {
+      allow read: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if request.auth != null && resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.ownerUid == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // ============================================
     // DEFAULT: Deny all other collections
     // ============================================
     match /{document=**} {

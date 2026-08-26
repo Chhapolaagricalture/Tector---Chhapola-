@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Spare Parts — Chhapola Agriculture</title>
+  <link rel="stylesheet" href="spare-parts.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192-v2.png">
+  <link rel="apple-touch-icon" href="icon-512-v2.png">
+</head>
+<body class="sp-body">
+
+  <!-- AUTH GATE -->
+  <div id="authGate" class="sp-auth-gate" style="display:none;">
+    <div style="font-size:64px;margin-bottom:16px;">🔐</div>
+    <h2>Login Required</h2>
+    <p>Spare Parts & Price Analysis access के लिए login करें।</p>
+    <a href="index.html">Login Page पर जाएं →</a>
+  </div>
+
+  <!-- LOADING -->
+  <div id="appLoading" class="sp-loading">Loading...</div>
+
+  <!-- MAIN APP -->
+  <div id="appMain" style="display:none;">
+
+    <!-- HEADER -->
+    <div class="sp-header">
+      <button class="sp-header-back" onclick="window.location.href='index.html'" aria-label="Back">←</button>
+      <div>
+        <div class="sp-header-title">🛠️ Spare Parts & Price</div>
+        <span class="sp-header-sub">Chhapola Agriculture</span>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="sp-tabs" id="spTabs">
+      <button class="sp-tab active" data-tab="search">🔍 Search</button>
+      <button class="sp-tab" data-tab="catalog">📦 Catalog</button>
+      <button class="sp-tab" data-tab="compare">⚖️ Compare</button>
+      <button class="sp-tab" data-tab="analysis">📊 Analysis</button>
+      <button class="sp-tab" data-tab="history">📋 History</button>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="sp-content" id="spContent"></div>
+  </div>
+
+  <!-- PART DETAIL MODAL -->
+  <div class="sp-modal-overlay" id="spModal">
+    <div class="sp-modal">
+      <div class="sp-modal-header">
+        <h3 id="spModalTitle">Part Details</h3>
+        <button class="sp-modal-close" onclick="window._spCloseModal()">✕</button>
+      </div>
+      <div class="sp-modal-body" id="spModalBody"></div>
+    </div>
+  </div>
+
+  <!-- FIREBASE SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getFirestore, collection, doc, addDoc, getDoc, getDocs, deleteDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDJiW2pdtRFOtz__jAhZl7tYd4rQmmlUwA",
+      authDomain: "chhapola-agriculture-e7313.firebaseapp.com",
+      projectId: "chhapola-agriculture-e7313",
+      storageBucket: "chhapola-agriculture-e7313.firebasestorage.app",
+      messagingSenderId: "717143487417",
+      appId: "1:717143487417:web:cabdec68e69ac794197c68",
+      measurementId: "G-YZPYMQEDMC"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    window.spModules = { collection, doc, addDoc, getDoc, getDocs, deleteDoc, query, where, orderBy };
+    window.spAuth = { onAuthStateChanged, signOut };
+    window.spDb = db;
+    window.spAuthInstance = auth;
+
+    onAuthStateChanged(auth, (user) => {
+      document.getElementById('appLoading').style.display = 'none';
+      if (user) {
+        document.getElementById('appMain').style.display = 'block';
+        document.getElementById('authGate').style.display = 'none';
+        window._spUser = user;
+        if (window.initSpareParts) window.initSpareParts(user);
+      } else {
+        document.getElementById('appMain').style.display = 'none';
+        document.getElementById('authGate').style.display = 'flex';
+      }
+    });
+  </script>
+
+  <!-- SPARE PARTS LOGIC -->
+  <script src="spare-parts.js"></script>
+
+</body>
+</html>
