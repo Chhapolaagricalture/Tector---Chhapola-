@@ -489,6 +489,32 @@ function parseQuestion(text) {
         if (q.includes(key)) { result.crop = value; break; }
     }
 
+    // ---- Extract numeric filters (for actions) ----
+    // Bigha / quantity: "2 बीघा", "3 bigha", "1.5"
+    const bighaMatch = rawText.match(/(\d+(?:\.\d+)?)\s*(?:बीघा|bigha|बीघे)/i);
+    if (bighaMatch) result.filters.bigha = parseFloat(bighaMatch[1]);
+
+    // Rate: "₹250", "250 रुपये", "250 rate", "250 में"
+    const rateMatch = rawText.match(/(?:₹|rs\.?|rupees?|rate|में|per)\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:₹|rs\.?|rupees?|रुपये|रुपया|rate|प्रति)/i);
+    if (rateMatch) result.filters.rate = parseFloat(rateMatch[1] || rateMatch[2]);
+
+    // Hours: "2 घंटा", "3 hours", "1.5 hr"
+    const hoursMatch = rawText.match(/(\d+(?:\.\d+)?)\s*(?:घंटा|घंटे|hours?|hrs?)/i);
+    if (hoursMatch) result.filters.hours = parseFloat(hoursMatch[1]);
+
+    // Minutes: "30 मिनट", "15 minutes"
+    const minMatch = rawText.match(/(\d+(?:\.\d+)?)\s*(?:मिनट|minutes?|mins?)/i);
+    if (minMatch) result.filters.minutes = parseFloat(minMatch[1]);
+
+    // Unit (for spray): "10 लीटर", "5 units"
+    const unitMatch = rawText.match(/(\d+(?:\.\d+)?)\s*(?:लीटर|litre|liter|units?|unit|बोतल|bottle)/i);
+    if (unitMatch) result.filters.unit = parseFloat(unitMatch[1]);
+
+    // Paid: "₹500 जमा", "500 paid", "500 जमा"
+    const paidMatch = rawText.match(/(?:₹|rs\.?|rupees?)?\s*(\d+(?:\.\d+)?)\s*(?:जमा|paid|deposit|दिया|diya)/i) ||
+                      rawText.match(/(?:जमा|paid|deposit)\s*(\d+(?:\.\d+)?)/i);
+    if (paidMatch) result.filters.paid = parseFloat(paidMatch[1]);
+
     return result;
 }
 
@@ -1273,6 +1299,96 @@ async function handleSend(userText) {
             parsed = parseQuestion(text);
         }
     } catch(e) { console.log("parseQuestion error:", e); }
+
+    // ==========================================
+    // STEP 2.5: ACTION INTENT HANDLING
+    // ==========================================
+    if (parsed.intent && parsed.intent.startsWith("ACTION_")) {
+        // Do farmer search first so processActionRequest has records
+        let actionFarmerRecords = [];
+        try {
+            if (parsed.farmer && typeof window.records === "object" && window.records && window.records.length) {
+                const fn = parsed.farmer.trim().toLowerCase();
+                actionFarmerRecords = window.records.filter(r => {
+                    const name = (r.name || r.farmer || "").trim().toLowerCase();
+                    return name === fn;
+                });
+            }
+            if (!actionFarmerRecords.length && typeof searchFarmerRecords === "function") {
+                actionFarmerRecords = searchFarmerRecords(parsed.farmer || text) || [];
+            }
+        } catch(e) {}
+
+        const actionResult = typeof processActionRequest === "function"
+            ? processActionRequest(parsed, actionFarmerRecords) : null;
+
+        if (actionResult) {
+            loadingDiv.remove();
+
+            // If action needs more info (no farmer found, no amount, etc.)
+            if (actionResult.message && !actionResult.confirmation) {
+                appendMessage(actionResult.message, "ai");
+                isRequestPending = false;
+                return;
+            }
+
+            // Show confirmation with buttons
+            if (actionResult.confirmation && actionResult.data) {
+                window._pendingActionData = actionResult.data;
+                const msgDiv = appendMessage(actionResult.message, "ai");
+
+                // Create confirmation buttons
+                const btnRow = document.createElement("div");
+                btnRow.style.cssText = "display:flex;gap:8px;margin:8px 0;flex-wrap:wrap;";
+
+                const saveBtn = document.createElement("button");
+                saveBtn.textContent = "✅ Save";
+                saveBtn.style.cssText = "flex:1;min-width:100px;padding:10px 16px;border:none;border-radius:8px;background:#16a34a;color:white;font-size:14px;font-weight:600;cursor:pointer;";
+                saveBtn.onclick = async function() {
+                    saveBtn.disabled = true;
+                    cancelBtn.disabled = true;
+                    saveBtn.textContent = "⏳ Saving...";
+                    try {
+                        if (typeof confirmAction === "function") {
+                            const result = await confirmAction(window._pendingActionData);
+                            appendMessage(result || "✅ Done!", "ai");
+                        }
+                    } catch(e) {
+                        appendMessage("❌ Error: " + e.message, "ai");
+                    }
+                    window._pendingActionData = null;
+                    btnRow.remove();
+                };
+
+                const cancelBtn = document.createElement("button");
+                cancelBtn.textContent = "❌ Cancel";
+                cancelBtn.style.cssText = "flex:1;min-width:100px;padding:10px 16px;border:none;border-radius:8px;background:#dc2626;color:white;font-size:14px;font-weight:600;cursor:pointer;";
+                cancelBtn.onclick = function() {
+                    window._pendingActionData = null;
+                    btnRow.remove();
+                    appendMessage("❌ Cancel कर दिया गया।", "ai");
+                };
+
+                btnRow.appendChild(saveBtn);
+                btnRow.appendChild(cancelBtn);
+                if (msgDiv && msgDiv.parentNode) {
+                    msgDiv.parentNode.insertBefore(btnRow, msgDiv.nextSibling);
+                } else {
+                    messagesContainer.appendChild(btnRow);
+                }
+
+                isRequestPending = false;
+                return;
+            }
+
+            // Action with direct result (no confirmation needed)
+            if (actionResult.message) {
+                appendMessage(actionResult.message, "ai");
+            }
+            isRequestPending = false;
+            return;
+        }
+    }
 
     // ==========================================
     // STEP 3: SMART FARMER SEARCH
