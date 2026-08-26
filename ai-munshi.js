@@ -273,7 +273,35 @@ function parseQuestion(text) {
         }
     }
 
-    // ---- Detect intent (priority order matters) ----
+    // ---- Detect ACTION intent (priority: actions before queries) ----
+
+    // ADD RECORD
+    if (/डाल\s*(दो|दे|डाल)|entry\s*(बना|डाल|add)|record\s*(बना|add)|रिकॉर्ड\s*(बना|add|डाल)/.test(q)) {
+        result.intent = "ACTION_ADD_RECORD";
+    }
+    // ADD PAYMENT
+    else if (/जमा\s*(कर|करो|करे|दो|दे)|payment\s*(add|कर)|पैसा\s*(जमा|add)|₹.*\s*जमा|\d+\s*जमा/.test(q)) {
+        result.intent = "ACTION_ADD_PAYMENT";
+    }
+    // UPDATE RECORD
+    else if (/बदल\s*(दो|दे|बदल)|edit\s*(कर|करो)|update\s*(कर)|सुधार\s*(दो|दे)/.test(q)) {
+        result.intent = "ACTION_UPDATE_RECORD";
+    }
+    // DELETE RECORD
+    else if (/हटा\s*(दो|दे|हटा)|delete\s*(कर|करो)|मिटा\s*(दो|दे)|रद्द\s*(कर|करो)/.test(q)) {
+        result.intent = "ACTION_DELETE_RECORD";
+    }
+    // WHATSAPP
+    else if (/whatsapp|व्हाट्सएप|व्हाट्सएप्प|message\s*(भेज|send)|संदेश\s*भेज/.test(q)) {
+        result.intent = "ACTION_WHATSAPP";
+    }
+    // PDF
+    else if (/pdf|पीडीएफ|बिल\s*बना|पर्ची\s*बना/.test(q)) {
+        result.intent = "ACTION_PDF";
+    }
+
+    // ---- Detect QUERY intent (only if not an action) ----
+    if (result.intent === "GENERAL" || !result.intent.startsWith("ACTION_")) {
 
     // Full ledger / history
     if (/पूरा\s*(हिसाब|record|history|ledger|data)|full.*(ledger|history|record)|हिसाब.*(बता|दे|निकाल)|ledger|history|पूरे?\s*(का|की|के)/.test(q)) {
@@ -344,6 +372,8 @@ function parseQuestion(text) {
     }
 
     // ---- Extract date ----
+    } // end query intent block
+
     const today = new Date();
 
     if (/आज|today/.test(q)) {
@@ -671,6 +701,272 @@ function buildLocalAnswer(parsed, records) {
 }
 
 window.buildLocalAnswer = buildLocalAnswer;
+
+// ==========================================
+// ACTION REQUEST PROCESSOR
+// Detects if parsed intent is an action, builds confirmation
+// ==========================================
+
+function processActionRequest(parsed, filteredRecords) {
+    const intent = parsed.intent;
+    if (!intent || !intent.startsWith("ACTION_")) return null;
+
+    const farmer = parsed.farmer || (window.RAJ_AI.munshi.context.farmer);
+    const ctx = window.RAJ_AI.munshi.context;
+
+    switch (intent) {
+        case "ACTION_ADD_RECORD": {
+            if (!farmer) return { message: "किस किसान के लिए entry बनानी है? किसान का नाम बताएं।" };
+            const data = {
+                action: "ADD_RECORD",
+                farmer: farmer,
+                date: parsed.date || new Date().toISOString().split("T")[0],
+                work: parsed.work || "",
+                crop: parsed.crop || "",
+                bigha: parsed.filters.bigha || 0,
+                rate: parsed.filters.rate || 0,
+                paid: parsed.filters.paid || 0,
+                hours: parsed.filters.hours || 0,
+                minutes: parsed.filters.minutes || 0,
+            };
+            // Calculate total locally using existing rules
+            let total = 0;
+            if (data.work === "Thresher" && data.crop === "Bajra") {
+                total = data.bigha * data.rate;
+            } else if (data.work === "Thresher") {
+                total = (data.hours + (data.minutes || 0) / 60) * data.rate;
+            } else if (data.work === "Spray Machine") {
+                total = (parsed.filters.unit || 0) * data.rate;
+            } else if (data.work === "Pending Balance") {
+                total = data.rate;
+            } else {
+                total = data.bigha * data.rate;
+            }
+            data.total = total;
+            data.balance = total - data.paid;
+
+            return {
+                action: true,
+                type: "ADD_RECORD",
+                confirmation: true,
+                message: `नई entry बनाने वाला हूँ:\n\n👨‍🌾 किसान: ${data.farmer}\n📅 तारीख: ${data.date}\n🚜 काम: ${data.work || "(नहीं बताया)"}` + (data.crop ? `\n🌾 फसल: ${data.crop}` : "") + `\n📏 मात्रा: ${data.bigha}\n💰 Rate: ₹${data.rate}\n💵 कुल: ₹${data.total}` + (data.paid ? `\n✅ जमा: ₹${data.paid}` : "") + (data.balance > 0 ? `\n❌ बाकी: ₹${data.balance}` : "") + `\n\nक्या इसे save कर दूँ?`,
+                data: data
+            };
+        }
+
+        case "ACTION_ADD_PAYMENT": {
+            if (!farmer) return { message: "किस किसान का payment जमा करना है? किसान का नाम बताएं।" };
+            // Extract amount from question
+            const amtMatch = (parsed.raw || "").match(/(\d+)/);
+            const amount = amtMatch ? Number(amtMatch[1]) : 0;
+            if (amount <= 0) return { message: "कितने रुपये जमा करने हैं? राशि बताएं।" };
+
+            // Find most recent record for this farmer
+            const farmerRecords = filteredRecords.length ? filteredRecords : (window.records || []).filter(r => {
+                const fn = (farmer || "").trim().toLowerCase();
+                return (r.name || r.farmer || "").trim().toLowerCase() === fn;
+            });
+            const targetRecord = farmerRecords.length ? farmerRecords[farmerRecords.length - 1] : null;
+
+            return {
+                action: true,
+                type: "ADD_PAYMENT",
+                confirmation: true,
+                message: `${farmer} को ₹${amount} जमा कर रहा हूँ।` + (targetRecord ? `\n📋 Record: ${targetRecord.date || ""} ${targetRecord.work || ""} (कुल ₹${targetRecord.total || 0})` : "") + `\n\nक्या इसे save कर दूँ?`,
+                data: { action: "ADD_PAYMENT", farmer: farmer, amount: amount, recordId: targetRecord ? targetRecord.id : null }
+            };
+        }
+
+        case "ACTION_DELETE_RECORD": {
+            if (!farmer) return { message: "किस किसान की entry हटानी है? किसान का नाम बताएं।" };
+            return {
+                action: true,
+                type: "DELETE_RECORD",
+                confirmation: true,
+                message: `⚠️ ${farmer} की entry हटाने वाला हूँ।\n\nयह action undo नहीं हो सकता।\n\nक्या आप सुनिश्चित हैं?`,
+                data: { action: "DELETE_RECORD", farmer: farmer }
+            };
+        }
+
+        case "ACTION_UPDATE_RECORD": {
+            if (!farmer) return { message: "किस किसान की entry बदलनी है? किसान का नाम बताएं।" };
+            return {
+                action: true,
+                type: "UPDATE_RECORD",
+                confirmation: true,
+                message: `${farmer} की entry बदलनी है।\nकौन सी जानकारी बदलनी है? (तारीख, काम, रेट, जमा आदि)`,
+                data: { action: "UPDATE_RECORD", farmer: farmer, updates: {} }
+            };
+        }
+
+        case "ACTION_WHATSAPP": {
+            if (!farmer) return { message: "किस किसान को WhatsApp भेजना है?" };
+            const farmerRecords = filteredRecords.length ? filteredRecords : (window.records || []).filter(r => {
+                const fn = (farmer || "").trim().toLowerCase();
+                return (r.name || r.farmer || "").trim().toLowerCase() === fn;
+            });
+            let total = 0, paid = 0;
+            farmerRecords.forEach(r => { total += Number(r.total || 0); paid += Number(r.paid || 0); });
+            const balance = total - paid;
+            const mobile = farmerRecords.length ? (farmerRecords[0].mobile || "") : "";
+
+            const msg = `राम-राम जी 🙏\n\nछपोला एग्रीकल्चर — हिसाब विवरण\n\n👨‍🌾 किसान: ${farmer}\n💰 कुल राशि: ₹${total}\n✅ जमा: ₹${paid}\n❌ बाकी: ₹${balance}\n\nधन्यवाद!\n— Chhapola Agriculture`;
+
+            return {
+                action: true,
+                type: "WHATSAPP",
+                confirmation: true,
+                message: `${farmer} को यह संदेश WhatsApp पर भेजना है:\n\n${msg}\n\n${mobile ? "📱 मोबाइल: " + mobile : "⚠️ मोबाइल नंबर उपलब्ध नहीं है।"}\n\nभेजें?`,
+                data: { action: "WHATSAPP", farmer: farmer, mobile: mobile, message: msg, total: total, paid: paid, balance: balance }
+            };
+        }
+
+        case "ACTION_PDF": {
+            if (!farmer) return { message: "किस किसान का PDF बनाना है?" };
+            return {
+                action: true,
+                type: "PDF",
+                confirmation: true,
+                message: `${farmer} का PDF बना रहा हूँ।\n\nक्या PDF download कर दूँ?`,
+                data: { action: "PDF", farmer: farmer }
+            };
+        }
+
+        default:
+            return null;
+    }
+}
+
+window.processActionRequest = processActionRequest;
+
+// ==========================================
+// CONFIRM ACTION EXECUTOR
+// Executes confirmed actions using existing action module
+// ==========================================
+
+async function confirmAction(actionData) {
+    if (!actionData || !actionData.action) return "अमान्य action।";
+
+    const user = window.auth ? window.auth.currentUser : null;
+    if (!user) return "❌ Login required है।";
+
+    try {
+        switch (actionData.action) {
+            case "ADD_RECORD": {
+                // Use existing saveEntry from Script.js
+                if (typeof saveEntry === "function") {
+                    await saveEntry({
+                        name: actionData.farmer,
+                        date: actionData.date,
+                        work: actionData.work,
+                        crop: actionData.crop,
+                        bigha: actionData.bigha,
+                        rate: actionData.rate,
+                        paid: actionData.paid,
+                        total: actionData.total,
+                        baki: actionData.balance,
+                        time: actionData.hours ? actionData.hours + " घंटा" + (actionData.minutes ? " " + actionData.minutes + " मिनट" : "") : "",
+                        unit: actionData.unit || 0
+                    });
+                    // Refresh records
+                    if (typeof show === "function") await show();
+                    if (typeof refreshRajMemory === "function") await refreshRajMemory();
+                    return `✅ ${actionData.farmer} की entry save हो गई!\n💰 कुल: ₹${actionData.total}` + (actionData.balance > 0 ? `\n❌ बाकी: ₹${actionData.balance}` : " (चुकता)");
+                }
+                return "⚠️ saveEntry function उपलब्ध नहीं है।";
+            }
+
+            case "ADD_PAYMENT": {
+                if (actionData.recordId && typeof updateEntry === "function") {
+                    const existingRecord = (window.records || []).find(r => r.id === actionData.recordId);
+                    if (existingRecord) {
+                        const newPaid = Number(existingRecord.paid || 0) + actionData.amount;
+                        const newBalance = Number(existingRecord.total || 0) - newPaid;
+                        await updateEntry(actionData.recordId, { paid: newPaid, baki: newBalance });
+                        if (typeof show === "function") await show();
+                        if (typeof refreshRajMemory === "function") await refreshRajMemory();
+                        return `✅ ${actionData.farmer} को ₹${actionData.amount} जमा हो गया!\n💵 नया जमा: ₹${newPaid}\n❌ बाकी: ₹${newBalance}`;
+                    }
+                }
+                // If no specific record, find latest and update
+                const farmerRecords = (window.records || []).filter(r => {
+                    const fn = (actionData.farmer || "").trim().toLowerCase();
+                    return (r.name || r.farmer || "").trim().toLowerCase() === fn;
+                });
+                if (farmerRecords.length && typeof updateEntry === "function") {
+                    const last = farmerRecords[farmerRecords.length - 1];
+                    const newPaid = Number(last.paid || 0) + actionData.amount;
+                    const newBalance = Number(last.total || 0) - newPaid;
+                    await updateEntry(last.id, { paid: newPaid, baki: newBalance });
+                    if (typeof show === "function") await show();
+                    if (typeof refreshRajMemory === "function") await refreshRajMemory();
+                    return `✅ ${actionData.farmer} को ₹${actionData.amount} जमा हो गया!\n📋 Record: ${last.date} ${last.work}\n❌ बाकी: ₹${newBalance}`;
+                }
+                return "⚠️ कोई matching record नहीं मिला।";
+            }
+
+            case "DELETE_RECORD": {
+                // Soft delete latest record for this farmer
+                const farmerRecords = (window.records || []).filter(r => {
+                    const fn = (actionData.farmer || "").trim().toLowerCase();
+                    return (r.name || r.farmer || "").trim().toLowerCase() === fn;
+                });
+                if (farmerRecords.length && typeof deleteEntry === "function") {
+                    const last = farmerRecords[farmerRecords.length - 1];
+                    await deleteEntry(last.id);
+                    if (typeof show === "function") await show();
+                    if (typeof refreshRajMemory === "function") await refreshRajMemory();
+                    return `✅ ${actionData.farmer} की entry (${last.date} ${last.work}) हटा दी गई।`;
+                }
+                return "⚠️ हटाने के लिए कोई record नहीं मिला।";
+            }
+
+            case "UPDATE_RECORD": {
+                return `📝 ${actionData.farmer} की entry update करने के लिए:\n📋 Table में जाकर ✏️ Edit बटन दबाएं।\nया बताएं क्या बदलना है (तारीख, काम, रेट, जमा)।`;
+            }
+
+            case "WHATSAPP": {
+                if (actionData.mobile) {
+                    const cleanMobile = actionData.mobile.replace(/[^0-9]/g, "");
+                    const encodedMsg = encodeURIComponent(actionData.message);
+                    window.open(`https://wa.me/91${cleanMobile}?text=${encodedMsg}`, "_blank");
+                    return `✅ WhatsApp खुल रहा है!\n📱 ${actionData.farmer} (${actionData.mobile})`;
+                }
+                // Fallback: copy to clipboard
+                try {
+                    await navigator.clipboard.writeText(actionData.message);
+                    return `⚠️ मोबाइल नंबर उपलब्ध नहीं है।\n📝 संदेश clipboard पर copy हो गया।\n手动 WhatsApp में paste करें।`;
+                } catch(e) {
+                    return `⚠️ मोबाइल नंबर उपलब्ध नहीं है।\n\n${actionData.message}`;
+                }
+            }
+
+            case "PDF": {
+                // Trigger existing PDF generation
+                if (typeof createPDF === "function") {
+                    const farmerRecords = (window.records || []).filter(r => {
+                        const fn = (actionData.farmer || "").trim().toLowerCase();
+                        return (r.name || r.farmer || "").trim().toLowerCase() === fn;
+                    });
+                    if (farmerRecords.length) {
+                        await createPDF(farmerRecords);
+                        return `✅ ${actionData.farmer} का PDF बन रहा है!`;
+                    }
+                    return `⚠️ ${actionData.farmer} का कोई record नहीं मिला।`;
+                }
+                return "⚠️ PDF function उपलब्ध नहीं है।";
+            }
+
+            default:
+                return "⚠️ अज्ञात action।";
+        }
+    } catch(e) {
+        console.error("Action execution error:", e);
+        return `❌ Action में समस्या हुई: ${e.message}`;
+    }
+}
+
+window.confirmAction = confirmAction;
 
 // ==========================================
 // PART 15
