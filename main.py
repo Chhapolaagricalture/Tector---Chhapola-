@@ -21,6 +21,9 @@ from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
+# Phase 3: Spare Parts Search Router
+from spare_parts_router import router as spare_parts_router
+
 # Firebase Admin SDK
 import firebase_admin
 from firebase_admin import credentials, firestore, auth as fb_auth
@@ -219,6 +222,13 @@ async def limit_request_size(request: Request, call_next):
     return response
 
 # ==========================================
+# PHASE 3: SPARE PARTS SEARCH ROUTER
+# ==========================================
+
+app.include_router(spare_parts_router)
+
+
+# ==========================================
 # CORS — Restricted to known production domains
 # ==========================================
 
@@ -231,6 +241,7 @@ ALLOWED_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
+    "http://127.0.0.1:5174",
 ]
 
 app.add_middleware(
