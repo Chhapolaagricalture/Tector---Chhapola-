@@ -293,6 +293,15 @@ function detectContext(question){
     if(q.includes("हिसाब") || q.includes("ledger") || q.includes("record") || q.includes("history"))
         return "LEDGER";
 
+    if(q.includes("सारांश") || q.includes("summary") || q.includes("brief"))
+        return "SUMMARY";
+
+    if(q.includes("तुलना") || q.includes("compare") || q.includes("vs") || q.includes("बनाम"))
+        return "COMPARISON";
+
+    if(q.includes("तारीख") || q.includes("date") || q.includes("दिन") || q.includes("कल") || q.includes("आज"))
+        return "DATE";
+
     return "GENERAL";
 
 }
@@ -442,6 +451,48 @@ function smartReply(question,result){
             });
             ledger += "\n📊 कुल: ₹" + total + " | जमा: ₹" + paid + " | बाकी: ₹" + baki;
             return ledger;
+        }
+
+        case "SUMMARY": {
+            const works = [...new Set(records.map(r => r.work || ""))].filter(Boolean);
+            const farmerNames = [...new Set(records.map(r => r.name || ""))].filter(Boolean);
+            return (farmerList ? farmerList + " का सारांश:\n" : "सारांश:\n")
+                + "📝 एंट्री: " + records.length + "\n👨‍🌾 किसान: " + farmerNames.length + "\n"
+                + "🚜 काम: " + works.join(", ") + "\n💰 कुल: ₹" + total + "\n💵 जमा: ₹" + paid + "\n❌ बाकी: ₹" + baki;
+        }
+
+        case "DATE": {
+            const dates = {};
+            records.forEach(r => {
+                const d = r.date || "अज्ञात";
+                if (!dates[d]) dates[d] = [];
+                dates[d].push(r);
+            });
+            let dr = (farmerList ? farmerList + " का तारीख-वार:\n" : "तारीख-वार:\n");
+            Object.keys(dates).sort().forEach(d => {
+                const dayR = dates[d];
+                const dT = dayR.reduce((s,r) => s + Number(r.total || 0), 0);
+                dr += d + ": " + dayR.length + " entry, ₹" + dT + "\n";
+            });
+            return dr.trim();
+        }
+
+        case "COMPARISON": {
+            const farmerData = {};
+            records.forEach(r => {
+                const n = r.name || "अज्ञात";
+                if (!farmerData[n]) farmerData[n] = { count: 0, total: 0, paid: 0, baki: 0 };
+                farmerData[n].count++;
+                farmerData[n].total += Number(r.total || 0);
+                farmerData[n].paid += Number(r.paid || 0);
+                farmerData[n].baki += Number(r.baki || r.balance || 0);
+            });
+            const names = Object.keys(farmerData);
+            if (names.length < 2) return names.length ? names[0] + " के " + records.length + " record मिले।" : "तुलना के लिए 2 किसान चाहिए।";
+            return "तुलना:\n\n" + names.map(n => {
+                const f = farmerData[n];
+                return "👨‍🌾 " + n + ": " + f.count + " एंट्री | ₹" + f.total + " | जमा ₹" + f.paid + " | बाकी ₹" + f.baki;
+            }).join("\n");
         }
 
         default:

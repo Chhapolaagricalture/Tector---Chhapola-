@@ -261,14 +261,20 @@ function parseQuestion(text) {
 
     // ---- Context resolution for follow-up questions ----
     const ctx = window.RAJ_AI.munshi.context;
-    const isFollowUp = /उसका|उसने|उसके|उसकी|वो|वह|उसमें|उससे|उसी|ऐसा|वैसा|उस किसान|इस किसान/.test(q);
+    const isFollowUp = /उसका|उसने|उसके|उसकी|वो|वह|उसमें|उससे|उसी|ऐसा|वैसा|उस किसान|इस किसान|और|aur|भी|bhi/.test(q);
 
     if (isFollowUp && !result.farmer && ctx.farmer) {
         result.farmer = ctx.farmer;
     }
-    if (isFollowUp && !result.date && ctx.lastDate) {
-        // Only use last date if question is truly about date
-        if (/तारीख|date|दिन|तारीख|दिनांक/.test(q)) {
+    // Use last work if question is about same work
+    if (isFollowUp && !result.work && ctx.lastWork) {
+        if (/उसी|वही|same|वैसा|ऐसा/.test(q)) {
+            result.work = ctx.lastWork;
+        }
+    }
+    // Use last date if question is about date
+    if (isFollowUp && !result.date && !result.dateRange && ctx.lastDate) {
+        if (/तारीख|date|दिन|दिनांक|उसी दिन/.test(q)) {
             result.date = ctx.lastDate;
         }
     }
@@ -303,8 +309,14 @@ function parseQuestion(text) {
     // ---- Detect QUERY intent (only if not an action) ----
     if (result.intent === "GENERAL" || !result.intent.startsWith("ACTION_")) {
 
+    // SEMANTIC INTENT DETECTION (enhanced — covers more natural phrasings)
+    const semanticIntent = typeof detectSemanticIntent === 'function' ? detectSemanticIntent(q) : null;
+    if (semanticIntent) {
+        result.intent = semanticIntent;
+    }
+
     // Full ledger / history
-    if (/पूरा\s*(हिसाब|record|history|ledger|data)|full.*(ledger|history|record)|हिसाब.*(बता|दे|निकाल)|ledger|history|पूरे?\s*(का|की|के)/.test(q)) {
+    if (result.intent === "GENERAL" && (/पूरा\s*(हिसाब|record|history|ledger|data)|full.*(ledger|history|record)|हिसाब.*(बता|दे|निकाल)|ledger|history|पूरे?\s*(का|की|के)/.test(q))) {
         result.intent = "LEDGER";
     }
     // Comparison
@@ -319,23 +331,23 @@ function parseQuestion(text) {
     else if (/कितने|count|संख्या|कितना/.test(q) && /किसान|record|entry|एंट्री|काम|दिन/.test(q)) {
         result.intent = "COUNT";
     }
-    // Balance / baki
-    else if (/बाकी|balance|baki|bakaya|उधार|pending|शेष/.test(q)) {
+    // Balance / baki — ENHANCED
+    else if (/बाकी|balance|baki|bakaya|उधार|pending|शेष|रह गए|बचा|लेनी है|owed|unpaid|बकाया/.test(q)) {
         result.intent = "BALANCE";
     }
-    // Paid / paid
-    else if (/जमा|paid|diya|दिया|भुगतान|payment|pay/.test(q)) {
+    // Paid / paid — ENHANCED
+    else if (/जमा|paid|diya|दिया|भुगतान|payment|pay|deposit/.test(q)) {
         result.intent = "PAID";
     }
-    // Income / total
-    else if (/कुल|income|कमाई|total|rashi|राशि|earn|kamaya|कमाया|आय/.test(q)) {
+    // Income / total — ENHANCED
+    else if (/कुल|income|कमाई|total|rashi|राशि|earn|kamaya|कमाया|आय|कितना.*आय|कितना.*बना|रुपय/.test(q)) {
         result.intent = "INCOME";
     }
     // Crop
     else if (/फसल|crop|bajra|बाजरा|gehun|गेहूं|wheat|chana|चना|guar|ग्वार/.test(q)) {
         result.intent = "CROP";
     }
-    // Work type
+    // Work type — ENHANCED
     else if (/काम|work|hero|हीरो|calti|कल्टी|cultivator|thresher|थ्रेसर|morplau|मोरप्लाउ|display|spray|दवाई|rotavator/.test(q)) {
         result.intent = "WORK";
     }
@@ -343,13 +355,25 @@ function parseQuestion(text) {
     else if (/summary|सारांश|brief|संक्षिप्त|short|समरी/.test(q)) {
         result.intent = "SUMMARY";
     }
-    // Payment history / pending
+    // Payment history / pending — ENHANCED
     else if (/पेमेंट|payment.*history|कितना.*दिया|कितना.*जमा|पैसा|payment/.test(q)) {
         result.intent = "PAID";
     }
-    // Farmer list
+    // Farmer list — ENHANCED
     else if (/कौन|किसका|किसके|किन|किसान.*list|farmer.*list|कौन.*किसान/.test(q) && !result.farmer) {
         result.intent = "COUNT";
+    }
+    // "हिसाब बताओ" type — map to LEDGER
+    else if (/हिसाब|hisab/.test(q) && (result.farmer || isFollowUp)) {
+        result.intent = "LEDGER";
+    }
+    // "कितने रिकॉर्ड/एंट्री" without farmer — COUNT
+    else if (/कितने?|count|संख्या/.test(q) && /रिकॉर्ड|एंट्री|entries|records/.test(q)) {
+        result.intent = "COUNT";
+    }
+    // "तुलना" without explicit comparison keywords
+    else if (/तुलना|compare|vs|बनाम|मुकाबले|मिलाओ|मिला/.test(q) && result.farmer) {
+        result.intent = "COMPARISON";
     }
     // Specific question types: "क्या किया", "क्या करवाया", "कब", "पिछला काम"
     else if (/क्या.*(किया|करवाया|हुआ|था|करा|करवा)|कब|क्या है|बताओ|बता|निकाल/.test(q) && result.farmer) {
@@ -369,6 +393,10 @@ function parseQuestion(text) {
         } else if (/काम|work/.test(q)) result.intent = "WORK";
         else if (/कब|date|तारीख|दिन/.test(q)) result.intent = "DATE";
         else result.intent = "LEDGER";
+    }
+    // Generic "कितना" question with farmer — BALANCE (most common question type)
+    else if (/कितना|kitna|how much/.test(q) && result.farmer) {
+        result.intent = "BALANCE";
     }
 
     // ---- Extract date ----
@@ -406,7 +434,42 @@ function parseQuestion(text) {
             from: lw.toISOString().split("T")[0],
             to: today.toISOString().split("T")[0]
         };
+    } else if (/इस\s*साल|this\s*year|is\s*saal/.test(q)) {
+        const yearStart = new Date(today.getFullYear(), 0, 1);
+        result.dateRange = {
+            from: yearStart.toISOString().split("T")[0],
+            to: today.toISOString().split("T")[0]
+        };
+    } else if (/पिछले?\s*साल|last\s*year|pichle?\s*saal/.test(q)) {
+        const lastYear = today.getFullYear() - 1;
+        const lyStart = new Date(lastYear, 0, 1);
+        const lyEnd = new Date(lastYear, 11, 31);
+        result.dateRange = {
+            from: lyStart.toISOString().split("T")[0],
+            to: lyEnd.toISOString().split("T")[0]
+        };
+    } else if (/इस\s*(हफ्ते?|week)|is\s*(hafta|week)/.test(q)) {
+        const dayOfWeek = today.getDay();
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - dayOfWeek);
+        result.dateRange = {
+            from: weekStart.toISOString().split("T")[0],
+            to: today.toISOString().split("T")[0]
+        };
     } else {
+        // Try "पिछले N दिन"
+        const daysMatch = q.match(/पिछले?\s*(\d+)\s*(दिन|days?)/);
+        if (daysMatch) {
+            const n = parseInt(daysMatch[1]);
+            const from = new Date(today);
+            from.setDate(today.getDate() - n);
+            result.dateRange = {
+                from: from.toISOString().split("T")[0],
+                to: today.toISOString().split("T")[0]
+            };
+        }
+    }
+    if (!result.date && !result.dateRange) {
         // Try numeric date: "24/08/2026", "24-08", "24/08"
         const dateMatch = q.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
         if (dateMatch) {
@@ -656,6 +719,81 @@ function buildLocalAnswer(parsed, records) {
             + "💰 कुल: ₹" + total + "\n"
             + "💵 जमा: ₹" + paid + "\n"
             + "❌ बाकी: ₹" + baki;
+    }
+
+    // DAILY SUMMARY
+    if (parsed.intent === "DAILY_SUMMARY") {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const todayRecords = records.filter(r => (r.date || "") === todayStr);
+        if (!todayRecords.length) return "आज कोई entry नहीं है।";
+        let tTotal = 0, tPaid = 0;
+        todayRecords.forEach(r => { tTotal += Number(r.total||0); tPaid += Number(r.paid||0); });
+        return "📊 आज का सारांश:\n📝 एंट्री: " + todayRecords.length + "\n💰 कुल: ₹" + tTotal + "\n💵 जमा: ₹" + tPaid + "\n❌ बाकी: ₹" + (tTotal - tPaid);
+    }
+
+    // MONTHLY SUMMARY
+    if (parsed.intent === "MONTHLY_SUMMARY") {
+        const now = new Date();
+        const monthRecords = records.filter(r => {
+            if (!r.date) return false;
+            const d = new Date(r.date);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        });
+        if (!monthRecords.length) return "इस महीने कोई entry नहीं है।";
+        let mTotal = 0, mPaid = 0;
+        monthRecords.forEach(r => { mTotal += Number(r.total||0); mPaid += Number(r.paid||0); });
+        const farmerCount = new Set(monthRecords.map(r => r.name || "")).size;
+        return "📊 इस महीने का सारांश:\n📝 एंट्री: " + monthRecords.length + "\n👨‍🌾 किसान: " + farmerCount + "\n💰 कुल: ₹" + mTotal + "\n💵 जमा: ₹" + mPaid + "\n❌ बाकी: ₹" + (mTotal - mPaid);
+    }
+
+    // YEARLY SUMMARY
+    if (parsed.intent === "YEARLY_SUMMARY") {
+        const now = new Date();
+        const yearRecords = records.filter(r => {
+            if (!r.date) return false;
+            return new Date(r.date).getFullYear() === now.getFullYear();
+        });
+        if (!yearRecords.length) return "इस साल कोई entry नहीं है।";
+        let yTotal = 0, yPaid = 0;
+        yearRecords.forEach(r => { yTotal += Number(r.total||0); yPaid += Number(r.paid||0); });
+        const months = new Set(yearRecords.map(r => r.date ? r.date.substring(0,7) : "")).size;
+        return "📊 इस साल का सारांश:\n📝 एंट्री: " + yearRecords.length + "\n📅 महीने: " + months + "\n💰 कुल: ₹" + yTotal + "\n💵 जमा: ₹" + yPaid + "\n❌ बाकी: ₹" + (yTotal - yPaid);
+    }
+
+    // EXPENSE intent
+    if (parsed.intent === "EXPENSE" && parsed.farmer) {
+        let exp = 0;
+        records.forEach(r => { exp += Number(r.total || 0); });
+        return farmerList + " का कुल खर्च/देनदारी ₹" + exp + " है।";
+    }
+
+    // COMPARE_INCOME_EXPENSE
+    if (parsed.intent === "COMPARE_INCOME_EXPENSE") {
+        let totalIncome = 0, totalPaid = 0;
+        records.forEach(r => { totalIncome += Number(r.total||0); totalPaid += Number(r.paid||0); });
+        const balance = totalIncome - totalPaid;
+        return "📊 कमाई vs भुगतान तुलना:\n💰 कुल कमाई: ₹" + totalIncome + "\n✅ जमा: ₹" + totalPaid + "\n❌ बाकी: ₹" + balance + "\n📈 वसूली दर: " + (totalIncome > 0 ? Math.round((totalPaid/totalIncome)*100) : 0) + "%";
+    }
+
+    // HIGHEST_EARNER
+    if (parsed.intent === "HIGHEST_EARNER") {
+        const farmers = {};
+        records.forEach(r => {
+            const n = r.name || "अज्ञात";
+            if (!farmers[n]) farmers[n] = 0;
+            farmers[n] += Number(r.total || 0);
+        });
+        const sorted = Object.entries(farmers).sort((a,b) => b[1] - a[1]);
+        if (sorted.length) {
+            return sorted.map(([n,t], i) => (i+1) + ". " + n + ": ₹" + t.toLocaleString('en-IN')).join("\n");
+        }
+        return "कोई data नहीं मिला।";
+    }
+
+    // FARMER_COUNT
+    if (parsed.intent === "FARMER_COUNT") {
+        const uniqueFarmers = new Set(records.map(r => r.name || "").filter(Boolean));
+        return "📊 कुल " + uniqueFarmers.size + " अलग-अलग किसान हैं।\n\nनाम: " + [...uniqueFarmers].join(", ");
     }
 
     // HIGHEST_LOWEST
@@ -1102,7 +1240,68 @@ async function askMunshi(question) {
         }
     }
 
-    // 5. Gemini fallback
+    // 5. Website Knowledge Base (how-to, capabilities)
+    const wikiIntent = parseQuestion ? parseQuestion(question) : {};
+    if (wikiIntent.intent === "HOW_TO" || wikiIntent.intent === "CAPABILITIES") {
+        if (typeof WEBSITE_KNOWLEDGE !== 'undefined') {
+            const qLower = question.toLowerCase();
+            let found = false;
+            for (const [key, info] of Object.entries(WEBSITE_KNOWLEDGE.features)) {
+                if (info.keywords.some(kw => qLower.includes(kw))) {
+                    result.success = true;
+                    result.source = "knowledge";
+                    result.reply = info.answer;
+                    return result;
+                }
+            }
+            // General capabilities
+            if (qLower.match(/क्या कर सकते|what can you|capabilities|क्या क्या करो/)) {
+                result.success = true;
+                result.source = "knowledge";
+                result.reply = WEBSITE_KNOWLEDGE.general.greetingAnswer;
+                return result;
+            }
+        }
+    }
+
+    // 5b. Greeting detection
+    if (typeof WEBSITE_KNOWLEDGE !== 'undefined') {
+        const qLower = question.toLowerCase();
+        if (WEBSITE_KNOWLEDGE.general.greeting.some(g => qLower.includes(g))) {
+            result.success = true;
+            result.source = "knowledge";
+            result.reply = WEBSITE_KNOWLEDGE.general.greetingAnswer;
+            return result;
+        }
+    }
+
+    // 5c. CALCULATE intent — do local math
+    if (wikiIntent.intent === "CALCULATE") {
+        const numMatch = question.match(/(\d+(?:\.\d+)?)\s*(?:बीघा|bigha|घंटे?|hours?|लीटर|litre|units?)?\s*(?:x|×|\*)\s*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)/i);
+        if (numMatch) {
+            const a = parseFloat(numMatch[1]);
+            const b = parseFloat(numMatch[2]);
+            const product = a * b;
+            result.success = true;
+            result.source = "local";
+            result.reply = `💰 ${numMatch[0]} = ₹${product.toLocaleString('en-IN')}`;
+            return result;
+        }
+        // Simple calculation: 2 + 3, 100 x 250, etc.
+        const simpleMatch = question.match(/(\d+(?:\.\d+)?)\s*([+×x\-]\s*\d+(?:\.\d+)?)/i);
+        if (simpleMatch) {
+            try {
+                const expr = simpleMatch[0].replace(/×/g,'*').replace(/x/gi,'*');
+                const result_val = Function('return ' + expr)();
+                result.success = true;
+                result.source = "local";
+                result.reply = `💰 ${simpleMatch[0]} = ${result_val.toLocaleString('en-IN')}`;
+                return result;
+            } catch(e) {}
+        }
+    }
+
+    // 6. Gemini fallback
     result.source = "gemini";
     return result;
 }
@@ -1525,8 +1724,24 @@ async function handleSend(userText) {
 // STEP 6: GEMINI FALLBACK
 // ==========================================
 // Build a smarter, shorter prompt for Gemini
+// Add Phase 2/3 data to Gemini context
+(async () => {
+    try {
+        if (typeof loadPhase2Data === 'function') {
+            const p2 = await loadPhase2Data();
+            if (p2.tractor || p2.services.length || p2.diesel.length) {
+                let p2Info = "\n\nTRACTOR DATA:\n";
+                if (p2.tractor) p2Info += "Tractor: " + (p2.tractor.company||"") + " " + (p2.tractor.model||"") + "\n";
+                if (p2.services.length) p2Info += "Services: " + p2.services.slice(0,3).map(s=>s.type+" "+s.date+" ₹"+s.totalCost).join(", ") + "\n";
+                if (p2.diesel.length) p2Info += "Diesel: " + p2.diesel.slice(0,3).map(d=>d.quantity+"L on "+d.date+" ₹"+(d.totalCost||d.quantity*d.rate)).join(", ") + "\n";
+                window._phase2Context = p2Info;
+            }
+        }
+    } catch(e) {};
+})();
+
 const geminiContext = filteredRecords.length > 0
-    ? JSON.stringify(filteredRecords.slice(0, 15), null, 2)  // Limit to 30 records
+    ? JSON.stringify(filteredRecords.slice(0, 15), null, 2) + (window._phase2Context || "")
     : "No verified records found locally.\nFor general questions, answer based on your knowledge of Indian agriculture and tractor operations.";
 
 const fullPrompt = `You are AI Munshi 3.0 of Chhapola Agriculture.
