@@ -1210,6 +1210,9 @@ document.addEventListener("DOMContentLoaded", () => {
 // COMMON GEMINI API
 // ==========================================
 
+// Duplicate request protection
+let _geminiInFlight = null;
+
 async function callGeminiAPI(prompt, imageBase64 = null) {
     const BACKEND_URL = "https://tector-chhapola.onrender.com/api/chat";
     const body = { prompt: prompt || "" };
@@ -1225,6 +1228,14 @@ async function callGeminiAPI(prompt, imageBase64 = null) {
         body.mime_type = mimeType;
     }
 
+    // Prevent duplicate in-flight requests with same prompt
+    const dedupKey = (body.prompt || "").substring(0, 100);
+    if (_geminiInFlight === dedupKey) {
+        console.log("[AI] Duplicate Gemini request blocked");
+        throw new Error("DUPLICATE_REQUEST");
+    }
+    _geminiInFlight = dedupKey;
+
     const headers = { "Content-Type": "application/json" };
     try {
         if (window.auth && window.auth.currentUser) {
@@ -1233,18 +1244,32 @@ async function callGeminiAPI(prompt, imageBase64 = null) {
         }
     } catch (e) {}
 
-    const response = await fetch(BACKEND_URL, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(body)
-    });
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 90000);
 
-    if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || `Backend error: ${response.status}`);
+        const response = await fetch(BACKEND_URL, {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(body),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            const errMsg = errData.detail || `Backend error: ${response.status}`;
+            if (response.status === 429 || response.status === 502) {
+                throw new Error("RATE_LIMITED: " + errMsg);
+            }
+            throw new Error(errMsg);
+        }
+
+        return await response.json();
+    } finally {
+        _geminiInFlight = null;
     }
-
-    return await response.json();
 }
 
 window.callGeminiAPI = callGeminiAPI;
@@ -1501,8 +1526,8 @@ async function handleSend(userText) {
 // ==========================================
 // Build a smarter, shorter prompt for Gemini
 const geminiContext = filteredRecords.length > 0
-    ? JSON.stringify(filteredRecords.slice(0, 30), null, 2)  // Limit to 30 records
-    : "No verified records found locally.";
+    ? JSON.stringify(filteredRecords.slice(0, 15), null, 2)  // Limit to 30 records
+    : "No verified records found locally.\nFor general questions, answer based on your knowledge of Indian agriculture and tractor operations.";
 
 const fullPrompt = `You are AI Munshi 3.0 of Chhapola Agriculture.
 

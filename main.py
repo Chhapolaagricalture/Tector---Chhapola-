@@ -479,6 +479,13 @@ async def chat_with_ai(body: ChatPromptRequest, request: Request):
     if not user_text.strip() and not body.image:
         raise HTTPException(status_code=400, detail="prompt or message is required")
 
+    import re as _re
+    import time as _time
+
+    MAX_RETRIES = 3
+    _req_start = _time.time()
+    logger.info(f"[GEMINI] Request start | model={GEMINI_MODEL} | text_len={len(user_text)}")
+
     try:
         prompt_content = f"{SYSTEM_PROMPT}\n\nयूजर का सवाल/इन्फो: {user_text}" if user_text.strip() else SYSTEM_PROMPT
 
@@ -487,7 +494,6 @@ async def chat_with_ai(body: ChatPromptRequest, request: Request):
         # If image is provided, add it as inline_data for Gemini Vision
         if body.image:
             raw_b64 = body.image
-            # Strip data-URL prefix if present, e.g. "data:image/jpeg;base64,/9j/..."
             if "," in raw_b64 and raw_b64.startswith("data:"):
                 raw_b64 = raw_b64.split(",", 1)[1]
 
@@ -504,30 +510,75 @@ async def chat_with_ai(body: ChatPromptRequest, request: Request):
             "contents": [{"parts": parts}]
         }
 
-        # Use longer timeout for image requests (large payloads)
         req_timeout = 90 if body.image else 30
+        retryable_codes = {429, 500, 502, 503, 504}
+        last_error = None
 
-        response = requests.post(
-            f"{GEMINI_URL}?key={GEMINI_API_KEY}",
-            json=payload,
-            headers=headers,
-            timeout=req_timeout,
-        )
-        res_data = response.json()
+        for attempt in range(1, MAX_RETRIES + 1):
+            attempt_start = _time.time()
+            try:
+                response = requests.post(
+                    f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+                    json=payload,
+                    headers=headers,
+                    timeout=req_timeout,
+                )
+                attempt_time = round(_time.time() - attempt_start, 2)
+                res_data = response.json()
 
-        if response.status_code == 200 and "candidates" in res_data:
-            # Return raw Gemini format so frontend can parse it directly
-            return res_data
-        else:
-            error_msg = res_data.get("error", {}).get("message", "Gemini API error")
-            raise HTTPException(status_code=502, detail=error_msg)
+                if response.status_code == 200 and "candidates" in res_data:
+                    total_time = round(_time.time() - _req_start, 2)
+                    model_ver = res_data.get("modelVersion", "unknown")
+                    logger.info(f"[GEMINI] PASS | model={model_ver} | attempt={attempt} | time={total_time}s")
+                    return res_data
 
-    except requests.Timeout:
-        raise HTTPException(status_code=504, detail="Gemini API timeout")
+                # Extract error info
+                error_msg = res_data.get("error", {}).get("message", "Gemini API error")
+                error_code = res_data.get("error", {}).get("code", response.status_code)
+
+                # Parse retry-after from Google's error message
+                retry_match = _re.search(r"retry in (\d+\.?\d*)s", error_msg, _re.IGNORECASE)
+                retry_after = float(retry_match.group(1)) if retry_match else None
+
+                logger.warning(f"[GEMINI] FAIL | attempt={attempt} | HTTP={response.status_code} | code={error_code} | time={attempt_time}s | retry_after={retry_after}s | error={error_msg[:200]}")
+
+                # Non-retryable error — fail immediately
+                if response.status_code not in retryable_codes and error_code not in retryable_codes:
+                    total_time = round(_time.time() - _req_start, 2)
+                    logger.error(f"[GEMINI] FATAL | HTTP={response.status_code} | not retryable | total_time={total_time}s")
+                    raise HTTPException(status_code=response.status_code, detail=error_msg)
+
+                # Retryable error — wait and retry
+                if attempt < MAX_RETRIES:
+                    wait_time = retry_after if retry_after else (attempt * 3)
+                    # Cap wait at 30s
+                    wait_time = min(wait_time, 30)
+                    logger.info(f"[GEMINI] RETRY | waiting {wait_time}s before attempt {attempt + 1}")
+                    _time.sleep(wait_time)
+                    last_error = (response.status_code, error_msg)
+                else:
+                    last_error = (response.status_code, error_msg)
+
+            except requests.Timeout:
+                attempt_time = round(_time.time() - attempt_start, 2)
+                logger.warning(f"[GEMINI] TIMEOUT | attempt={attempt} | time={attempt_time}s")
+                if attempt < MAX_RETRIES:
+                    _time.sleep(attempt * 2)
+                    last_error = (504, "Gemini API timeout")
+                else:
+                    last_error = (504, "Gemini API timeout")
+
+        # All retries exhausted
+        total_time = round(_time.time() - _req_start, 2)
+        status_code, error_msg = last_error if last_error else (502, "All retries failed")
+        logger.error(f"[GEMINI] EXHAUSTED | {MAX_RETRIES} retries failed | final_status={status_code} | total_time={total_time}s")
+        raise HTTPException(status_code=status_code, detail=error_msg)
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("chat_with_ai error")
+        total_time = round(_time.time() - _req_start, 2)
+        logger.exception(f"[GEMINI] ERROR | total_time={total_time}s")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
