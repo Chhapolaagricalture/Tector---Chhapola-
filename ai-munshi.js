@@ -261,7 +261,8 @@ function parseQuestion(text) {
 
     // ---- Context resolution for follow-up questions ----
     const ctx = window.RAJ_AI.munshi.context;
-    const isFollowUp = /उसका|उसने|उसके|उसकी|वो|वह|उसमें|उससे|उसी|ऐसा|वैसा|उस किसान|इस किसान|और|aur|भी|bhi/.test(q);
+    const isFollowUp = /उसका|उसने|उसके|उसकी|वो|वह|उसमें|उससे|उसी|ऐसा|वैसा|उस किसान|इस किसान|और|aur|भी|bhi/.test(q)
+        && !/क्या क्या|kya kya|कैसे|kaise|कहाँ|kahan|क्या कर सकते|kya kar sakte|eske.*kam|uske.*kam/.test(q);
 
     if (isFollowUp && !result.farmer && ctx.farmer) {
         result.farmer = ctx.farmer;
@@ -282,19 +283,19 @@ function parseQuestion(text) {
     // ---- Detect ACTION intent (priority: actions before queries) ----
 
     // ADD RECORD
-    if (/डाल\s*(दो|दे|डाल)|entry\s*(बना|डाल|add)|record\s*(बना|add)|रिकॉर्ड\s*(बना|add|डाल)/.test(q)) {
+    if (/डाल\s*(दो|दे|डाल)|entry\s*(बना|डाल|add|kro|karo|banana|banana hai)|record\s*(बना|add|kro|karo)|रिकॉर्ड\s*(बना|add|डाल|kro)|नई?\s*entry\s*(kro|karo|बना|डाल)|new\s*entry\s*(kro|karo|add)|add\s*(kro|karo|entry|record)|banado|bana\s*(do|de)|bana\s*do|(?:^|\s)dal(?:\s)*(?:do|de|d0)|(?:^|\s)daldo|(?:^|\s)daal(?:\s)*(?:do|de)|(?:^|\s)daal do/.test(q)) {
         result.intent = "ACTION_ADD_RECORD";
     }
     // ADD PAYMENT
-    else if (/जमा\s*(कर|करो|करे|दो|दे)|payment\s*(add|कर)|पैसा\s*(जमा|add)|₹.*\s*जमा|\d+\s*जमा|jama\s*(kar|karo|kare|do|de)/.test(q)) {
+    else if (/जमा\s*(कर|करो|करे|दो|दे)|payment\s*(add|कर)|पैसा\s*(जमा|add)|₹.*\s*जमा|\d+\s*जमा|jama\s*(kar|karo|kare|do|de)|jama\s*kiya|जमा.*किया/.test(q)) {
         result.intent = "ACTION_ADD_PAYMENT";
     }
     // UPDATE RECORD
-    else if (/बदल\s*(दो|दे|बदल)|edit\s*(कर|करो)|update\s*(कर)|सुधार\s*(दो|दे)/.test(q)) {
+    else if (/बदल\s*(दो|दे|बदल)|badal\s*(do|de)|edit\s*(कर|करो)|update\s*(कर)|सुधार\s*(दो|दे)/.test(q)) {
         result.intent = "ACTION_UPDATE_RECORD";
     }
     // DELETE RECORD
-    else if (/हटा\s*(दो|दे|हटा)|delete\s*(कर|करो|do|kar)|मिटा\s*(दो|दे)|रद्द\s*(कर|करो)|delete.*\bdo\b/.test(q)) {
+    else if (/हटा\s*(दो|दे|हटा)|hata\s*(do|de)|delete\s*(कर|करो|do|kar)|मिटा\s*(दो|दे)|रद्द\s*(कर|करो)|delete.*\bdo\b/.test(q)) {
         result.intent = "ACTION_DELETE_RECORD";
     }
     // WHATSAPP
@@ -310,9 +311,12 @@ function parseQuestion(text) {
     if (result.intent === "GENERAL" || !result.intent.startsWith("ACTION_")) {
 
     // SEMANTIC INTENT DETECTION (enhanced — covers more natural phrasings)
-    const semanticIntent = typeof detectSemanticIntent === 'function' ? detectSemanticIntent(q) : null;
-    if (semanticIntent) {
-        result.intent = semanticIntent;
+    // Only apply if no action intent was already set
+    if (!result.intent.startsWith("ACTION_")) {
+        const semanticIntent = typeof detectSemanticIntent === 'function' ? detectSemanticIntent(q) : null;
+        if (semanticIntent && !semanticIntent.startsWith("ACTION_")) {
+            result.intent = semanticIntent;
+        }
     }
 
     // Full ledger / history
@@ -376,7 +380,7 @@ function parseQuestion(text) {
         result.intent = "COMPARISON";
     }
     // Specific question types: "क्या किया", "क्या करवाया", "कब", "पिछला काम"
-    else if (/क्या.*(किया|करवाया|हुआ|था|करा|करवा)|कब|क्या है|बताओ|बता|निकाल/.test(q) && result.farmer) {
+    else if (/क्या.*(किया|करवाया|हुआ|था|करा|करवा)|कब|क्या है|बताओ|बता|निकाल/.test(q) && result.farmer && !/हिसाब|hisab|kitna|kitne|baki|balance/.test(q)) {
         // "पिछला काम" → sort by date DESC, show most recent
         if (/पिछला|पिछले|last|previous|prev/.test(q)) {
             result.intent = "DATE";
@@ -399,7 +403,7 @@ function parseQuestion(text) {
         result.intent = "GREETING";
     }
     // Capabilities
-    else if (/क्या कर सकते|what can you|capabilities|तुम क्या करते|help me|मेरी मदद|क्या हो/.test(q)) {
+    else if (/क्या कर सकते|what can you|capabilities|तुम क्या करते|help me|मेरी मदद|क्या हो|kya kya kam|eske kya kya|uske kya kya|kya kya kar sakte|kya kya karte|website.*kya|site.*kya|app.*kya|is site|is website|ye website|ye app/.test(q) && !/किसान|farmer|बाकी|balance/.test(q)) {
         result.intent = "CAPABILITIES";
     }
     // Calculate
@@ -407,20 +411,20 @@ function parseQuestion(text) {
         result.intent = "CALCULATE";
     }
     // How-to
-    else if (/कैसे|कैसा|how to|kaise|कहाँ है|where|kahan hai|kahan se|कैसे कर/.test(q) && !/किसान|farmer|बाकी|balance/.test(q)) {
+    else if (/कैसे|कैसा|how to|kaise|कहाँ है|where|kahan hai|kahan se|कैसे कर/.test(q) && !/किसान|farmer|बाकी|balance|kro|karo|daldo|do|de|bana|add/.test(q)) {
         result.intent = "HOW_TO";
     }
     // "रुपय/paise kab diye" → PAID
-    if (intent === "GENERAL" && /paise.*kab.*diye|kab.*diye.*paise|rupee.*kab/.test(q)) {
-        intent = "PAID";
+    if (result.intent === "GENERAL" && /paise.*kab.*diye|kab.*diye.*paise|rupee.*kab/.test(q)) {
+        result.intent = "PAID";
     }
     // "last entry" / "sabse taza entry"
-    if (intent === "GENERAL" && /last.*entry|sabse.*taza.*entry|aakhri.*entry|sabse.*nayi.*entry/.test(q)) {
-        intent = "SUMMARY";
+    if (result.intent === "GENERAL" && /last.*entry|sabse.*taza.*entry|aakhri.*entry|sabse.*nayi.*entry/.test(q)) {
+        result.intent = "SUMMARY";
     }
     // "वसूली दर" / "collection rate"
-    if (intent === "GENERAL" && /वसूली|collection|recovery|dar|दर/.test(q)) {
-        intent = "INCOME";
+    if (result.intent === "GENERAL" && /वसूली|collection|recovery|dar|दर/.test(q)) {
+        result.intent = "INCOME";
     }
     // Generic "कितना" question with farmer — BALANCE (most common question type)
     else if (/कितना|kitna|how much/.test(q) && result.farmer) {
@@ -1864,7 +1868,7 @@ try {
         const qLower = text.toLowerCase();
         for (const [key, info] of Object.entries(WEBSITE_KNOWLEDGE.features)) {
             if (info.keywords.some(kw => qLower.includes(kw))) {
-                if (!filteredRecords.length) {
+                if (!filteredRecords.length || /kya kya|\u0915\u094d\u092f\u093e \u0915\u094d\u092f\u093e|kaise|\u0915\u0948\u0938\u0947|kahan|\u0915\u0939\u093e\u0901|eske.*kam|uske.*kam/.test(qLower)) {
                     loadingDiv.remove();
                     aiCache.set(cleanTextKey, info.answer);
                     appendMessage(info.answer, "ai");
