@@ -286,7 +286,7 @@ function parseQuestion(text) {
         result.intent = "ACTION_ADD_RECORD";
     }
     // ADD PAYMENT
-    else if (/जमा\s*(कर|करो|करे|दो|दे)|payment\s*(add|कर)|पैसा\s*(जमा|add)|₹.*\s*जमा|\d+\s*जमा/.test(q)) {
+    else if (/जमा\s*(कर|करो|करे|दो|दे)|payment\s*(add|कर)|पैसा\s*(जमा|add)|₹.*\s*जमा|\d+\s*जमा|jama\s*(kar|karo|kare|do|de)/.test(q)) {
         result.intent = "ACTION_ADD_PAYMENT";
     }
     // UPDATE RECORD
@@ -294,7 +294,7 @@ function parseQuestion(text) {
         result.intent = "ACTION_UPDATE_RECORD";
     }
     // DELETE RECORD
-    else if (/हटा\s*(दो|दे|हटा)|delete\s*(कर|करो)|मिटा\s*(दो|दे)|रद्द\s*(कर|करो)/.test(q)) {
+    else if (/हटा\s*(दो|दे|हटा)|delete\s*(कर|करो|do|kar)|मिटा\s*(दो|दे)|रद्द\s*(कर|करो)|delete.*\bdo\b/.test(q)) {
         result.intent = "ACTION_DELETE_RECORD";
     }
     // WHATSAPP
@@ -316,7 +316,7 @@ function parseQuestion(text) {
     }
 
     // Full ledger / history
-    if (result.intent === "GENERAL" && (/पूरा\s*(हिसाब|record|history|ledger|data)|full.*(ledger|history|record)|हिसाब.*(बता|दे|निकाल)|ledger|history|पूरे?\s*(का|की|के)/.test(q))) {
+    if (result.intent === "GENERAL" && (/पूरा\s*(हिसाब|record|history|ledger|data)|full.*(ledger|history|record)|हिसाब.*(बता|दे|निकाल)|ledger|history|पूरे?\s*(का|की|के)|passbook|account.*(detail|details|खाता)|खाते?\s*की\s*जानकारी|record.*(दिखा|batao|nikalo)|history.*batao/.test(q))) {
         result.intent = "LEDGER";
     }
     // Comparison
@@ -324,15 +324,15 @@ function parseQuestion(text) {
         result.intent = "COMPARISON";
     }
     // Highest/lowest
-    else if (/सबसे|highest|maximum|most|lowest|minimum|least|ज्यादा|कम/.test(q)) {
+    else if (/सबसे|highest|maximum|most|lowest|minimum|least|ज्यादा|कम|sabse|top|best|worst|kisne.*kiya|kisne.*kara|kiska.*hai/.test(q)) {
         result.intent = "HIGHEST_LOWEST";
     }
     // Count
-    else if (/कितने|count|संख्या|कितना/.test(q) && /किसान|record|entry|एंट्री|काम|दिन/.test(q)) {
+    else if (/कितने|count|संख्या|कितना|kitne|kitni|number.*(of|hai)/.test(q) && /किसान|record|entry|entries|एंट्री|एंट्रियां|काम|दिन|total/.test(q)) {
         result.intent = "COUNT";
     }
     // Balance / baki — ENHANCED
-    else if (/बाकी|balance|baki|bakaya|उधार|pending|शेष|रह गए|बचा|लेनी है|owed|unpaid|बकाया/.test(q)) {
+    else if (/बाकी|balance|baki|bakaya|उधार|pending|शेष|रह गए|बचा|लेनी है|owed|unpaid|बकाया|bacha|outstanding|due|dues|nahi.*diya|nahin.*diya/.test(q)) {
         result.intent = "BALANCE";
     }
     // Paid / paid — ENHANCED
@@ -340,7 +340,7 @@ function parseQuestion(text) {
         result.intent = "PAID";
     }
     // Income / total — ENHANCED
-    else if (/कुल|income|कमाई|total|rashi|राशि|earn|kamaya|कमाया|आय|कितना.*आय|कितना.*बना|रुपय/.test(q)) {
+    else if (/कुल|income|कमाई|total|rashi|राशि|earn|kamaya|कमाया|आय|कितना.*आय|कितना.*बना|रुपय|hamari|मेरी.*कमाई|mere.*total|kitna.*kamaya|aane.*hai|aaya.*hai/.test(q)) {
         result.intent = "INCOME";
     }
     // Crop
@@ -393,6 +393,34 @@ function parseQuestion(text) {
         } else if (/काम|work/.test(q)) result.intent = "WORK";
         else if (/कब|date|तारीख|दिन/.test(q)) result.intent = "DATE";
         else result.intent = "LEDGER";
+    }
+    // Greeting
+    else if (/^(नमस्ते|hello|hi|hey|राम राम|good morning|शुभ प्रभात|प्रणाम|जय श्री|sat sri|namaste|pranam)/.test(q) && q.length < 40) {
+        result.intent = "GREETING";
+    }
+    // Capabilities
+    else if (/क्या कर सकते|what can you|capabilities|तुम क्या करते|help me|मेरी मदद|क्या हो/.test(q)) {
+        result.intent = "CAPABILITIES";
+    }
+    // Calculate
+    else if (/\d+\s*[x×\*\+]\s*\d+|calculate|गुणा|multiply|जोड़|kitna banega|कितना बनेगा/.test(q) && !/डाल|जमा/.test(q)) {
+        result.intent = "CALCULATE";
+    }
+    // How-to
+    else if (/कैसे|कैसा|how to|kaise|कहाँ है|where|kahan hai|kahan se|कैसे कर/.test(q) && !/किसान|farmer|बाकी|balance/.test(q)) {
+        result.intent = "HOW_TO";
+    }
+    // "रुपय/paise kab diye" → PAID
+    if (intent === "GENERAL" && /paise.*kab.*diye|kab.*diye.*paise|rupee.*kab/.test(q)) {
+        intent = "PAID";
+    }
+    // "last entry" / "sabse taza entry"
+    if (intent === "GENERAL" && /last.*entry|sabse.*taza.*entry|aakhri.*entry|sabse.*nayi.*entry/.test(q)) {
+        intent = "SUMMARY";
+    }
+    // "वसूली दर" / "collection rate"
+    if (intent === "GENERAL" && /वसूली|collection|recovery|dar|दर/.test(q)) {
+        intent = "INCOME";
     }
     // Generic "कितना" question with farmer — BALANCE (most common question type)
     else if (/कितना|kitna|how much/.test(q) && result.farmer) {
@@ -794,6 +822,95 @@ function buildLocalAnswer(parsed, records) {
     if (parsed.intent === "FARMER_COUNT") {
         const uniqueFarmers = new Set(records.map(r => r.name || "").filter(Boolean));
         return "📊 कुल " + uniqueFarmers.size + " अलग-अलग किसान हैं।\n\nनाम: " + [...uniqueFarmers].join(", ");
+    }
+
+    // WEEKLY SUMMARY
+    if (parsed.intent === "WEEKLY_SUMMARY") {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekStr = weekAgo.toISOString().split("T")[0];
+        const weekRecords = records.filter(r => (r.date || "") >= weekStr);
+        if (!weekRecords.length) return "पिछले हफ्ते कोई entry नहीं है।";
+        let wTotal = 0, wPaid = 0;
+        weekRecords.forEach(r => { wTotal += Number(r.total||0); wPaid += Number(r.paid||0); });
+        const wFarmers = new Set(weekRecords.map(r => r.name || "")).size;
+        return "📊 पिछले हफ्ते का सारांश:\n📝 एंट्री: " + weekRecords.length + "\n👨‍🌾 किसान: " + wFarmers + "\n💰 कुल: ₹" + wTotal + "\n💵 जमा: ₹" + wPaid + "\n❌ बाकी: ₹" + (wTotal - wPaid);
+    }
+
+    // CALCULATE — local math
+    if (parsed.intent === "CALCULATE") {
+        const numMatch = (parsed.raw || "").match(/(\d+(?:\.\d+)?)\s*(?:बीघा|bigha|घंटे?|hours?|लीटर|litre|units?)?\s*(?:x|×|\*|गुणा|multiply)\s*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)/i);
+        if (numMatch) {
+            const a = parseFloat(numMatch[1]);
+            const b = parseFloat(numMatch[2]);
+            return "💰 " + a + " × " + b + " = ₹" + (a * b).toLocaleString('en-IN');
+        }
+        const simpleMatch = (parsed.raw || "").match(/(\d+(?:\.\d+)?)\s*([+×x\-]\s*\d+(?:\.\d+)?)/i);
+        if (simpleMatch) {
+            try {
+                const expr = simpleMatch[0].replace(/×/g,'*').replace(/x/gi,'*');
+                const result_val = Function('return ' + expr)();
+                return "💰 " + simpleMatch[0] + " = " + result_val.toLocaleString('en-IN');
+            } catch(e) {}
+        }
+    }
+
+    // HOW_TO — website help from knowledge base
+    if (parsed.intent === "HOW_TO") {
+        if (typeof WEBSITE_KNOWLEDGE !== 'undefined') {
+            const qLower = (parsed.raw || "").toLowerCase();
+            for (const [key, info] of Object.entries(WEBSITE_KNOWLEDGE.features)) {
+                if (info.keywords.some(kw => qLower.includes(kw))) {
+                    return info.answer;
+                }
+            }
+        }
+    }
+
+    // CAPABILITIES
+    if (parsed.intent === "CAPABILITIES") {
+        if (typeof WEBSITE_KNOWLEDGE !== 'undefined') {
+            return WEBSITE_KNOWLEDGE.general.greetingAnswer;
+        }
+    }
+
+    // GREETING
+    if (parsed.intent === "GREETING") {
+        if (typeof WEBSITE_KNOWLEDGE !== 'undefined') {
+            return WEBSITE_KNOWLEDGE.general.greetingAnswer;
+        }
+    }
+
+    // EXPENSE intent
+    if (parsed.intent === "EXPENSE" && parsed.farmer) {
+        let exp = 0;
+        records.forEach(r => { exp += Number(r.total || 0); });
+        return farmerList + " का कुल खर्च/देनदारी ₹" + exp.toLocaleString('en-IN') + " है।";
+    }
+
+    // COMPARE_INCOME_EXPENSE
+    if (parsed.intent === "COMPARE_INCOME_EXPENSE") {
+        let totalIncome = 0, totalPaid = 0;
+        records.forEach(r => { totalIncome += Number(r.total||0); totalPaid += Number(r.paid||0); });
+        const balance = totalIncome - totalPaid;
+        return "📊 कमाई vs भुगतान तुलना:\n💰 कुल कमाई: ₹" + totalIncome.toLocaleString('en-IN') + "\n✅ जमा: ₹" + totalPaid.toLocaleString('en-IN') + "\n❌ बाकी: ₹" + balance.toLocaleString('en-IN') + "\n📈 वसूली दर: " + (totalIncome > 0 ? Math.round((totalPaid/totalIncome)*100) : 0) + "%";
+    }
+
+    // AVERAGE per entry
+    if (/average|औसत|ausat|per entry|prati entry/.test(parsed.raw || "")) {
+        if (records.length > 0) {
+            const avg = Math.round(total / records.length);
+            return "📊 प्रति एंट्री औसत: ₹" + avg.toLocaleString('en-IN') + "\n📝 कुल एंट्री: " + records.length + "\n💰 कुल राशि: ₹" + total.toLocaleString('en-IN');
+        }
+    }
+
+    // RECENT / LAST entry
+    if (/recent|taza|taaza|aakhri|sabse nayi|abki|latest|last entry|pichli entry/.test(parsed.raw || "")) {
+        if (records.length > 0) {
+            const sorted = [...records].sort((a,b) => (b.date || "").localeCompare(a.date || ""));
+            const latest = sorted[0];
+            return "📅 सबसे ताज़ा entry:\n👨‍🌾 " + (latest.name || latest.farmer || "?") + "\n📅 " + (latest.date || "?") + "\n🚜 " + (latest.work || "?") + "\n💰 ₹" + (latest.total || 0) + (latest.paid ? "\n✅ जमा: ₹" + latest.paid : "");
+        }
     }
 
     // HIGHEST_LOWEST
@@ -1719,6 +1836,46 @@ async function handleSend(userText) {
         isRequestPending = false;
         return;
     }
+
+// ==========================================
+// STEP 5.5: CATCH-ALL LOCAL HANDLER
+// Try to answer from data before Gemini
+// ==========================================
+try {
+    if (typeof catchAllLocalAnswer === "function") {
+        const catchAllReply = catchAllLocalAnswer(text);
+        if (catchAllReply) {
+            loadingDiv.remove();
+            aiCache.set(cleanTextKey, catchAllReply);
+            appendMessage(catchAllReply, "ai");
+            speakText(catchAllReply);
+            isRequestPending = false;
+            return;
+        }
+    }
+} catch(e) { console.log("catchAll error:", e); }
+
+// ==========================================
+// STEP 5.6: KNOWLEDGE-BASE ANSWER (non-HOW_TO questions)
+// Try to match question to website knowledge even if intent wasn't HOW_TO
+// ==========================================
+try {
+    if (typeof WEBSITE_KNOWLEDGE !== 'undefined') {
+        const qLower = text.toLowerCase();
+        for (const [key, info] of Object.entries(WEBSITE_KNOWLEDGE.features)) {
+            if (info.keywords.some(kw => qLower.includes(kw))) {
+                if (!filteredRecords.length) {
+                    loadingDiv.remove();
+                    aiCache.set(cleanTextKey, info.answer);
+                    appendMessage(info.answer, "ai");
+                    speakText(info.answer);
+                    isRequestPending = false;
+                    return;
+                }
+            }
+        }
+    }
+} catch(e) {}
 
 // ==========================================
 // STEP 6: GEMINI FALLBACK
