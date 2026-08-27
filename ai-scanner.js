@@ -4,7 +4,7 @@
 // ==========================================
 
 "use strict";
-alert("AI Scanner Loaded");
+// alert removed — was debug only
 window.RAJ_AI = window.RAJ_AI || {};
 
 window.RAJ_AI.scanner = {
@@ -980,25 +980,49 @@ async function sendScannerToGemini(base64){
 
     }
 
-    // Pass OCR prompt text + image data separately
-    // callGeminiAPI forwards image to backend for Gemini Vision
-    const response = await callGeminiAPI(
+    // Retry logic for rate-limited requests
+    const MAX_RETRIES = 3;
+    const RETRY_DELAYS = [15000, 30000, 60000]; // 15s, 30s, 60s
 
-        buildScannerPrompt(),
+    for(let attempt = 0; attempt < MAX_RETRIES; attempt++){
+        try {
+            const response = await callGeminiAPI(
+                buildScannerPrompt(),
+                base64
+            );
 
-        base64
+            if(!response){
+                throw new Error("Empty response from Gemini API.");
+            }
 
-    );
+            if(response.error){
+                const errMsg = (response.error.message || "").toLowerCase();
+                // Rate limited — retry after wait
+                if(errMsg.includes("rate") || errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("limit")){
+                    if(attempt < MAX_RETRIES - 1){
+                        const waitSec = Math.round(RETRY_DELAYS[attempt] / 1000);
+                        scannerLog("Rate limited, waiting " + waitSec + "s before retry...");
+                        await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
+                        continue;
+                    }
+                }
+                throw new Error(response.error.message || "Gemini API error.");
+            }
 
-    if(!response){
-        throw new Error("Empty response from Gemini API.");
+            return response;
+        } catch(e) {
+            const msg = (e.message || "").toLowerCase();
+            if((msg.includes("rate") || msg.includes("429") || msg.includes("quota") || msg.includes("limit")) && attempt < MAX_RETRIES - 1){
+                const waitSec = Math.round(RETRY_DELAYS[attempt] / 1000);
+                scannerLog("Rate limited (attempt " + (attempt+1) + "), waiting " + waitSec + "s...");
+                await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
+                continue;
+            }
+            throw e;
+        }
     }
 
-    if(response.error){
-        throw new Error(response.error.message || "Gemini API error.");
-    }
-
-    return response;
+    throw new Error("AI Service busy hai. Kuch der baad try karein.");
 
 }
 
@@ -1935,14 +1959,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
             alert("कुल रिकॉर्ड : " + records.length);
 
-        } catch (e) {
-
-            console.error("Scanner Error:", e);
-
-            alert(
-                "Scanner Error : " +
-                (e.message || e)
-            );
+        } catch (e) {        console.error("Scanner Error:", e);
+        let userMsg = e.message || "Unknown error";
+        // Make rate limit error user-friendly
+        if(userMsg.includes("RATE_LIMITED") || userMsg.includes("rate") || userMsg.includes("quota") || userMsg.includes("limit") || userMsg.includes("429")){
+            userMsg = "AI Service अभी busy है (rate limit reached)।\n\n约 1 minute बाद फिर try करें।\n\nTIP: एक scan करें, फिर 1 minute रुकें, फिर अगला scan करें।";
+        } else if(userMsg.includes("timeout") || userMsg.includes("overloaded") || userMsg.includes("503") || userMsg.includes("502")){
+            userMsg = "AI Service अभी overloaded है। 2-3 minute बाद try करें।";
+        }
+        alert("Scanner Error : " + userMsg);
 
         }
 
