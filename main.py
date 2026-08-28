@@ -662,9 +662,11 @@ async def scanner_ocr(body: ScannerRequest, request: Request):
     import time as _time
 
     # ---- Model configuration ----
-    # Use GEMINI_MODEL (gemini-flash-latest) — latest flash, supports images
-    # No separate fallback model — retry same model on transient errors
-    _scanner_models = [GEMINI_MODEL]
+    # Scanner uses VISION-CAPABLE models first, then GEMINI_MODEL as fallback
+    # gemini-2.5-flash: stable, image support, fast
+    # GEMINI_MODEL: may or may not support images — use as last resort
+    _scanner_primary = "gemini-2.5-flash"
+    _scanner_models = [_scanner_primary, GEMINI_MODEL]
     # Deduplicate while preserving order
     _seen = set()
     _scanner_models_unique = []
@@ -695,7 +697,8 @@ async def scanner_ocr(body: ScannerRequest, request: Request):
     payload = {"contents": [{"parts": parts}]}
 
     # ---- Codes that trigger retry/fallback ----
-    # 503 = overloaded, 404 = model not found (transient), 400 = bad request
+    # 503 = overloaded, 404 = model not found (transient)
+    # 400 = bad request (e.g. model doesn't support images) — also triggers fallback
     _overloaded_codes = {503, 404, 400}
 
     # ---- Try each model ----
