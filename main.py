@@ -666,8 +666,9 @@ async def scanner_ocr(body: ScannerRequest, request: Request):
         "SCANNER_FALLBACK_MODEL", "gemini-2.5-flash"
     )
 
-    # Models to try, in order: primary (GEMINI_MODEL) → fallback
-    _scanner_models = [GEMINI_MODEL, SCANNER_FALLBACK_MODEL]
+    # Models to try: vision-capable model FIRST, then GEMINI_MODEL
+    # gemini-2.5-flash supports images; gemini-flash-latest may not
+    _scanner_models = [SCANNER_FALLBACK_MODEL, GEMINI_MODEL]
     # Deduplicate while preserving order
     _seen = set()
     _scanner_models_unique = []
@@ -697,8 +698,9 @@ async def scanner_ocr(body: ScannerRequest, request: Request):
     headers = {"Content-Type": "application/json"}
     payload = {"contents": [{"parts": parts}]}
 
-    # ---- 503 / overloaded codes that trigger model fallback ----
-    _overloaded_codes = {503}
+    # ---- Codes that trigger model fallback ----
+    # 503 = overloaded, 400 = invalid model/request format
+    _overloaded_codes = {503, 400}
 
     # ---- Try each model ----
     for model_idx, model_name in enumerate(_scanner_models_unique):
