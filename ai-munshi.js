@@ -1566,7 +1566,9 @@ async function callGeminiAPI(prompt, imageBase64 = null) {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 90000);
+        // Adaptive timeout: 180s for images (scanner), 60s for text (chat)
+        const _timeoutMs = imageBase64 ? 180000 : 60000;
+        const timeoutId = setTimeout(() => controller.abort(), _timeoutMs);
 
         const response = await fetch(BACKEND_URL, {
             method: "POST",

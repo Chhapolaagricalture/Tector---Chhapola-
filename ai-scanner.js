@@ -1931,15 +1931,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
             alert("कुल रिकॉर्ड : " + records.length);
 
-        } catch (e) {        console.error("Scanner Error:", e);
+        } catch (e) {
+        console.error("Scanner Error:", e);
         let userMsg = e.message || "Unknown error";
-        if(userMsg.includes("RATE_LIMITED") || userMsg.includes("rate") || userMsg.includes("quota") || userMsg.includes("limit") || userMsg.includes("429")){
-            userMsg = "AI Service का daily limit पूरा हो गया है।\n\n⏳ 1 minute बाद फिर try करें।\n\nTIP: Scan करने से पहले AI Munshi में ज्यादा सवाल न पूछें।";
-        } else if(userMsg.includes("timeout") || userMsg.includes("overloaded") || userMsg.includes("503") || userMsg.includes("502")){
+
+        // Check for abort/timeout FIRST (not rate limit)
+        if(userMsg.includes("abort") || userMsg.includes("signal") || userMsg.includes("DUPLICATE")){
+            userMsg = "AI Service जवाब देने में बहुत ज्यादा समय लग रहा है।\n\n⏳ 2 minute बाद फिर try करें।\n\nTIP: कम वाली photo select करें या network अच्छा हो तो try करें।";
+        } else if(userMsg.includes("RATE_LIMITED") || userMsg.includes("429")){
+            userMsg = "AI Service busy है।\n\n⏳ 1 minute बाद फिर try करें।\n\nTIP: Scan से पहले AI Munshi बंद करें।";
+        } else if(userMsg.includes("timeout") || userMsg.includes("503") || userMsg.includes("502")){
             userMsg = "AI Service overloaded है। 2-3 minute बाद try करें।";
+        } else if(userMsg.includes("403")){
+            userMsg = "AI Service में authentication problem है। Admin से contact करें।";
+        } else if(userMsg.includes("400")){
+            userMsg = "Image format या size issue है। कम size की photo try करें।";
+        } else if(userMsg.includes("Empty response")){
+            userMsg = "AI Service ने खाली response भेजा। फिर try करें।";
         }
         alert("Scanner Error : " + userMsg);
-
         }
 
     });

@@ -482,7 +482,7 @@ async def chat_with_ai(body: ChatPromptRequest, request: Request):
     import re as _re
     import time as _time
 
-    MAX_RETRIES = 3
+    MAX_RETRIES = 2
     _req_start = _time.time()
     logger.info(f"[GEMINI] Request start | model={GEMINI_MODEL} | text_len={len(user_text)}")
 
@@ -510,7 +510,7 @@ async def chat_with_ai(body: ChatPromptRequest, request: Request):
             "contents": [{"parts": parts}]
         }
 
-        req_timeout = 90 if body.image else 30
+        req_timeout = 60 if body.image else 30
         retryable_codes = {429, 500, 502, 503, 504}
         last_error = None
 
@@ -552,7 +552,7 @@ async def chat_with_ai(body: ChatPromptRequest, request: Request):
                 if attempt < MAX_RETRIES:
                     wait_time = retry_after if retry_after else (attempt * 3)
                     # Cap wait at 30s
-                    wait_time = min(wait_time, 30)
+                    wait_time = min(wait_time, 10)
                     logger.info(f"[GEMINI] RETRY | waiting {wait_time}s before attempt {attempt + 1}")
                     _time.sleep(wait_time)
                     last_error = (response.status_code, error_msg)
