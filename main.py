@@ -661,24 +661,11 @@ async def scanner_ocr(body: ScannerRequest, request: Request):
 
     import time as _time
 
-    # ---- Model configuration ----
-    # Scanner uses VISION-CAPABLE models first, then GEMINI_MODEL as fallback
-    # gemini-2.5-flash: stable, image support, fast
-    # GEMINI_MODEL: may or may not support images — use as last resort
-    _scanner_primary = "gemini-2.5-flash"
-    _scanner_models = [_scanner_primary, GEMINI_MODEL]
-    # Deduplicate while preserving order
-    _seen = set()
-    _scanner_models_unique = []
-    for m in _scanner_models:
-        if m and m not in _seen:
-            _seen.add(m)
-            _scanner_models_unique.append(m)
-
     _req_start = _time.time()
-    logger.info(f"[SCANNER] Request start | models={_scanner_models_unique} | prompt_len={len(body.prompt)}")
+    model_name = GEMINI_MODEL
+    logger.info(f"[SCANNER] Request start | model={model_name} | prompt_len={len(body.prompt)}")
 
-    # ---- Build request parts (shared across all model attempts) ----
+    # ---- Build request parts ----
     parts = [{"text": body.prompt}]
 
     raw_b64 = body.image
@@ -696,139 +683,68 @@ async def scanner_ocr(body: ScannerRequest, request: Request):
     headers = {"Content-Type": "application/json"}
     payload = {"contents": [{"parts": parts}]}
 
-    # ---- Codes that trigger retry/fallback ----
-    # 503 = overloaded, 404 = model not found (transient)
-    # 400 = bad request (e.g. model doesn't support images) — also triggers fallback
-    _overloaded_codes = {503, 404, 400}
-
-    # ---- Try each model ----
-    for model_idx, model_name in enumerate(_scanner_models_unique):
-        model_url = (
-            f"https://generativelanguage.googleapis.com/v1beta/"
-            f"models/{model_name}:generateContent"
-        )
-        is_last_model = (model_idx == len(_scanner_models_unique) - 1)
-
-        # For each model: 1 attempt + 1 retry on 503
-        MAX_RETRIES_PER_MODEL = 1
-        last_error = None
-
-        for attempt in range(1, MAX_RETRIES_PER_MODEL + 1):
-            attempt_start = _time.time()
-            try:
-                response = requests.post(
-                    f"{model_url}?key={GEMINI_API_KEY}",
-                    json=payload,
-                    headers=headers,
-                    timeout=60,
-                )
-                attempt_time = round(_time.time() - attempt_start, 2)
-                res_data = response.json()
-
-                # ---- SUCCESS ----
-                if response.status_code == 200 and "candidates" in res_data:
-                    total_time = round(_time.time() - _req_start, 2)
-                    model_ver = res_data.get("modelVersion", "unknown")
-                    logger.info(f"[SCANNER] PASS | model={model_name} | version={model_ver} | attempt={attempt} | time={total_time}s")
-                    return res_data
-
-                # ---- ERROR ----
-                error_msg = res_data.get("error", {}).get("message", "Gemini API error")
-                error_code = res_data.get("error", {}).get("code", response.status_code)
-
-                logger.warning(
-                    f"[SCANNER] FAIL | model={model_name} | attempt={attempt} "
-                    f"| HTTP={response.status_code} | code={error_code} "
-                    f"| time={attempt_time}s | error={error_msg[:200]}"
-                )
-
-                # ---- 429 rate limit: fail fast, no retry ----
-                if response.status_code == 429:
-                    total_time = round(_time.time() - _req_start, 2)
-                    logger.error(f"[SCANNER] RATE_LIMITED | model={model_name} | total_time={total_time}s")
-                    raise HTTPException(
-                        status_code=429,
-                        detail="अभी AI Scanner व्यस्त है। कृपया कुछ सेकंड बाद फिर प्रयास करें।"
-                    )
-
-                # ---- 503 / overloaded: retry once, then fallback to next model ----
-                if response.status_code in _overloaded_codes or error_code in _overloaded_codes:
-                    if attempt < MAX_RETRIES_PER_MODEL:
-                        # Exponential backoff: 2s, then 4s
-                        wait_time = attempt * 2
-                        logger.info(f"[SCANNER] OVERLOADED | model={model_name} | retrying in {wait_time}s")
-                        _time.sleep(wait_time)
-                        last_error = (response.status_code, error_msg)
-                        continue
-                    elif not is_last_model:
-                        # Move to fallback model
-                        logger.info(
-                            f"[SCANNER] FALLBACK | model={model_name} overloaded | "
-                            f"switching to {_scanner_models_unique[model_idx + 1]}"
-                        )
-                        break  # Break inner loop, continue outer loop to next model
-                    else:
-                        last_error = (response.status_code, error_msg)
-                        break  # Last model, fall through to error
-                else:
-                    # Non-retryable, non-overloaded error (400, 401, 403)
-                    total_time = round(_time.time() - _req_start, 2)
-                    logger.error(
-                        f"[SCANNER] FATAL | model={model_name} | HTTP={response.status_code} "
-                        f"| not retryable | total_time={total_time}s"
-                    )
-                    raise HTTPException(
-                        status_code=response.status_code,
-                        detail="अभी AI Scanner उपलब्ध नहीं है। कृपया कुछ देर बाद फिर प्रयास करें।"
-                    )
-
-            except requests.Timeout:
-                attempt_time = round(_time.time() - attempt_start, 2)
-                logger.warning(f"[SCANNER] TIMEOUT | model={model_name} | attempt={attempt} | time={attempt_time}s")
-                if attempt < MAX_RETRIES_PER_MODEL:
-                    _time.sleep(2)
-                    last_error = (504, "Gemini API timeout")
-                    continue
-                elif not is_last_model:
-                    logger.info(f"[SCANNER] FALLBACK | model={model_name} timeout | switching to next model")
-                    break  # Try next model
-                else:
-                    last_error = (504, "Gemini API timeout")
-                    break
-
-            except requests.ConnectionError:
-                attempt_time = round(_time.time() - attempt_start, 2)
-                logger.warning(f"[SCANNER] CONN_ERROR | model={model_name} | attempt={attempt} | time={attempt_time}s")
-                if attempt < MAX_RETRIES_PER_MODEL:
-                    _time.sleep(2)
-                    last_error = (502, "Connection error")
-                    continue
-                elif not is_last_model:
-                    break  # Try next model
-                else:
-                    last_error = (502, "Connection error")
-                    break
-
-        # If last_error is set and we exhausted this model, continue to next
-        if last_error and is_last_model:
-            total_time = round(_time.time() - _req_start, 2)
-            status_code, _ = last_error
-            logger.error(
-                f"[SCANNER] EXHAUSTED | all models failed | final_status={status_code} "
-                f"| models_tried={_scanner_models_unique} | total_time={total_time}s"
-            )
-            raise HTTPException(
-                status_code=status_code,
-                detail="अभी AI Scanner व्यस्त है। कृपया कुछ सेकंड बाद फिर प्रयास करें।"
-            )
-
-    # Should not reach here, but safety net
-    total_time = round(_time.time() - _req_start, 2)
-    logger.error(f"[SCANNER] UNEXPECTED_FALLTHROUGH | total_time={total_time}s")
-    raise HTTPException(
-        status_code=503,
-        detail="अभी AI Scanner व्यस्त है। कृपया कुछ सेकंड बाद फिर प्रयास करें।"
+    model_url = (
+        f"https://generativelanguage.googleapis.com/v1beta/"
+        f"models/{model_name}:generateContent"
     )
+
+    # ---- Single attempt, NO retry — fail fast like original scanner ----
+    try:
+        response = requests.post(
+            f"{model_url}?key={GEMINI_API_KEY}",
+            json=payload,
+            headers=headers,
+            timeout=60,
+        )
+        attempt_time = round(_time.time() - _req_start, 2)
+        res_data = response.json()
+
+        # ---- SUCCESS ----
+        if response.status_code == 200 and "candidates" in res_data:
+            model_ver = res_data.get("modelVersion", "unknown")
+            logger.info(f"[SCANNER] PASS | model={model_name} | version={model_ver} | time={attempt_time}s")
+            return res_data
+
+        # ---- ERROR — fail fast, no retry ----
+        error_msg = res_data.get("error", {}).get("message", "Gemini API error")
+        error_code = res_data.get("error", {}).get("code", response.status_code)
+
+        logger.warning(
+            f"[SCANNER] FAIL | model={model_name} | HTTP={response.status_code} "
+            f"| code={error_code} | time={attempt_time}s | error={error_msg[:200]}"
+        )
+
+        # Return the actual Gemini error to frontend — no hiding
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=error_msg
+        )
+
+    except requests.Timeout:
+        attempt_time = round(_time.time() - _req_start, 2)
+        logger.warning(f"[SCANNER] TIMEOUT | model={model_name} | time={attempt_time}s")
+        raise HTTPException(
+            status_code=504,
+            detail="Gemini API timeout"
+        )
+
+    except requests.ConnectionError:
+        attempt_time = round(_time.time() - _req_start, 2)
+        logger.warning(f"[SCANNER] CONN_ERROR | model={model_name} | time={attempt_time}s")
+        raise HTTPException(
+            status_code=502,
+            detail="Connection error to Gemini API"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        attempt_time = round(_time.time() - _req_start, 2)
+        logger.error(f"[SCANNER] ERROR | model={model_name} | time={attempt_time}s | {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Scanner internal error"
+        )
 
 
 # ==========================================
