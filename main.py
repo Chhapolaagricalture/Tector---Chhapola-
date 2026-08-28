@@ -511,7 +511,8 @@ async def chat_with_ai(body: ChatPromptRequest, request: Request):
         }
 
         req_timeout = 60 if body.image else 30
-        retryable_codes = {429, 500, 502, 503, 504}
+        # For image requests (scanner), do NOT retry on 429 — fail fast to save quota
+        retryable_codes = {500, 502, 503, 504} if body.image else {429, 500, 502, 503, 504}
         last_error = None
 
         for attempt in range(1, MAX_RETRIES + 1):

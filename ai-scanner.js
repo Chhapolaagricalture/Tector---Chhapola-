@@ -1837,9 +1837,9 @@ async function startScanner(file){
 
             msg += "API Key invalid hai. Admin se contact karein.";
 
-        }else if(e.message && e.message.includes("429")){
+        }else if(e.message && (e.message.includes("429") || e.message.includes("RATE_LIMITED"))){
 
-            msg += "AI Service busy hai. Kuch der baad try karein.";
+            msg += "RATE_LIMITED.";
 
         }else{
 
