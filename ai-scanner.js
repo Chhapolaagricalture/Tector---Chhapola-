@@ -971,27 +971,97 @@ Never create blank 0/0/0 records.
 `;
 }
 
-// ---------- Gemini ----------
-async function sendScannerToGemini(base64){
+// ==========================================
+// DEDICATED SCANNER API
+// Independent from AI Munshi callGeminiAPI()
+// Uses /api/scanner — separate endpoint, no SYSTEM_PROMPT
+// ==========================================
 
-    if(typeof callGeminiAPI!=="function"){
+async function callScannerAPI(prompt, imageBase64) {
+    const SCANNER_URL = "https://tector-chhapola.onrender.com/api/scanner";
 
-        throw new Error("Gemini API Missing — AI service connected nahi hai.");
-
+    if (!imageBase64) {
+        throw new Error("Image is required for scanning.");
     }
 
-    // Single request — NO retry on rate limit (each retry wastes quota)
-    const response = await callGeminiAPI(
+    let mimeType = "image/jpeg";
+    if (typeof imageBase64 === "string" && imageBase64.startsWith("data:")) {
+        const match = imageBase64.match(/^data:([^;]+);/);
+        if (match) mimeType = match[1];
+    }
+
+    const body = {
+        prompt: prompt || "",
+        image: imageBase64,
+        mime_type: mimeType
+    };
+
+    const headers = { "Content-Type": "application/json" };
+
+    // Add Firebase auth token if available
+    try {
+        if (window.auth && window.auth.currentUser) {
+            const idToken = await window.auth.currentUser.getIdToken();
+            if (idToken) headers["Authorization"] = "Bearer " + idToken;
+        }
+    } catch (e) { /* Auth optional for scanner */ }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s for image OCR
+
+    try {
+        const response = await fetch(SCANNER_URL, {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(body),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            const errMsg = errData.detail || "Backend error: " + response.status;
+            if (response.status === 429) {
+                throw new Error("RATE_LIMITED: " + errMsg);
+            }
+            throw new Error(errMsg);
+        }
+
+        return await response.json();
+
+    } catch (e) {
+        clearTimeout(timeoutId);
+        if (e.name === "AbortError" || (e.message && e.message.includes("abort"))) {
+            throw new Error("Scanner timeout — AI Service जवाब देने में बहुत ज्यादा समय लग रहा है।");
+        }
+        throw e;
+    }
+}
+
+window.callScannerAPI = callScannerAPI;
+
+// ==========================================
+// sendScannerToGemini — uses dedicated scanner endpoint
+// ==========================================
+
+async function sendScannerToGemini(base64){
+
+    scannerLog("SCANNER START — sending to /api/scanner");
+
+    const response = await callScannerAPI(
         buildScannerPrompt(),
         base64
     );
 
+    scannerLog("SCANNER RESPONSE received");
+
     if(!response){
-        throw new Error("Empty response from Gemini API.");
+        throw new Error("Scanner ने खाली response भेजा। फिर try करें।");
     }
 
     if(response.error){
-        throw new Error(response.error.message || "Gemini API error.");
+        throw new Error(response.error.message || "Scanner AI error.");
     }
 
     return response;

@@ -622,6 +622,139 @@ async def process_ledger_ai(data: LedgerQuery):
 
 
 # ==========================================
+# SCANNER — DEDICATED OCR ENDPOINT
+# ==========================================
+
+
+class ScannerRequest(BaseModel):
+    """Scanner OCR request — image only, no chat prompt needed."""
+    prompt: str = Field(..., min_length=1, max_length=100000, description="OCR prompt from frontend scanner")
+    image: str = Field(..., description="Base64 image data")
+    mime_type: Optional[str] = Field(None, description="MIME type e.g. image/jpeg")
+
+
+@app.post("/api/scanner", tags=["scanner"])
+async def scanner_ocr(body: ScannerRequest, request: Request):
+    """Dedicated endpoint for AI Scanner OCR.
+
+    - No AI Munshi SYSTEM_PROMPT
+    - Separate rate limit (15 req/min — scanner is heavier)
+    - No retry on 429 (fail fast to save quota)
+    - Only returns Gemini Vision OCR response
+    """
+    # Separate rate limit for scanner (heavier requests)
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(client_ip, max_requests=15):
+        raise HTTPException(
+            status_code=429,
+            detail="Scanner rate limit reached. Please wait a moment and try again."
+        )
+
+    if not GEMINI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="GEMINI_API_KEY not configured on server",
+        )
+
+    if not body.image:
+        raise HTTPException(status_code=400, detail="Image is required for scanning")
+
+    import re as _re
+    import time as _time
+
+    _req_start = _time.time()
+    logger.info(f"[SCANNER] Request start | model={GEMINI_MODEL} | prompt_len={len(body.prompt)}")
+
+    try:
+        # Use the scanner's own OCR prompt — NO SYSTEM_PROMPT prepend
+        parts = [{"text": body.prompt}]
+
+        # Add image as inline_data for Gemini Vision
+        raw_b64 = body.image
+        if "," in raw_b64 and raw_b64.startswith("data:"):
+            raw_b64 = raw_b64.split(",", 1)[1]
+
+        mime = body.mime_type or "image/jpeg"
+        parts.append({
+            "inline_data": {
+                "mime_type": mime,
+                "data": raw_b64,
+            }
+        })
+
+        headers = {"Content-Type": "application/json"}
+        payload = {
+            "contents": [{"parts": parts}]
+        }
+
+        # Scanner: 60s timeout, NO retry on 429 (fail fast)
+        retryable_codes = {500, 502, 503, 504}
+        MAX_RETRIES = 1  # Scanner gets at most 1 retry
+        last_error = None
+
+        for attempt in range(1, MAX_RETRIES + 1):
+            attempt_start = _time.time()
+            try:
+                response = requests.post(
+                    f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+                    json=payload,
+                    headers=headers,
+                    timeout=60,
+                )
+                attempt_time = round(_time.time() - attempt_start, 2)
+                res_data = response.json()
+
+                if response.status_code == 200 and "candidates" in res_data:
+                    total_time = round(_time.time() - _req_start, 2)
+                    model_ver = res_data.get("modelVersion", "unknown")
+                    logger.info(f"[SCANNER] PASS | model={model_ver} | attempt={attempt} | time={total_time}s")
+                    return res_data
+
+                # Extract error info
+                error_msg = res_data.get("error", {}).get("message", "Gemini API error")
+                error_code = res_data.get("error", {}).get("code", response.status_code)
+
+                logger.warning(f"[SCANNER] FAIL | attempt={attempt} | HTTP={response.status_code} | code={error_code} | time={attempt_time}s | error={error_msg[:200]}")
+
+                # Non-retryable error — fail immediately
+                if response.status_code not in retryable_codes and error_code not in retryable_codes:
+                    total_time = round(_time.time() - _req_start, 2)
+                    logger.error(f"[SCANNER] FATAL | HTTP={response.status_code} | not retryable | total_time={total_time}s")
+                    raise HTTPException(status_code=response.status_code, detail=error_msg)
+
+                # Retryable error — wait and retry
+                if attempt < MAX_RETRIES:
+                    wait_time = min(5, attempt * 3)
+                    logger.info(f"[SCANNER] RETRY | waiting {wait_time}s before attempt {attempt + 1}")
+                    _time.sleep(wait_time)
+                    last_error = (response.status_code, error_msg)
+                else:
+                    last_error = (response.status_code, error_msg)
+
+            except requests.Timeout:
+                attempt_time = round(_time.time() - attempt_start, 2)
+                logger.warning(f"[SCANNER] TIMEOUT | attempt={attempt} | time={attempt_time}s")
+                if attempt < MAX_RETRIES:
+                    _time.sleep(3)
+                    last_error = (504, "Gemini API timeout")
+                else:
+                    last_error = (504, "Gemini API timeout")
+
+        # All retries exhausted
+        total_time = round(_time.time() - _req_start, 2)
+        status_code, error_msg = last_error if last_error else (502, "Scanner OCR failed")
+        logger.error(f"[SCANNER] EXHAUSTED | {MAX_RETRIES} retries failed | final_status={status_code} | total_time={total_time}s")
+        raise HTTPException(status_code=status_code, detail=error_msg)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        total_time = round(_time.time() - _req_start, 2)
+        logger.exception(f"[SCANNER] ERROR | total_time={total_time}s")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# ==========================================
 # FARMER RECORDS CRUD APIs (with auth + ownership)
 # ==========================================
 
