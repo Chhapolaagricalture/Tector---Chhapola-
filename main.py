@@ -663,7 +663,7 @@ async def scanner_ocr(body: ScannerRequest, request: Request):
 
     # ---- Model configuration ----
     SCANNER_FALLBACK_MODEL = os.getenv(
-        "SCANNER_FALLBACK_MODEL", "gemini-2.0-flash"
+        "SCANNER_FALLBACK_MODEL", "gemini-2.5-flash"
     )
 
     # Models to try, in order: primary (GEMINI_MODEL) → fallback
