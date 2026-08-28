@@ -258,6 +258,7 @@ app.add_middleware(
 # ==========================================
 
 _rate_limit_store: dict[str, list[float]] = defaultdict(list)
+_rate_limit_store_scanner: dict[str, list[float]] = defaultdict(list)
 RATE_LIMIT_WINDOW = 60  # seconds
 RATE_LIMIT_MAX_REQUESTS = 30  # max requests per window (for /api/chat)
 
@@ -265,13 +266,24 @@ RATE_LIMIT_MAX_REQUESTS = 30  # max requests per window (for /api/chat)
 def check_rate_limit(ip: str, max_requests: int = RATE_LIMIT_MAX_REQUESTS) -> bool:
     """Return True if rate limit is OK, False if exceeded."""
     now = time.time()
-    # Remove old entries outside the window
     _rate_limit_store[ip] = [
         t for t in _rate_limit_store[ip] if now - t < RATE_LIMIT_WINDOW
     ]
     if len(_rate_limit_store[ip]) >= max_requests:
         return False
     _rate_limit_store[ip].append(now)
+    return True
+
+
+def check_rate_limit_scanner(ip: str, max_requests: int = 15) -> bool:
+    """Separate rate limit for scanner — independent from chat."""
+    now = time.time()
+    _rate_limit_store_scanner[ip] = [
+        t for t in _rate_limit_store_scanner[ip] if now - t < RATE_LIMIT_WINDOW
+    ]
+    if len(_rate_limit_store_scanner[ip]) >= max_requests:
+        return False
+    _rate_limit_store_scanner[ip].append(now)
     return True
 
 
@@ -644,7 +656,7 @@ async def scanner_ocr(body: ScannerRequest, request: Request):
     """
     # Separate rate limit for scanner (heavier requests)
     client_ip = request.client.host if request.client else "unknown"
-    if not check_rate_limit(client_ip, max_requests=15):
+    if not check_rate_limit_scanner(client_ip, max_requests=15):
         raise HTTPException(
             status_code=429,
             detail="Scanner rate limit reached. Please wait a moment and try again."
