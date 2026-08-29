@@ -1,4 +1,4 @@
-const CACHE_NAME = "chhapola-agriculture-v6";
+const CACHE_NAME = "chhapola-agriculture-v7";
 
 const urlsToCache = [
   "./",
