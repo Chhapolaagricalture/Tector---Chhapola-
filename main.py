@@ -674,8 +674,10 @@ async def scanner_ocr(body: ScannerRequest, request: Request):
     import time as _time
 
     _req_start = _time.time()
-    model_name = GEMINI_MODEL
-    logger.info(f"[SCANNER] Request start | model={model_name} | prompt_len={len(body.prompt)}")
+
+    # Model list: try stable vision model first, then GEMINI_MODEL as fallback
+    scanner_models = list(dict.fromkeys(["gemini-2.5-flash", GEMINI_MODEL]))
+    logger.info(f"[SCANNER] Request start | models={scanner_models} | prompt_len={len(body.prompt)}")
 
     # ---- Build request parts ----
     parts = [{"text": body.prompt}]
@@ -695,68 +697,97 @@ async def scanner_ocr(body: ScannerRequest, request: Request):
     headers = {"Content-Type": "application/json"}
     payload = {"contents": [{"parts": parts}]}
 
-    model_url = (
-        f"https://generativelanguage.googleapis.com/v1beta/"
-        f"models/{model_name}:generateContent"
+    _last_error = None
+    _overloaded_codes = {503, 429}  # retry on 503 overloaded only, fail fast on 429
+
+    for model_name in scanner_models:
+        model_url = (
+            f"https://generativelanguage.googleapis.com/v1beta/"
+            f"models/{model_name}:generateContent"
+        )
+        try:
+            logger.info(f"[SCANNER] Trying model={model_name}")
+            response = requests.post(
+                f"{model_url}?key={GEMINI_API_KEY}",
+                json=payload,
+                headers=headers,
+                timeout=60,
+            )
+            attempt_time = round(_time.time() - _req_start, 2)
+            res_data = response.json()
+
+            # ---- SUCCESS ----
+            if response.status_code == 200 and "candidates" in res_data:
+                model_ver = res_data.get("modelVersion", "unknown")
+                logger.info(
+                    f"[SCANNER] PASS | model={model_name} | version={model_ver} | time={attempt_time}s"
+                )
+                return res_data
+
+            # ---- Get error details ----
+            error_msg = res_data.get("error", {}).get("message", "Gemini API error")
+            error_code = res_data.get("error", {}).get("code", response.status_code)
+            logger.warning(
+                f"[SCANNER] FAIL | model={model_name} | HTTP={response.status_code} "
+                f"| code={error_code} | time={attempt_time}s | error={error_msg[:200]}"
+            )
+
+            # 429 = rate limit → fail fast, don't waste quota on retry
+            if response.status_code == 429:
+                raise HTTPException(status_code=429, detail=error_msg)
+
+            # 503 overloaded → try next model if available
+            if response.status_code in _overloaded_codes:
+                _last_error = error_msg
+                logger.warning(
+                    f"[SCANNER] OVERLOADED | model={model_name} | trying next model"
+                )
+                continue
+
+            # 400 bad request (model doesn't support images) → try next model
+            if response.status_code == 400:
+                _last_error = error_msg
+                logger.warning(
+                    f"[SCANNER] MODEL_MISMATCH | model={model_name} | trying next model"
+                )
+                continue
+
+            # Other errors → fail fast
+            raise HTTPException(status_code=response.status_code, detail=error_msg)
+
+        except requests.Timeout:
+            attempt_time = round(_time.time() - _req_start, 2)
+            logger.warning(
+                f"[SCANNER] TIMEOUT | model={model_name} | time={attempt_time}s"
+            )
+            _last_error = "Gemini API timeout"
+            continue  # try next model on timeout
+
+        except requests.ConnectionError:
+            attempt_time = round(_time.time() - _req_start, 2)
+            logger.warning(
+                f"[SCANNER] CONN_ERROR | model={model_name} | time={attempt_time}s"
+            )
+            _last_error = "Connection error to Gemini API"
+            continue
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            attempt_time = round(_time.time() - _req_start, 2)
+            logger.error(
+                f"[SCANNER] ERROR | model={model_name} | time={attempt_time}s | {e}"
+            )
+            _last_error = str(e)
+            continue
+
+    # All models failed
+    total_time = round(_time.time() - _req_start, 2)
+    logger.error(f"[SCANNER] ALL_MODELS_FAILED | models={scanner_models} | time={total_time}s")
+    raise HTTPException(
+        status_code=503,
+        detail="AI Scanner is overloaded. Please try again in a few minutes."
     )
-
-    # ---- Single attempt, NO retry — fail fast like original scanner ----
-    try:
-        response = requests.post(
-            f"{model_url}?key={GEMINI_API_KEY}",
-            json=payload,
-            headers=headers,
-            timeout=60,
-        )
-        attempt_time = round(_time.time() - _req_start, 2)
-        res_data = response.json()
-
-        # ---- SUCCESS ----
-        if response.status_code == 200 and "candidates" in res_data:
-            model_ver = res_data.get("modelVersion", "unknown")
-            logger.info(f"[SCANNER] PASS | model={model_name} | version={model_ver} | time={attempt_time}s")
-            return res_data
-
-        # ---- ERROR — fail fast, no retry ----
-        error_msg = res_data.get("error", {}).get("message", "Gemini API error")
-        error_code = res_data.get("error", {}).get("code", response.status_code)
-
-        logger.warning(
-            f"[SCANNER] FAIL | model={model_name} | HTTP={response.status_code} "
-            f"| code={error_code} | time={attempt_time}s | error={error_msg[:200]}"
-        )
-
-        # Return the actual Gemini error to frontend — no hiding
-        raise HTTPException(
-            status_code=response.status_code,
-            detail=error_msg
-        )
-
-    except requests.Timeout:
-        attempt_time = round(_time.time() - _req_start, 2)
-        logger.warning(f"[SCANNER] TIMEOUT | model={model_name} | time={attempt_time}s")
-        raise HTTPException(
-            status_code=504,
-            detail="Gemini API timeout"
-        )
-
-    except requests.ConnectionError:
-        attempt_time = round(_time.time() - _req_start, 2)
-        logger.warning(f"[SCANNER] CONN_ERROR | model={model_name} | time={attempt_time}s")
-        raise HTTPException(
-            status_code=502,
-            detail="Connection error to Gemini API"
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        attempt_time = round(_time.time() - _req_start, 2)
-        logger.error(f"[SCANNER] ERROR | model={model_name} | time={attempt_time}s | {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Scanner internal error"
-        )
 
 
 # ==========================================
