@@ -471,8 +471,11 @@ async def healthz() -> HealthResponse:
 async def chat_with_ai(body: ChatPromptRequest, request: Request):
     """Send a message to Gemini AI and get a Gemini-compatible response.
 
-    Rate limited: 30 requests per minute per IP.
+    Auth required + Rate limited: 30 requests per minute per IP.
     """
+    # Auth check
+    token = await require_auth(request)
+
     # Rate limit check
     client_ip = request.client.host if request.client else "unknown"
     if not check_rate_limit(client_ip):
@@ -596,8 +599,22 @@ async def chat_with_ai(body: ChatPromptRequest, request: Request):
 
 
 @app.post("/api/ledger-chat", tags=["ai"])
-async def process_ledger_ai(data: LedgerQuery):
-    """Alternative chat endpoint (compatible with ai_assistant.py)."""
+async def process_ledger_ai(data: LedgerQuery, request: Request):
+    """Alternative chat endpoint (compatible with ai_assistant.py).
+
+    Auth required + Rate limited.
+    """
+    # Auth check
+    token = await require_auth(request)
+
+    # Rate limit check
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Bahut zyada requests ho rahi hain. Kuch der baad try karein."
+        )
+
     if not GEMINI_API_KEY:
         raise HTTPException(
             status_code=503,
@@ -649,11 +666,15 @@ class ScannerRequest(BaseModel):
 async def scanner_ocr(body: ScannerRequest, request: Request):
     """Dedicated endpoint for AI Scanner OCR.
 
+    - Auth required
     - No AI Munshi SYSTEM_PROMPT
     - Separate rate limit (15 req/min — scanner is heavier)
     - No retry on 429 (fail fast to save quota)
     - Only returns Gemini Vision OCR response
     """
+    # Auth check
+    token = await require_auth(request)
+
     # Separate rate limit for scanner (heavier requests)
     client_ip = request.client.host if request.client else "unknown"
     if not check_rate_limit_scanner(client_ip, max_requests=15):
@@ -895,7 +916,9 @@ async def get_record(record_id: str, request: Request):
 
         # Task 1: Verify record belongs to authenticated user
         record_owner = _get_record_owner(data)
-        if record_owner and record_owner != token.get("uid"):
+        if not record_owner:
+            raise HTTPException(status_code=403, detail="Access denied: record has no owner")
+        if record_owner != token.get("uid"):
             raise HTTPException(status_code=403, detail="Access denied")
 
         return {"status": "success", "record": data}
@@ -919,7 +942,9 @@ async def update_record(record_id: str, updates: RecordUpdate, request: Request)
         # Task 1: Verify record belongs to authenticated user
         existing = doc.to_dict()
         record_owner = _get_record_owner(existing)
-        if record_owner and record_owner != token.get("uid"):
+        if not record_owner:
+            raise HTTPException(status_code=403, detail="Access denied: record has no owner")
+        if record_owner != token.get("uid"):
             raise HTTPException(status_code=403, detail="Access denied")
 
         update_data = {k: v for k, v in updates.model_dump().items() if v is not None}
@@ -964,7 +989,9 @@ async def delete_record(record_id: str, request: Request):
 
         # Task 1: Verify record belongs to authenticated user
         record_owner = _get_record_owner(doc.to_dict())
-        if record_owner and record_owner != token.get("uid"):
+        if not record_owner:
+            raise HTTPException(status_code=403, detail="Access denied: record has no owner")
+        if record_owner != token.get("uid"):
             raise HTTPException(status_code=403, detail="Access denied")
 
         # Task 20: Soft delete — mark as deleted instead of removing

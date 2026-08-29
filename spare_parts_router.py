@@ -25,9 +25,28 @@ import requests
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+import firebase_admin
+from firebase_admin import auth as fb_auth
+
 logger = logging.getLogger("chhapola.spare_parts")
 
 router = APIRouter(prefix="/api/spare-parts", tags=["spare_parts"])
+
+
+# ==============================================
+# AUTH HELPER
+# ==============================================
+
+async def _require_auth_spare_parts(request: Request) -> dict:
+    """Verify Firebase ID token from Authorization header."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    id_token = auth_header[7:]
+    try:
+        return fb_auth.verify_id_token(id_token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
 # ==============================================
@@ -550,6 +569,9 @@ async def search_spare_parts(
 
     No hardcoded products — all results come from live external sources.
     """
+    # Auth required
+    await _require_auth_spare_parts(request)
+
     if not q.strip():
         raise HTTPException(status_code=400, detail="Search query is required")
 
@@ -625,6 +647,9 @@ async def price_comparison(
     Get price comparison analysis for a specific part.
     Returns best price, highest, average, and per-source breakdown.
     """
+    # Auth required
+    await _require_auth_spare_parts(request)
+
     results = search_all_sources(q.strip(), company.strip(), model.strip())
     results = _deduplicate_results(results)
     analysis = compute_price_analysis(results)

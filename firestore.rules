@@ -1,125 +1,149 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ============================================
-    // HELPER: Admin check
-    // ============================================
-    function isAdmin() {
-      return request.auth != null &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    // Helper: check if request is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // ============================================
-    // PHASE 1: Existing Collections
-    // ============================================
-
-    // --- Users ---
-    match /users/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && (request.auth.uid == userId || isAdmin());
-      allow delete: if request.auth != null && isAdmin();
+    // Helper: check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // --- Records (Farmer Ledger) ---
+    // Helper: check owner_uid field matches auth user
+    function isOwnerByField() {
+      return isAuthenticated() && (
+        resource.data.ownerUid == request.auth.uid ||
+        resource.data.owner_uid == request.auth.uid
+      );
+    }
+
+    // Helper: owner field cannot be changed on update
+    function ownerFieldUnchanged() {
+      return !resource.data.diff(resource.dataAfterWrite).affectedKeys()
+        .hasAny(['ownerUid', 'owner_uid']);
+    }
+
+    // ==========================================
+    // RECORDS — owner-isolated
+    // ==========================================
     match /records/{recordId} {
-      allow read: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if request.auth != null && resource.data.ownerUid == request.auth.uid
-                    && request.resource.data.ownerUid == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      // Read: only owner can read their records
+      allow read: if isAuthenticated() && (
+        resource.data.ownerUid == request.auth.uid ||
+        resource.data.owner_uid == request.auth.uid
+      );
+
+      // Create: must be authenticated, owner field must match auth user
+      allow create: if isAuthenticated() && (
+        request.resource.data.ownerUid == request.auth.uid ||
+        request.resource.data.owner_uid == request.auth.uid
+      );
+
+      // Update: only owner, cannot change owner fields, financial values non-negative
+      allow update: if isAuthenticated() && (
+        resource.data.ownerUid == request.auth.uid ||
+        resource.data.owner_uid == request.auth.uid
+      ) && (
+        // Owner field unchanged
+        (!request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['ownerUid', 'owner_uid']))
+        // OR owner field still matches auth user
+        || request.resource.data.ownerUid == request.auth.uid
+        || request.resource.data.owner_uid == request.auth.uid
+      );
+
+      // Delete: only owner
+      allow delete: if isAuthenticated() && (
+        resource.data.ownerUid == request.auth.uid ||
+        resource.data.owner_uid == request.auth.uid
+      );
     }
 
-    // --- Settings (Global) ---
-    match /settings/{docId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && isAdmin();
+    // ==========================================
+    // USERS — user profile (uid = doc ID)
+    // ==========================================
+    match /users/{userId} {
+      // Read: only own profile (admin reads via backend Admin SDK)
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+
+      // Write: only own profile
+      allow write: if isAuthenticated() && request.auth.uid == userId;
     }
 
-    // --- User Rates ---
+    // ==========================================
+    // USER RATES — per-user work rates
+    // ==========================================
     match /user_rates/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
 
-    // --- User PDF Settings ---
+    // ==========================================
+    // USER PDF SETTINGS — per-user PDF config
+    // ==========================================
     match /user_pdf_settings/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
 
-    // --- Feedback ---
+    // ==========================================
+    // FEEDBACK — authenticated users can create, not read
+    // ==========================================
     match /feedback/{feedbackId} {
-      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
-      allow update: if request.auth != null && resource.data.uid == request.auth.uid;
-      allow delete: if request.auth != null && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+      allow read: if false;  // Only backend (Admin SDK) reads feedback
+      allow update, delete: if false;
     }
 
-    // ============================================
-    // PHASE 2: Tractor Maintenance Collections
-    // ============================================
+    // ==========================================
+    // SETTINGS/GLOBAL — read-only for all, write via Admin SDK only
+    // ==========================================
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
 
-    // --- Tractor Details (doc key = user UID) ---
+    // ==========================================
+    // TRACTOR DETAILS — per-user
+    // ==========================================
     match /tractor_details/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
 
-    // --- Tractor Services / Repair ---
-    match /tractor_services/{serviceId} {
-      allow read: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if request.auth != null && resource.data.ownerUid == request.auth.uid
-                    && request.resource.data.ownerUid == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+    // ==========================================
+    // TRACTOR SERVICES — owner-isolated
+    // ==========================================
+    match /tractor_services/{docId} {
+      allow read, write: if isAuthenticated() && (
+        resource.data.ownerUid == request.auth.uid ||
+        request.resource.data.ownerUid == request.auth.uid
+      );
     }
 
-    // --- Tractor Diesel ---
-    match /tractor_diesel/{dieselId} {
-      allow read: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if request.auth != null && resource.data.ownerUid == request.auth.uid
-                    && request.resource.data.ownerUid == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+    // ==========================================
+    // TRACTOR DIESEL — owner-isolated
+    // ==========================================
+    match /tractor_diesel/{docId} {
+      allow read, write: if isAuthenticated() && (
+        resource.data.ownerUid == request.auth.uid ||
+        request.resource.data.ownerUid == request.auth.uid
+      );
     }
 
-    // --- Tractor Reminders ---
-    match /tractor_reminders/{reminderId} {
-      allow read: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if request.auth != null && resource.data.ownerUid == request.auth.uid
-                    && request.resource.data.ownerUid == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+    // ==========================================
+    // TRACTOR REMINDERS — owner-isolated
+    // ==========================================
+    match /tractor_reminders/{docId} {
+      allow read, write: if isAuthenticated() && (
+        resource.data.ownerUid == request.auth.uid ||
+        request.resource.data.ownerUid == request.auth.uid
+      );
     }
 
-    // ============================================
-    // PHASE 3: Spare Parts Collections
-    // ============================================
-
-    // --- Part Search History ---
-    match /part_search_history/{historyId} {
-      allow read: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-      allow update: if false;
-    }
-
-    // --- User Spare Part Lists (saved/favourite parts) ---
-    match /spare_part_lists/{listId} {
-      allow read: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if request.auth != null && resource.data.ownerUid == request.auth.uid
-                    && request.resource.data.ownerUid == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-    }
-
-    // ============================================
-    // DEFAULT: Deny all other collections
-    // ============================================
+    // ==========================================
+    // BLOCK EVERYTHING ELSE
+    // ==========================================
     match /{document=**} {
       allow read, write: if false;
     }
