@@ -676,7 +676,7 @@ async def scanner_ocr(body: ScannerRequest, request: Request):
     _req_start = _time.time()
 
     # Model list: try stable vision model first, then GEMINI_MODEL as fallback
-    scanner_models = list(dict.fromkeys(["gemini-2.5-flash", GEMINI_MODEL]))
+    scanner_models = list(dict.fromkeys(["gemini-3.6-flash", GEMINI_MODEL]))
     logger.info(f"[SCANNER] Request start | models={scanner_models} | prompt_len={len(body.prompt)}")
 
     # ---- Build request parts ----
