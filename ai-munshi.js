@@ -216,7 +216,7 @@ function findFarmer(question) {
                     if (nw === qw || nw.includes(qw) || qw.includes(nw)) matches++;
                 });
             });
-            if (matches > phoneticScore) {
+            if (matches >= 2 && matches > phoneticScore) {
                 phoneticScore = matches;
                 phoneticBest = name;
             }
@@ -433,6 +433,15 @@ function parseQuestion(text) {
 
     // ---- Extract date ----
     } // end query intent block
+
+    // ---- INTENT GUARD: clear farmer for non-agricultural GENERAL questions ----
+    if (result.intent === "GENERAL" && result.farmer) {
+        const nonAgriWords = /\b(mosam|mausam|weather|temperature|samachar|news|cricket|football|match|song|gaana|movie|film|recipe|pakwan|nuske|ghar|gharelu|sehat|health|beauty|sundarta|fashion|tech|phone|laptop|game|khel|dosti|pyar|mohabbat|horoscope|rashi|kundli|mantra|puja|vrat|astrology|janam kundli)\b/;
+        const qCheck = q + " " + qLang;
+        if (nonAgriWords.test(qCheck)) {
+            result.farmer = null;
+        }
+    }
 
     const today = new Date();
 
