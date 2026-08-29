@@ -60,6 +60,103 @@
   .content { padding: 16px; }
 }
 
+/* ===== ADMIN SETTINGS FORM STYLES (settings.html) ===== */
+
+.content .panel h2 {
+  font-size: 18px; font-weight: 700; color: #1f2937;
+  margin: 0 0 20px; padding-bottom: 10px; border-bottom: 2px solid #e5e7eb;
+}
+
+.content label {
+  display: block; margin-bottom: 16px; font-size: 14px; font-weight: 600; color: #374151;
+}
+.content label small { font-weight: 400; color: #9ca3af; }
+
+.content input[type="text"],
+.content input[type="number"],
+.content input[type="email"],
+.content input[type="url"],
+.content input[type="color"],
+.content input:not([type]),
+.content select,
+.content textarea {
+  display: block; width: 100%; margin-top: 6px; padding: 10px 12px;
+  border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;
+  color: #1f2937; background: #fff; box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.content input:focus,
+.content select:focus,
+.content textarea:focus {
+  border-color: #22c55e; outline: none; box-shadow: 0 0 0 3px rgba(34,197,94,0.12);
+}
+.content textarea { min-height: 60px; resize: vertical; }
+.content input[type="color"] { height: 40px; padding: 4px; cursor: pointer; }
+
+/* Toggle Switch */
+.switch {
+  display: flex !important; align-items: center; justify-content: space-between;
+  padding: 12px 0; border-bottom: 1px solid #f3f4f6; cursor: pointer;
+}
+.switch input[type="checkbox"] { display: none; }
+.switch span {
+  position: relative; width: 44px; height: 24px; background: #d1d5db;
+  border-radius: 12px; transition: background 0.2s; flex-shrink: 0;
+}
+.switch span::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
+  background: #fff; border-radius: 50%; transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.switch input:checked + span { background: #22c55e; }
+.switch input:checked + span::after { transform: translateX(20px); }
+
+/* Grid for subscription fields */
+.grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+}
+.grid label { margin-bottom: 0; }
+
+/* Status Box */
+.statusbox {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; background: #f8fafc; border-radius: 8px;
+  margin-bottom: 8px; font-size: 14px;
+}
+.statusbox span { color: #6b7280; }
+.statusbox b { color: #176b35; }
+
+/* Warning */
+.warning {
+  background: #fef3c7; color: #92400e; padding: 12px 16px;
+  border-radius: 8px; font-size: 13px; line-height: 1.5; margin-top: 16px;
+}
+
+/* Bottom Actions */
+.bottomActions {
+  display: flex; gap: 10px; padding: 16px 0; margin-top: 20px;
+  border-top: 1px solid #e5e7eb; position: sticky; bottom: 0;
+  background: #f8fafc; z-index: 5;
+}
+.bottomActions button {
+  flex: 1; padding: 12px; border-radius: 10px; font-size: 15px;
+  font-weight: 700; cursor: pointer; border: none; transition: all 0.15s;
+}
+.bottomActions .primary {
+  background: linear-gradient(135deg, #176b35, #22c55e); color: #fff;
+  box-shadow: 0 4px 12px rgba(22,163,74,0.3);
+}
+.bottomActions .primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(22,163,74,0.4); }
+.bottomActions .secondary {
+  background: #fff; color: #6b7280; border: 2px solid #e5e7eb;
+}
+.bottomActions .secondary:hover { background: #f9fafb; border-color: #d1d5db; }
+
+@media (max-width: 480px) {
+  .grid { grid-template-columns: 1fr; }
+  .content .panel h2 { font-size: 16px; }
+}
+
 /* ===== USER SETTINGS MODULE CSS ===== */
 
 /* Side Menu */
