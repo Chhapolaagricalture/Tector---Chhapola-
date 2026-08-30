@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin.html
+Disallow: /settings.html
+Disallow: /audit-report.html
+
+Sitemap: https://chhapolaagriculture.com/sitemap.xml
