@@ -1435,11 +1435,14 @@ onAuthStateChanged(window.auth, async (user) => {
       console.warn("Session security check skipped:", e.message);
     }
 
+    document.getElementById("welcomePage").style.display = "none";
     document.getElementById("loginBox").style.display = "none";
     document.getElementById("mainApp").style.display = "block";
   } else {
-    document.getElementById("loginBox").style.display = "block";
+    // Keep welcome page visible for visitors; hide loginBox until user clicks Login
+    document.getElementById("loginBox").style.display = "none";
     document.getElementById("mainApp").style.display = "none";
+    // welcomePage stays visible (default state)
     localStorage.removeItem("loggedIn");
   }
 

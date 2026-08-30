@@ -26,7 +26,232 @@
 <link rel="apple-touch-icon" href="icon-512-v2.png">
 </head>
 <body>
-<div id="loginBox" class="card">
+
+<!-- ===================== WELCOME / LANDING PAGE ===================== -->
+<div id="welcomePage">
+<style>
+.wl-hero{background:linear-gradient(135deg,#0b5d1e 0%,#176b35 40%,#2e7d32 100%);color:#fff;padding:60px 24px 50px;text-align:center;position:relative;overflow:hidden}
+.wl-hero::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;background:rgba(255,255,255,.06);border-radius:50%}
+.wl-hero::after{content:'';position:absolute;bottom:-40px;left:-40px;width:160px;height:160px;background:rgba(255,255,255,.04);border-radius:50%}
+.wl-brand{font-size:14px;letter-spacing:2px;text-transform:uppercase;opacity:.85;margin-bottom:8px;font-weight:600}
+.wl-title{font-size:32px;font-weight:900;line-height:1.2;margin:0 0 6px}
+.wl-subtitle{font-size:17px;color:#dcfce7;margin:0 0 20px;font-weight:500}
+.wl-tagline{font-size:19px;font-weight:700;line-height:1.5;margin:0 0 10px;color:#fff}
+.wl-desc{font-size:14px;line-height:1.7;color:#d1fae5;max-width:520px;margin:0 auto 28px}
+.wl-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.wl-btn-primary{background:#facc15;color:#0b5d1e;padding:14px 32px;border-radius:12px;font-size:17px;font-weight:800;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(250,204,21,.35);transition:.3s;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+.wl-btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(250,204,21,.45)}
+.wl-btn-secondary{background:transparent;color:#fff;padding:14px 28px;border-radius:12px;font-size:16px;font-weight:700;border:2px solid rgba(255,255,255,.5);cursor:pointer;transition:.3s;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+.wl-btn-secondary:hover{background:rgba(255,255,255,.12);border-color:#fff}
+.wl-nav{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;position:absolute;top:0;left:0;right:0;z-index:2}
+.wl-nav-brand{font-size:16px;font-weight:800;color:#fff}
+.wl-nav-links{display:flex;gap:8px}
+.wl-nav-links a{color:#dcfce7;text-decoration:none;font-size:13px;font-weight:600;padding:6px 14px;border-radius:8px;transition:.2s}
+.wl-nav-links a:hover{background:rgba(255,255,255,.12);color:#fff}
+.wl-section{padding:40px 20px}
+.wl-section-title{text-align:center;font-size:22px;font-weight:800;color:#1b5e20;margin:0 0 6px}
+.wl-section-sub{text-align:center;font-size:14px;color:#6b7280;margin:0 0 28px;max-width:500px;margin-left:auto;margin-right:auto}
+.wl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;max-width:900px;margin:0 auto}
+.wl-card{background:#fff;border-radius:16px;padding:24px 20px;box-shadow:0 4px 16px rgba(0,0,0,.06);transition:.3s;border:1px solid #f0f0f0}
+.wl-card:hover{transform:translateY(-3px);box-shadow:0 8px 28px rgba(0,0,0,.1)}
+.wl-card-icon{font-size:36px;margin-bottom:12px}
+.wl-card h3{font-size:17px;color:#1b5e20;margin:0 0 8px;font-weight:700}
+.wl-card p{font-size:13px;color:#6b7280;margin:0;line-height:1.6}
+.wl-services-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;max-width:800px;margin:0 auto}
+.wl-service{background:#f0fdf4;border:1px solid #dcfce7;border-radius:14px;padding:20px 16px;text-align:center;transition:.3s}
+.wl-service:hover{background:#dcfce7;transform:translateY(-2px)}
+.wl-service-icon{font-size:32px;margin-bottom:8px}
+.wl-service-name{font-size:14px;font-weight:700;color:#1b5e20}
+.wl-why-list{max-width:600px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.wl-why-item{display:flex;align-items:center;gap:10px;background:#f0fdf4;padding:14px 16px;border-radius:12px;font-size:14px;font-weight:600;color:#1b5e20}
+.wl-why-check{font-size:18px;flex-shrink:0}
+.wl-steps{display:flex;flex-direction:column;gap:0;max-width:500px;margin:0 auto}
+.wl-step{display:flex;gap:16px;align-items:flex-start}
+.wl-step-num{width:40px;height:40px;min-width:40px;background:linear-gradient(135deg,#176b35,#2e7d32);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800}
+.wl-step-content h4{font-size:15px;color:#1b5e20;margin:0 0 4px}
+.wl-step-content p{font-size:13px;color:#6b7280;margin:0}
+.wl-step-line{width:2px;height:24px;background:#dcfce7;margin-left:19px}
+.wl-cta{background:linear-gradient(135deg,#176b35,#0d5a27);padding:50px 24px;text-align:center;color:#fff}
+.wl-cta-title{font-size:24px;font-weight:800;margin:0 0 12px;line-height:1.3}
+.wl-cta-desc{font-size:14px;color:#d1fae5;margin:0 0 28px;max-width:500px;margin-left:auto;margin-right:auto}
+.wl-footer{text-align:center;padding:24px 20px;background:#f0fdf4;color:#6b7280;font-size:12px}
+.wl-footer-brand{font-weight:800;color:#176b35}
+.wl-maintenance{max-width:700px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.wl-maint-card{background:#fff;border-radius:14px;padding:20px 16px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.05);border:1px solid #f0f0f0}
+.wl-maint-card-icon{font-size:32px;margin-bottom:8px}
+.wl-maint-card h4{font-size:14px;color:#1b5e20;margin:0 0 6px}
+.wl-maint-card p{font-size:12px;color:#6b7280;margin:0;line-height:1.5}
+@media(max-width:640px){
+.wl-hero{padding:80px 20px 40px}
+.wl-title{font-size:26px}
+.wl-tagline{font-size:17px}
+.wl-btns{flex-direction:column;align-items:stretch}
+.wl-btn-primary,.wl-btn-secondary{width:100%;justify-content:center}
+.wl-why-list{grid-template-columns:1fr}
+.wl-maintenance{grid-template-columns:1fr}
+.wl-services-grid{grid-template-columns:1fr 1fr}
+.wl-nav{flex-direction:column;gap:8px;padding-top:12px}
+}
+</style>
+
+<!-- Navigation -->
+<div class="wl-nav">
+  <div class="wl-nav-brand">🚜 Chhapola Agriculture</div>
+  <div class="wl-nav-links">
+    <a href="#features" onclick="event.preventDefault();document.getElementById('wlFeatures').scrollIntoView({behavior:'smooth'})">Features</a>
+    <a href="#login" onclick="event.preventDefault();document.getElementById('welcomePage').style.display='none';document.getElementById('loginBox').style.display='block';">Login</a>
+  </div>
+</div>
+
+<!-- Hero Section -->
+<div class="wl-hero">
+  <div class="wl-brand">CHHAPOLA AGRICULTURE</div>
+  <h1 class="wl-title">Tractor Account System</h1>
+  <p class="wl-subtitle">कृषि, ट्रैक्टर और तकनीक — एक साथ</p>
+  <p class="wl-tagline">ट्रैक्टर के काम से लेकर किसान के पूरे हिसाब तक — सब एक जगह।</p>
+  <p class="wl-desc">किसानों के काम, भुगतान, बाकी रकम और ट्रैक्टर से जुड़े रोज़मर्रा के हिसाब-किताब को आसान और व्यवस्थित तरीके से संभालने के लिए बनाया गया स्मार्ट सिस्टम।</p>
+  <div class="wl-btns">
+    <button class="wl-btn-primary" onclick="document.getElementById('welcomePage').style.display='none';document.getElementById('signupBox').style.display='block';document.getElementById('loginBox').style.display='none';">🚀 अभी शुरू करें</button>
+    <button class="wl-btn-secondary" onclick="document.getElementById('welcomePage').style.display='none';document.getElementById('loginBox').style.display='block';">🔐 Login</button>
+  </div>
+</div>
+
+<!-- Features Section -->
+<div class="wl-section" id="wlFeatures">
+  <h2 class="wl-section-title">Chhapola Agriculture Tractor Account System क्या है?</h2>
+  <p class="wl-section-sub">किसानों और ट्रैक्टर व्यवसाय के लिए बनाया गया स्मार्ट account management system</p>
+  <div class="wl-grid">
+    <div class="wl-card">
+      <div class="wl-card-icon">👨‍🌾</div>
+      <h3>किसान रिकॉर्ड</h3>
+      <p>किसानों की जानकारी और काम का रिकॉर्ड व्यवस्थित रखें। नाम, मोबाइल, तारीख — सब एक जगह।</p>
+    </div>
+    <div class="wl-card">
+      <div class="wl-card-icon">🚜</div>
+      <h3>ट्रैक्टर कार्य</h3>
+      <p>जुताई, बुवाई, Hero, Calti, Morplau, Display, Thresher आदि कृषि कार्यों का हिसाब रखें।</p>
+    </div>
+    <div class="wl-card">
+      <div class="wl-card-icon">💰</div>
+      <h3>भुगतान और बाकी</h3>
+      <p>कितना काम हुआ, कितना भुगतान मिला और कितना बाकी है — साफ हिसाब, कोई भ्रम नहीं।</p>
+    </div>
+    <div class="wl-card">
+      <div class="wl-card-icon">📊</div>
+      <h3>आय और रिपोर्ट</h3>
+      <p>काम और भुगतान का व्यवस्थित overview देखें। PDF, CSV में report बनाएं।</p>
+    </div>
+    <div class="wl-card">
+      <div class="wl-card-icon">🤖</div>
+      <h3>Smart AI Munshi</h3>
+      <p>AI से सवाल पूछें — किसान का हिसाब, बाकी रकम, रिकॉर्ड — तुरंत जवाब।</p>
+    </div>
+    <div class="wl-card">
+      <div class="wl-card-icon">📱</div>
+      <h3>आसान उपयोग</h3>
+      <p>मोबाइल से कहीं से भी अपने records को manage करें। Voice Entry भी उपलब्ध।</p>
+    </div>
+  </div>
+</div>
+
+<!-- Tractor Services Section -->
+<div class="wl-section" style="background:#f0fdf4;">
+  <h2 class="wl-section-title">🚜 हमारे कृषि कार्य</h2>
+  <p class="wl-section-sub">ट्रैक्टर से किए जाने वाले सभी प्रमुख कृषि कार्यों का हिसाब रखें</p>
+  <div class="wl-services-grid">
+    <div class="wl-service"><div class="wl-service-icon">🌱</div><div class="wl-service-name">Hero (जुताई)</div></div>
+    <div class="wl-service"><div class="wl-service-icon">🌾</div><div class="wl-service-name">Calti</div></div>
+    <div class="wl-service"><div class="wl-service-icon">🌿</div><div class="wl-service-name">Mej (Pata)</div></div>
+    <div class="wl-service"><div class="wl-service-icon">🚜</div><div class="wl-service-name">Morplau</div></div>
+    <div class="wl-service"><div class="wl-service-icon">⚙️</div><div class="wl-service-name">Display</div></div>
+    <div class="wl-service"><div class="wl-service-icon">🌾</div><div class="wl-service-name">Thresher</div></div>
+    <div class="wl-service"><div class="wl-service-icon">💊</div><div class="wl-service-name">Spray Machine</div></div>
+  </div>
+</div>
+
+<!-- Spare Parts & Maintenance -->
+<div class="wl-section">
+  <h2 class="wl-section-title">🔧 Spare Parts & Maintenance</h2>
+  <p class="wl-section-sub">ट्रैक्टर और कृषि मशीनरी की देखभाल से संबंधित सहायता — जल्द उपलब्ध</p>
+  <div class="wl-maintenance">
+    <div class="wl-maint-card">
+      <div class="wl-maint-card-icon">🔧</div>
+      <h4>Tractor Maintenance</h4>
+      <p>ट्रैक्टर की नियमित maintenance और servicing को व्यवस्थित रखने में मदद।</p>
+    </div>
+    <div class="wl-maint-card">
+      <div class="wl-maint-card-icon">⚙️</div>
+      <h4>Spare Parts</h4>
+      <p>जरूरत के अनुसार tractor spare parts और कृषि मशीनरी से संबंधित जानकारी।</p>
+    </div>
+    <div class="wl-maint-card">
+      <div class="wl-maint-card-icon">🛠️</div>
+      <h4>Repair & Support</h4>
+      <p>ट्रैक्टर और कृषि मशीनरी की देखभाल एवं repair support से संबंधित जानकारी।</p>
+    </div>
+  </div>
+</div>
+
+<!-- Why Choose -->
+<div class="wl-section" style="background:#f0fdf4;">
+  <h2 class="wl-section-title">✅ क्यों चुनें Chhapola Agriculture?</h2>
+  <div class="wl-why-list">
+    <div class="wl-why-item"><span class="wl-why-check">✓</span> आसान हिसाब-किताब</div>
+    <div class="wl-why-item"><span class="wl-why-check">✓</span> किसान के काम का रिकॉर्ड</div>
+    <div class="wl-why-item"><span class="wl-why-check">✓</span> Payment और बाकी का हिसाब</div>
+    <div class="wl-why-item"><span class="wl-why-check">✓</span> Mobile-friendly</div>
+    <div class="wl-why-item"><span class="wl-why-check">✓</span> Smart AI Technology</div>
+    <div class="wl-why-item"><span class="wl-why-check">✓</span> समय की बचत</div>
+    <div class="wl-why-item"><span class="wl-why-check">✓</span> एक जगह पूरा management</div>
+    <div class="wl-why-item"><span class="wl-why-check">✓</span> PDF और Report Export</div>
+  </div>
+</div>
+
+<!-- How It Works -->
+<div class="wl-section">
+  <h2 class="wl-section-title">📝 कैसे शुरू करें?</h2>
+  <div class="wl-steps">
+    <div class="wl-step">
+      <div class="wl-step-num">1</div>
+      <div class="wl-step-content"><h4>Signup करें</h4><p>अपना Account बनाएं — नाम, मोबाइल और Email डालें।</p></div>
+    </div>
+    <div class="wl-step-line"></div>
+    <div class="wl-step">
+      <div class="wl-step-num">2</div>
+      <div class="wl-step-content"><h4>अपना Account Setup करें</h4><p>Work Rates और PDF Settings अपने हिसाब से सेट करें।</p></div>
+    </div>
+    <div class="wl-step-line"></div>
+    <div class="wl-step">
+      <div class="wl-step-num">3</div>
+      <div class="wl-step-content"><h4>किसान और काम के Records जोड़ें</h4><p>हर किसान का काम, भुगतान और बाकी दर्ज करें।</p></div>
+    </div>
+    <div class="wl-step-line"></div>
+    <div class="wl-step">
+      <div class="wl-step-num">4</div>
+      <div class="wl-step-content"><h4>पूरा हिसाब Manage करें</h4><p>Dashboard, Reports और AI से अपना हिसाब संभालें।</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- CTA Section -->
+<div class="wl-cta">
+  <h2 class="wl-cta-title">अपने ट्रैक्टर का हिसाब अब कागज़ पर नहीं —<br>स्मार्ट तरीके से संभालिए।</h2>
+  <p class="wl-cta-desc">कृषि, ट्रैक्टर और तकनीक को एक साथ जोड़ने की एक कोशिश।</p>
+  <div class="wl-btns">
+    <button class="wl-btn-primary" onclick="document.getElementById('welcomePage').style.display='none';document.getElementById('signupBox').style.display='block';document.getElementById('loginBox').style.display='none';">🚀 अपना Account शुरू करें</button>
+    <button class="wl-btn-secondary" onclick="document.getElementById('welcomePage').style.display='none';document.getElementById('loginBox').style.display='block';">पहले से Account है? Login करें</button>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="wl-footer">
+  <span class="wl-footer-brand">🚜 Chhapola Agriculture</span> — Tractor Account System<br>
+  कृषि, ट्रैक्टर और तकनीक को एक साथ जोड़ने की एक कोशिश।
+</div>
+</div>
+<!-- ===================== END WELCOME PAGE ===================== -->
+
+<div id="loginBox" class="card" style="display:none;">
   <h2>🔐 Admin Login</h2>
 
   <input
