@@ -1606,6 +1606,61 @@ async function callGeminiAPI(prompt, imageBase64 = null) {
 window.callGeminiAPI = callGeminiAPI;
 
 // ==========================================
+// GROQ API (PRIMARY AI - llama-3.1-8b-instant)
+// ==========================================
+let _groqInFlight = null;
+
+async function callGroqAPI(prompt) {
+    const GROQ_BACKEND_URL = "https://tector-chhapola.onrender.com/api/groq-chat";
+    const body = { prompt: prompt || "" };
+
+    const dedupKey = (body.prompt || "").substring(0, 100);
+    if (_groqInFlight === dedupKey) {
+        console.log("[AI] Duplicate Groq request blocked");
+        throw new Error("DUPLICATE_REQUEST");
+    }
+    _groqInFlight = dedupKey;
+
+    const headers = { "Content-Type": "application/json" };
+    try {
+        if (window.auth && window.auth.currentUser) {
+            const idToken = await window.auth.currentUser.getIdToken();
+            if (idToken) headers["Authorization"] = "Bearer " + idToken;
+        }
+    } catch (e) {}
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+        const response = await fetch(GROQ_BACKEND_URL, {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(body),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            const errMsg = errData.detail || `Groq backend error: ${response.status}`;
+            if (response.status === 429 || response.status === 502) {
+                throw new Error("RATE_LIMITED: " + errMsg);
+            }
+            throw new Error(errMsg);
+        }
+
+        return await response.json();
+    } finally {
+        _groqInFlight = null;
+    }
+}
+
+window.callGroqAPI = callGroqAPI;
+
+
+// ==========================================
 // HANDLE SEND — SINGLE UNIFIED PIPELINE
 // ==========================================
 async function handleSend(userText) {
@@ -1947,17 +2002,38 @@ RULES:
 9. Keep the answer natural and concise.
 `;
     try {
-        const data = await callGeminiAPI(fullPrompt);
-        loadingDiv.remove();
+        // ============ STEP 6a: TRY GROQ FIRST (primary AI) ============
+        let groqSuccess = false;
+        try {
+            const groqData = await callGroqAPI(fullPrompt);
+            if (groqData && groqData.candidates && groqData.candidates[0] && groqData.candidates[0].content && groqData.candidates[0].content.parts) {
+                const aiAnswer = groqData.candidates[0].content.parts[0].text.trim();
+                if (aiAnswer) {
+                    loadingDiv.remove();
+                    aiCache.set(cleanTextKey, aiAnswer);
+                    appendMessage(aiAnswer, "ai");
+                    speakText(aiAnswer);
+                    groqSuccess = true;
+                }
+            }
+        } catch (groqErr) {
+            console.log("[AI] Groq failed, falling back to Gemini:", groqErr.message || groqErr);
+        }
 
-        if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-            const aiAnswer = data.candidates[0].content.parts[0].text.trim();
-            aiCache.set(cleanTextKey, aiAnswer);
-            appendMessage(aiAnswer, "ai");
-            speakText(aiAnswer);
-        } else {
-            console.error("API Error Response:", data);
-            appendMessage("राम-राम जी, रिकॉर्ड समझने में दिक्कत हुई। एक बार फिर पूछें।", "ai");
+        // ============ STEP 6b: GEMINI FALLBACK (if Groq failed) ============
+        if (!groqSuccess) {
+            const data = await callGeminiAPI(fullPrompt);
+            loadingDiv.remove();
+
+            if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+                const aiAnswer = data.candidates[0].content.parts[0].text.trim();
+                aiCache.set(cleanTextKey, aiAnswer);
+                appendMessage(aiAnswer, "ai");
+                speakText(aiAnswer);
+            } else {
+                console.error("API Error Response:", data);
+                appendMessage("राम-राम जी, रिकॉर्ड समझने में दिक्कत हुई। एक बार फिर पूछें।", "ai");
+            }
         }
     } catch (err) {
         loadingDiv.remove();

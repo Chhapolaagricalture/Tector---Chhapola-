@@ -60,6 +60,15 @@ GEMINI_URL = (
     f"models/{GEMINI_MODEL}:generateContent"
 )
 
+# ==========================================
+# GROQ AI CONFIGURATION
+# ==========================================
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+
 SYSTEM_PROMPT = """
 आप 'छपोला एग्रीकल्चर' (Chhapola Agriculture) के ट्रैक्टर और कृषि वर्क खाता बही (Tractor Account Ledger System) के विशेषज्ञ AI असिस्टेंट हैं।
 
@@ -595,6 +604,107 @@ async def chat_with_ai(body: ChatPromptRequest, request: Request):
     except Exception as e:
         total_time = round(_time.time() - _req_start, 2)
         logger.exception(f"[GEMINI] ERROR | total_time={total_time}s")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# ==========================================
+# GROQ AI CHAT ENDPOINT (primary AI, Gemini fallback)
+# ==========================================
+
+
+@app.post("/api/groq-chat", tags=["ai"])
+async def chat_with_groq(body: ChatPromptRequest, request: Request):
+    """Groq AI (llama-3.1-8b-instant) — primary AI response engine.
+
+    Auth required + Rate limited: 30 requests per minute per IP.
+    Returns Gemini-compatible response format for frontend compatibility.
+    """
+    token = await require_auth(request)
+
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Bahut zyada requests ho rahi hain. Kuch der baad try karein."
+        )
+
+    if not GROQ_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="GROQ_API_KEY not configured on server",
+        )
+
+    user_text = body.prompt or body.message or ""
+    if not user_text.strip():
+        raise HTTPException(status_code=400, detail="prompt or message is required")
+
+    import time as _time
+
+    _req_start = _time.time()
+    logger.info(f"[GROQ] Request start | model={GROQ_MODEL} | text_len={len(user_text)}")
+
+    try:
+        prompt_content = f"{SYSTEM_PROMPT}\n\nयूजर का सवाल/इन्फो: {user_text}" if user_text.strip() else SYSTEM_PROMPT
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+        }
+        payload = {
+            "model": GROQ_MODEL,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_text}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 2048,
+        }
+
+        response = requests.post(
+            GROQ_URL,
+            json=payload,
+            headers=headers,
+            timeout=30,
+        )
+
+        total_time = round(_time.time() - _req_start, 2)
+
+        if response.status_code == 200:
+            res_data = response.json()
+            ai_text = res_data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            if ai_text:
+                logger.info(f"[GROQ] PASS | model={GROQ_MODEL} | time={total_time}s")
+                # Return in Gemini-compatible format for frontend
+                return {
+                    "candidates": [{
+                        "content": {
+                            "parts": [{"text": ai_text}]
+                        },
+                        "finishReason": "STOP"
+                    }],
+                    "modelVersion": f"groq-{GROQ_MODEL}",
+                    "_provider": "groq"
+                }
+            else:
+                logger.warning(f"[GROQ] EMPTY | time={total_time}s")
+                raise HTTPException(status_code=502, detail="Groq returned empty response")
+        else:
+            error_msg = response.text[:300]
+            logger.warning(f"[GROQ] FAIL | HTTP={response.status_code} | time={total_time}s | error={error_msg}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Groq API error: {response.status_code}"
+            )
+
+    except HTTPException:
+        raise
+    except requests.Timeout:
+        total_time = round(_time.time() - _req_start, 2)
+        logger.warning(f"[GROQ] TIMEOUT | time={total_time}s")
+        raise HTTPException(status_code=504, detail="Groq API timeout")
+    except Exception as e:
+        total_time = round(_time.time() - _req_start, 2)
+        logger.exception(f"[GROQ] ERROR | time={total_time}s")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
