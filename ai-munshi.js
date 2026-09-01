@@ -1084,12 +1084,35 @@ function processActionRequest(parsed, filteredRecords) {
 
         case "ACTION_UPDATE_RECORD": {
             if (!farmer) return { message: "किस किसान की entry बदलनी है? किसान का नाम बताएं।" };
+            // Try to extract field updates from question
+            const updData = { action: "UPDATE_RECORD", farmer: farmer, updates: {} };
+            const rawQ = (parsed.raw || text || "").toLowerCase();
+            // Rate
+            const rateMatch = rawQ.match(/rate\s*[:=]?\s*(\d+)/i) || rawQ.match(/(\d+)\s*(?:रु|rs|rate)/i);
+            if (rateMatch) updData.updates.rate = Number(rateMatch[1]);
+            // Paid
+            const paidMatch = rawQ.match(/paid\s*[:=]?\s*(\d+)/i) || rawQ.match(/paid\s*[:=]?\s*(\d+)/i) || rawQ.match(/(\d+)\s*(?:जमा|paid)/i);
+            if (paidMatch) updData.updates.paid = Number(paidMatch[1]);
+            // Bigha
+            const bighaMatch = rawQ.match(/bigha\s*[:=]?\s*(\d+)/i) || rawQ.match(/(\d+)\s*बीघा/i);
+            if (bighaMatch) updData.updates.bigha = Number(bighaMatch[1]);
+            // Date
+            const dateMatch = rawQ.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+            if (dateMatch) {
+                updData.updates.date = dateMatch[3] + "-" + dateMatch[2].padStart(2,"0") + "-" + dateMatch[1].padStart(2,"0");
+            }
+            // Work
+            const workMatch = rawQ.match(/work\s*[:=]?\s*(\w+)/i);
+            if (workMatch) updData.updates.work = workMatch[1];
+            const hasUpdates = Object.keys(updData.updates).length > 0;
             return {
                 action: true,
                 type: "UPDATE_RECORD",
                 confirmation: true,
-                message: `${farmer} की entry बदलनी है।\nकौन सी जानकारी बदलनी है? (तारीख, काम, रेट, जमा आदि)`,
-                data: { action: "UPDATE_RECORD", farmer: farmer, updates: {} }
+                message: hasUpdates
+                    ? `${farmer} की entry update कर रहा हूँ:\n${Object.entries(updData.updates).map(([k,v]) => `• ${k}: ${v}`).join("\n")}\n\nक्या save कर दूँ?`
+                    : `${farmer} की entry बदलनी है।\nक्या बदलना है? बताएं (rate, paid, date, bigha, work)।`,
+                data: updData
             };
         }
 
@@ -1147,76 +1170,106 @@ async function confirmAction(actionData) {
     try {
         switch (actionData.action) {
             case "ADD_RECORD": {
-                // Use existing saveEntry from Script.js
-                if (typeof saveEntry === "function") {
-                    await saveEntry({
-                        name: actionData.farmer,
-                        date: actionData.date,
-                        work: actionData.work,
-                        crop: actionData.crop,
-                        bigha: actionData.bigha,
-                        rate: actionData.rate,
-                        paid: actionData.paid,
-                        total: actionData.total,
-                        baki: actionData.balance,
-                        time: actionData.hours ? actionData.hours + " घंटा" + (actionData.minutes ? " " + actionData.minutes + " मिनट" : "") : "",
-                        unit: actionData.unit || 0
-                    });
-                    // Refresh records
-                    if (typeof show === "function") await show();
-                    if (typeof refreshRajMemory === "function") await refreshRajMemory();
-                    return `✅ ${actionData.farmer} की entry save हो गई!\n💰 कुल: ₹${actionData.total}` + (actionData.balance > 0 ? `\n❌ बाकी: ₹${actionData.balance}` : " (चुकता)");
-                }
-                return "⚠️ saveEntry function उपलब्ध नहीं है।";
+                const recordData = {
+                    ownerUid: user.uid,
+                    name: actionData.farmer,
+                    mobile: actionData.mobile || "",
+                    date: actionData.date,
+                    work: actionData.work || "",
+                    crop: actionData.crop || "",
+                    bigha: actionData.bigha || 0,
+                    rate: actionData.rate || 0,
+                    paid: actionData.paid || 0,
+                    total: actionData.total || 0,
+                    baki: actionData.balance || 0,
+                    time: actionData.hours ? actionData.hours + " घंटा" + (actionData.minutes ? " " + actionData.minutes + " मिनट" : "") : "-",
+                    unit: actionData.unit || 0,
+                    note: actionData.note || ""
+                };
+                await _aiAddRecord(recordData);
+                if (typeof show === "function") await show();
+                if (typeof refreshRajMemory === "function") await refreshRajMemory();
+                return `✅ ${actionData.farmer} की entry save हो गई!\n💰 कुल: ₹${actionData.total}` + (actionData.balance > 0 ? `\n❌ बाकी: ₹${actionData.balance}` : " (चुकता)");
             }
 
             case "ADD_PAYMENT": {
-                if (actionData.recordId && typeof updateEntry === "function") {
-                    const existingRecord = (window.records || []).find(r => r.id === actionData.recordId);
-                    if (existingRecord) {
-                        const newPaid = Number(existingRecord.paid || 0) + actionData.amount;
-                        const newBalance = Number(existingRecord.total || 0) - newPaid;
-                        await updateEntry(actionData.recordId, { paid: newPaid, baki: newBalance });
-                        if (typeof show === "function") await show();
-                        if (typeof refreshRajMemory === "function") await refreshRajMemory();
-                        return `✅ ${actionData.farmer} को ₹${actionData.amount} जमा हो गया!\n💵 नया जमा: ₹${newPaid}\n❌ बाकी: ₹${newBalance}`;
-                    }
-                }
-                // If no specific record, find latest and update
-                const farmerRecords = (window.records || []).filter(r => {
+                const farmerRecordsPay = (window.records || []).filter(r => {
                     const fn = (actionData.farmer || "").trim().toLowerCase();
                     return (r.name || r.farmer || "").trim().toLowerCase() === fn;
                 });
-                if (farmerRecords.length && typeof updateEntry === "function") {
-                    const last = farmerRecords[farmerRecords.length - 1];
-                    const newPaid = Number(last.paid || 0) + actionData.amount;
-                    const newBalance = Number(last.total || 0) - newPaid;
-                    await updateEntry(last.id, { paid: newPaid, baki: newBalance });
-                    if (typeof show === "function") await show();
-                    if (typeof refreshRajMemory === "function") await refreshRajMemory();
-                    return `✅ ${actionData.farmer} को ₹${actionData.amount} जमा हो गया!\n📋 Record: ${last.date} ${last.work}\n❌ बाकी: ₹${newBalance}`;
+                if (!farmerRecordsPay.length) return "⚠️ कोई matching record नहीं मिला।";
+                let remaining = actionData.amount;
+                let updatedCount = 0;
+                let msg = `✅ ${actionData.farmer} को ₹${actionData.amount} जमा हो गया!\n\n`;
+                for (const rec of farmerRecordsPay) {
+                    const recBalance = Number(rec.total || 0) - Number(rec.paid || 0);
+                    if (recBalance <= 0 || remaining <= 0) continue;
+                    const payForThis = Math.min(remaining, recBalance);
+                    const newPaid = Number(rec.paid || 0) + payForThis;
+                    const newBaki = Number(rec.total || 0) - newPaid;
+                    await _aiUpdateRecord(rec.id, { paid: newPaid, baki: newBaki });
+                    remaining -= payForThis;
+                    updatedCount++;
+                    msg += `📋 ${rec.date || ""} ${rec.work || ""} — ₹${payForThis} जमा, बाकी ₹${newBaki}\n`;
                 }
-                return "⚠️ कोई matching record नहीं मिला।";
+                if (updatedCount === 0) return "⚠️ सभी records पहले से चुकता हैं।";
+                if (remaining > 0) msg += `\n⚠️ ₹${remaining} बच गया — सभी records चुकता हो गए।`;
+                if (typeof show === "function") await show();
+                if (typeof refreshRajMemory === "function") await refreshRajMemory();
+                return msg;
             }
 
             case "DELETE_RECORD": {
-                // Soft delete latest record for this farmer
-                const farmerRecords = (window.records || []).filter(r => {
+                const farmerRecordsDel = (window.records || []).filter(r => {
                     const fn = (actionData.farmer || "").trim().toLowerCase();
                     return (r.name || r.farmer || "").trim().toLowerCase() === fn;
                 });
-                if (farmerRecords.length && typeof deleteEntry === "function") {
-                    const last = farmerRecords[farmerRecords.length - 1];
-                    await deleteEntry(last.id);
+                if (!farmerRecordsDel.length) return "⚠️ हटाने के लिए कोई record नहीं मिला।";
+                if (farmerRecordsDel.length === 1) {
+                    await _aiDeleteRecord(farmerRecordsDel[0].id);
                     if (typeof show === "function") await show();
                     if (typeof refreshRajMemory === "function") await refreshRajMemory();
-                    return `✅ ${actionData.farmer} की entry (${last.date} ${last.work}) हटा दी गई।`;
+                    return `✅ ${actionData.farmer} की entry (${farmerRecordsDel[0].date || ""} ${farmerRecordsDel[0].work || ""}) हटा दी गई।`;
                 }
-                return "⚠️ हटाने के लिए कोई record नहीं मिला।";
+                let listMsg = `${actionData.farmer} की entries:\n\n`;
+                farmerRecordsDel.forEach((r, idx) => {
+                    listMsg += `${idx + 1}. 📅 ${r.date || ""} | 🚜 ${r.work || ""} | 💰 ₹${r.total || 0} | ✅ ₹${r.paid || 0} | ❌ ₹${r.baki || 0}\n`;
+                });
+                listMsg += `\n⚠️ सबसे नई entry (${farmerRecordsDel[farmerRecordsDel.length - 1].date || ""} ${farmerRecordsDel[farmerRecordsDel.length - 1].work || ""}) हटाई जा रही है।`;
+                await _aiDeleteRecord(farmerRecordsDel[farmerRecordsDel.length - 1].id);
+                if (typeof show === "function") await show();
+                if (typeof refreshRajMemory === "function") await refreshRajMemory();
+                return `✅ Entry हटा दी गई!\n\n${listMsg}`;
             }
 
             case "UPDATE_RECORD": {
-                return `📝 ${actionData.farmer} की entry update करने के लिए:\n📋 Table में जाकर ✏️ Edit बटन दबाएं।\nया बताएं क्या बदलना है (तारीख, काम, रेट, जमा)।`;
+                const farmerRecordsUpd = (window.records || []).filter(r => {
+                    const fn = (actionData.farmer || "").trim().toLowerCase();
+                    return (r.name || r.farmer || "").trim().toLowerCase() === fn;
+                });
+                if (!farmerRecordsUpd.length) return `⚠️ ${actionData.farmer} का कोई record नहीं मिला।`;
+                const targetRec = farmerRecordsUpd[farmerRecordsUpd.length - 1];
+                const updates = {};
+                if (actionData.updates) {
+                    Object.keys(actionData.updates).forEach(k => {
+                        if (actionData.updates[k] !== undefined && actionData.updates[k] !== "") updates[k] = actionData.updates[k];
+                    });
+                }
+                if (Object.keys(updates).length === 0) {
+                    let curInfo = `📝 ${actionData.farmer} की latest entry:\n📅 ${targetRec.date || ""} | 🚜 ${targetRec.work || ""} | 💰 ₹${targetRec.total || 0}\n\n`;
+                    curInfo += `क्या बदलना है? बताएं:\n• तारीख (date)\n• काम (work)\n• फसल (crop)\n• बीघा (bigha)\n• रेट (rate)\n• जमा (paid)\n• नोट (note)`;
+                    return curInfo;
+                }
+                if (updates.paid !== undefined || updates.total !== undefined || updates.baki !== undefined) {
+                    const newTotal = updates.total !== undefined ? Number(updates.total) : Number(targetRec.total || 0);
+                    const newPaid = updates.paid !== undefined ? Number(updates.paid) : Number(targetRec.paid || 0);
+                    updates.baki = newTotal - newPaid;
+                }
+                await _aiUpdateRecord(targetRec.id, updates);
+                if (typeof show === "function") await show();
+                if (typeof refreshRajMemory === "function") await refreshRajMemory();
+                const updatedFields = Object.keys(updates).join(", ");
+                return `✅ ${actionData.farmer} की entry update हो गई!\n📋 Updated: ${updatedFields}\n📅 ${targetRec.date || ""} | 🚜 ${targetRec.work || ""}`;
             }
 
             case "WHATSAPP": {

@@ -541,6 +541,30 @@ window.signInWithEmailAndPassword = signInWithEmailAndPassword;
 window.onAuthStateChanged = onAuthStateChanged;
 window.signOut = signOut;
 window.updatePassword = updatePassword;
+
+// ==========================================
+// FIRESTORE HELPER FUNCTIONS FOR AI ACTIONS
+// Used by ai-munshi.js action confirmations
+// ==========================================
+
+const _recordsCol = collection(db, "records");
+
+window._aiAddRecord = async function(recordData) {
+    await addDoc(_recordsCol, recordData);
+};
+
+window._aiUpdateRecord = async function(recordId, updates) {
+    await updateDoc(doc(db, "records", recordId), updates);
+};
+
+window._aiDeleteRecord = async function(recordId) {
+    await updateDoc(doc(db, "records", recordId), {
+        _deleted: true,
+        _deletedAt: new Date().toISOString(),
+        _deletedBy: (auth && auth.currentUser) ? auth.currentUser.uid : "ai-munshi"
+    });
+};
+
 </script>
 </div>
 <script type="module" src="Script.js"></script>
