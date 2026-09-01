@@ -1864,114 +1864,27 @@ async function handleSend(userText) {
     }
 
     // ==========================================
-    // STEP 4: TRY LOCAL AI (askMunshi)
+    // STEP 4: BUILD CONTEXT + GROQ FIRST (PRIMARY AI)
     // ==========================================
-    let munshiResult = null;
-    try {
-        if (typeof askMunshi === "function") {
-            munshiResult = await askMunshi(text);
-        }
-    } catch(e) { console.log(e); }
-
-    let reply = "";
-    let foundInLocal = false;
-
-    if (munshiResult && munshiResult.reply) {
-        reply = munshiResult.reply;
-        foundInLocal = true;
-    } else if (munshiResult && munshiResult.records && munshiResult.records.length) {
-        // Use brain's records if they exist
-        filteredRecords = munshiResult.records;
-        foundInLocal = false; // Let buildLocalAnswer handle it
-    }
-
-    // ==========================================
-    // STEP 5: TRY LOCAL ANSWER BUILDER
-    // ==========================================
-    if (!foundInLocal && filteredRecords.length && typeof buildLocalAnswer === "function") {
-        try {
-            const localAnswer = buildLocalAnswer(parsed, filteredRecords);
-            if (localAnswer) {
-                reply = localAnswer;
-                foundInLocal = true;
-            }
-        } catch(e) { console.log("buildLocalAnswer error:", e); }
-    }
-
-    if (foundInLocal && reply) {
-        loadingDiv.remove();
-        aiCache.set(cleanTextKey, reply);
-        appendMessage(reply, "ai");
-        speakText(reply);
-        isRequestPending = false;
-        return;
-    }
-
-// ==========================================
-// STEP 5.5: CATCH-ALL LOCAL HANDLER
-// Try to answer from data before Gemini
-// ==========================================
-try {
-    if (typeof catchAllLocalAnswer === "function") {
-        const catchAllReply = catchAllLocalAnswer(text);
-        if (catchAllReply) {
-            loadingDiv.remove();
-            aiCache.set(cleanTextKey, catchAllReply);
-            appendMessage(catchAllReply, "ai");
-            speakText(catchAllReply);
-            isRequestPending = false;
-            return;
-        }
-    }
-} catch(e) { console.log("catchAll error:", e); }
-
-// ==========================================
-// STEP 5.6: KNOWLEDGE-BASE ANSWER (non-HOW_TO questions)
-// Try to match question to website knowledge even if intent wasn't HOW_TO
-// ==========================================
-try {
-    if (typeof WEBSITE_KNOWLEDGE !== 'undefined') {
-        const qLower = text.toLowerCase();
-        for (const [key, info] of Object.entries(WEBSITE_KNOWLEDGE.features)) {
-            if (info.keywords.some(kw => qLower.includes(kw))) {
-                if (!filteredRecords.length || /kya kya|\u0915\u094d\u092f\u093e \u0915\u094d\u092f\u093e|kaise|\u0915\u0948\u0938\u0947|kahan|\u0915\u0939\u093e\u0901|eske.*kam|uske.*kam/.test(qLower)) {
-                    loadingDiv.remove();
-                    aiCache.set(cleanTextKey, info.answer);
-                    appendMessage(info.answer, "ai");
-                    speakText(info.answer);
-                    isRequestPending = false;
-                    return;
-                }
-            }
-        }
-    }
-} catch(e) {}
-
-// ==========================================
-// STEP 6: GEMINI FALLBACK
-// ==========================================
-// Build a smarter, shorter prompt for Gemini
-// Add Phase 2/3 data to Gemini context
-(async () => {
+    // Load Phase 2 data for context
     try {
         if (typeof loadPhase2Data === 'function') {
             const p2 = await loadPhase2Data();
-            if (p2.tractor || p2.services.length || p2.diesel.length) {
+            if (p2 && (p2.tractor || (p2.services && p2.services.length) || (p2.diesel && p2.diesel.length))) {
                 let p2Info = "\n\nTRACTOR DATA:\n";
                 if (p2.tractor) p2Info += "Tractor: " + (p2.tractor.company||"") + " " + (p2.tractor.model||"") + "\n";
-                if (p2.services.length) p2Info += "Services: " + p2.services.slice(0,3).map(s=>s.type+" "+s.date+" ₹"+s.totalCost).join(", ") + "\n";
-                if (p2.diesel.length) p2Info += "Diesel: " + p2.diesel.slice(0,3).map(d=>d.quantity+"L on "+d.date+" ₹"+(d.totalCost||d.quantity*d.rate)).join(", ") + "\n";
+                if (p2.services && p2.services.length) p2Info += "Services: " + p2.services.slice(0,3).map(s=>s.type+" "+s.date+' ₹'+s.totalCost).join(", ") + "\n";
+                if (p2.diesel && p2.diesel.length) p2Info += "Diesel: " + p2.diesel.slice(0,3).map(d=>d.quantity+"L on "+d.date+' ₹'+(d.totalCost||d.quantity*d.rate)).join(", ") + "\n";
                 window._phase2Context = p2Info;
             }
         }
-    } catch(e) {};
-})();
+    } catch(e) {}
 
-const geminiContext = filteredRecords.length > 0
-    ? JSON.stringify(filteredRecords.slice(0, 15), null, 2) + (window._phase2Context || "")
-    : "No verified records found locally.\nFor general questions, answer based on your knowledge of Indian agriculture and tractor operations.";
+    const geminiContext = filteredRecords.length > 0
+        ? JSON.stringify(filteredRecords.slice(0, 15), null, 2) + (window._phase2Context || "")
+        : "No verified records found locally.\nFor general questions, answer based on your knowledge of Indian agriculture and tractor operations.";
 
-const fullPrompt = `You are AI Munshi 3.0 of Chhapola Agriculture.
+    const fullPrompt = `You are AI Munshi 3.0 of Chhapola Agriculture.
 
 Always answer in natural, clear Hindi.
 Use only the verified farmer records provided below.
@@ -1995,14 +1908,15 @@ RULES:
 2. Answer only the question asked.
 3. Hindi, Marwadi and English farmer names should be treated as equivalent.
 4. Ignore small spelling and pronunciation differences.
-5. For हिसाब questions, calculate Total, Paid and Balance accurately.
+5. For hisaab questions, calculate Total, Paid and Balance accurately.
 6. Balance = Total - Paid.
 7. Do not use records belonging to another farmer.
-8. If no matching record exists, say: "राम-राम जी, इस किसान का रिकॉर्ड नहीं मिला।"
+8. If no matching record exists, say: "Ram-Ram ji, is kisan ka record nahi mila."
 9. Keep the answer natural and concise.
 `;
+
     try {
-        // ============ STEP 6a: TRY GROQ FIRST (primary AI) ============
+        // ============ TRY GROQ FIRST (primary AI) ============
         let groqSuccess = false;
         try {
             const groqData = await callGroqAPI(fullPrompt);
@@ -2013,56 +1927,116 @@ RULES:
                     aiCache.set(cleanTextKey, aiAnswer);
                     appendMessage(aiAnswer, "ai");
                     speakText(aiAnswer);
-                    groqSuccess = true;
+                    isRequestPending = false;
+                    return;
                 }
             }
         } catch (groqErr) {
             console.log("[AI] Groq failed, falling back to Gemini:", groqErr.message || groqErr);
         }
 
-        // ============ STEP 6b: GEMINI FALLBACK (if Groq failed) ============
-        if (!groqSuccess) {
-            const data = await callGeminiAPI(fullPrompt);
-            loadingDiv.remove();
+        // ============ GEMINI FALLBACK (if Groq failed) ============
+        const data = await callGeminiAPI(fullPrompt);
+        loadingDiv.remove();
 
-            if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-                const aiAnswer = data.candidates[0].content.parts[0].text.trim();
+        if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+            const aiAnswer = data.candidates[0].content.parts[0].text.trim();
+            if (aiAnswer) {
                 aiCache.set(cleanTextKey, aiAnswer);
                 appendMessage(aiAnswer, "ai");
                 speakText(aiAnswer);
-            } else {
-                console.error("API Error Response:", data);
-                appendMessage("राम-राम जी, रिकॉर्ड समझने में दिक्कत हुई। एक बार फिर पूछें।", "ai");
+                isRequestPending = false;
+                return;
             }
         }
+        console.error("API Error Response:", data);
+
     } catch (err) {
-        loadingDiv.remove();
-        console.error("Fetch Error:", err);
-        const errMsg = err.message || "";
-        if (errMsg.includes("502") || errMsg.includes("high demand") || errMsg.includes("overloaded")) {
-            // If we have filtered records, give local answer instead of failing
-            if (filteredRecords.length > 0 && typeof buildLocalAnswer === "function") {
-                try {
-                    const fallbackReply = buildLocalAnswer(parsed, filteredRecords);
-                    if (fallbackReply) {
-                        appendMessage(fallbackReply, "ai");
-                        speakText(fallbackReply);
-                        isRequestPending = false;
-                        return;
-                    }
-                } catch(e2) {}
-            }
-            appendMessage("AI सर्वर अभी व्यस्त है। कुछ देर बाद फिर पूछें। 🙏", "ai");
-        } else if (errMsg.includes("429")) {
-            appendMessage("बहुत ज्यादा सवाल हो गए। थोड़ी देर रुकें। ⏳", "ai");
-        } else if (errMsg.includes("503")) {
-            appendMessage("AI सेवा अभी उपलब्ध नहीं है। बाद में प्रयास करें।", "ai");
-        } else {
-            appendMessage("कनेक्शन में समस्या हुई। नेटवर्क जाँचें और फिर पूछें।", "ai");
-        }
-    } finally {
-        isRequestPending = false;
+        // Both Groq and Gemini failed — fall through to local fallback below
+        console.log("[AI] Groq+Gemini both failed, using local fallback:", err.message || err);
     }
+
+    // ==========================================
+    // STEP 5: LOCAL FALLBACK (last resort)
+    // Only reached if BOTH Groq and Gemini failed
+    // ==========================================
+
+    // 5a. Try askMunshi (local AI brain)
+    let localReplied = false;
+    try {
+        if (typeof askMunshi === "function") {
+            const munshiResult = await askMunshi(text);
+            if (munshiResult && munshiResult.reply) {
+                loadingDiv.remove();
+                aiCache.set(cleanTextKey, munshiResult.reply);
+                appendMessage(munshiResult.reply, "ai");
+                speakText(munshiResult.reply);
+                localReplied = true;
+            } else if (munshiResult && munshiResult.records && munshiResult.records.length) {
+                filteredRecords = munshiResult.records;
+            }
+        }
+    } catch(e) { console.log(e); }
+
+    if (localReplied) { isRequestPending = false; return; }
+
+    // 5b. Try buildLocalAnswer (deterministic local calculation)
+    if (filteredRecords.length && typeof buildLocalAnswer === "function") {
+        try {
+            const localAnswer = buildLocalAnswer(parsed, filteredRecords);
+            if (localAnswer) {
+                loadingDiv.remove();
+                aiCache.set(cleanTextKey, localAnswer);
+                appendMessage(localAnswer, "ai");
+                speakText(localAnswer);
+                localReplied = true;
+            }
+        } catch(e) { console.log("buildLocalAnswer error:", e); }
+    }
+
+    if (localReplied) { isRequestPending = false; return; }
+
+    // 5c. Try catchAllLocalAnswer
+    try {
+        if (typeof catchAllLocalAnswer === "function") {
+            const catchAllReply = catchAllLocalAnswer(text);
+            if (catchAllReply) {
+                loadingDiv.remove();
+                aiCache.set(cleanTextKey, catchAllReply);
+                appendMessage(catchAllReply, "ai");
+                speakText(catchAllReply);
+                localReplied = true;
+            }
+        }
+    } catch(e) { console.log("catchAll error:", e); }
+
+    if (localReplied) { isRequestPending = false; return; }
+
+    // 5d. Try knowledge base
+    try {
+        if (typeof WEBSITE_KNOWLEDGE !== 'undefined') {
+            const qLower = text.toLowerCase();
+            for (const [key, info] of Object.entries(WEBSITE_KNOWLEDGE.features)) {
+                if (info.keywords.some(kw => qLower.includes(kw))) {
+                    if (!filteredRecords.length || /kya kya|kaise|kahan|kahan|eske.*kam|uske.*kam/.test(qLower)) {
+                        loadingDiv.remove();
+                        aiCache.set(cleanTextKey, info.answer);
+                        appendMessage(info.answer, "ai");
+                        speakText(info.answer);
+                        localReplied = true;
+                        break;
+                    }
+                }
+            }
+        }
+    } catch(e) {}
+
+    if (localReplied) { isRequestPending = false; return; }
+
+    // Nothing worked
+    loadingDiv.remove();
+    appendMessage("Ram-Ram ji, samajhne mein dikkat hui. Ek baar fir pucche.", "ai");
+    isRequestPending = false;
 }
 
 // 4. स्पीच और वॉइस आउटपुट
