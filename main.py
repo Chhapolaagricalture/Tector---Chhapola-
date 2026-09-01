@@ -244,6 +244,7 @@ app.include_router(spare_parts_router)
 ALLOWED_ORIGINS = [
     "https://tector-chhapola.onrender.com",
     "https://tector-chhapola-frontend.onrender.com",
+    "https://chhapolaagriculture.com",
     "https://chhapolaagricalture.github.io",
     "http://localhost:5173",
     "http://localhost:3000",
