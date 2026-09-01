@@ -551,27 +551,24 @@ window._doc = doc;
 </script>
 </div>
 
-<!-- FIRESTORE HELPER FUNCTIONS FOR AI ACTIONS (must be regular script, not module) -->
+<!-- FIRESTORE HELPER FUNCTIONS FOR AI ACTIONS -->
 <script>
-(function() {
-    const _recordsCol = window._collection(window.db, "records");
+window._aiAddRecord = async function(recordData) {
+    const col = window._collection(window.db, "records");
+    await window._addDoc(col, recordData);
+};
 
-    window._aiAddRecord = async function(recordData) {
-        await window._addDoc(_recordsCol, recordData);
-    };
+window._aiUpdateRecord = async function(recordId, updates) {
+    await window._updateDoc(window._doc(window.db, "records", recordId), updates);
+};
 
-    window._aiUpdateRecord = async function(recordId, updates) {
-        await window._updateDoc(window._doc(window.db, "records", recordId), updates);
-    };
-
-    window._aiDeleteRecord = async function(recordId) {
-        await window._updateDoc(window._doc(window.db, "records", recordId), {
-            _deleted: true,
-            _deletedAt: new Date().toISOString(),
-            _deletedBy: (window.auth && window.auth.currentUser) ? window.auth.currentUser.uid : "ai-munshi"
-        });
-    };
-})();
+window._aiDeleteRecord = async function(recordId) {
+    await window._updateDoc(window._doc(window.db, "records", recordId), {
+        _deleted: true,
+        _deletedAt: new Date().toISOString(),
+        _deletedBy: (window.auth && window.auth.currentUser) ? window.auth.currentUser.uid : "ai-munshi"
+    });
+};
 </script>
 
 <script type="module" src="Script.js"></script>
