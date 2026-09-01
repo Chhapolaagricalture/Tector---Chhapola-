@@ -507,7 +507,7 @@ VOICE ENTRY BUTTON
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -542,31 +542,38 @@ window.onAuthStateChanged = onAuthStateChanged;
 window.signOut = signOut;
 window.updatePassword = updatePassword;
 
-// ==========================================
-// FIRESTORE HELPER FUNCTIONS FOR AI ACTIONS
-// Used by ai-munshi.js action confirmations
-// ==========================================
-
-const _recordsCol = collection(db, "records");
-
-window._aiAddRecord = async function(recordData) {
-    await addDoc(_recordsCol, recordData);
-};
-
-window._aiUpdateRecord = async function(recordId, updates) {
-    await updateDoc(doc(db, "records", recordId), updates);
-};
-
-window._aiDeleteRecord = async function(recordId) {
-    await updateDoc(doc(db, "records", recordId), {
-        _deleted: true,
-        _deletedAt: new Date().toISOString(),
-        _deletedBy: (auth && auth.currentUser) ? auth.currentUser.uid : "ai-munshi"
-    });
-};
+// Expose Firestore functions for AI action helpers
+window._addDoc = addDoc;
+window._updateDoc = updateDoc;
+window._collection = collection;
+window._doc = doc;
 
 </script>
 </div>
+
+<!-- FIRESTORE HELPER FUNCTIONS FOR AI ACTIONS (must be regular script, not module) -->
+<script>
+(function() {
+    const _recordsCol = window._collection(window.db, "records");
+
+    window._aiAddRecord = async function(recordData) {
+        await window._addDoc(_recordsCol, recordData);
+    };
+
+    window._aiUpdateRecord = async function(recordId, updates) {
+        await window._updateDoc(window._doc(window.db, "records", recordId), updates);
+    };
+
+    window._aiDeleteRecord = async function(recordId) {
+        await window._updateDoc(window._doc(window.db, "records", recordId), {
+            _deleted: true,
+            _deletedAt: new Date().toISOString(),
+            _deletedBy: (window.auth && window.auth.currentUser) ? window.auth.currentUser.uid : "ai-munshi"
+        });
+    };
+})();
+</script>
+
 <script type="module" src="Script.js"></script>
 <script src="ai-memory.js"></script>
 <script src="ai-search.js"></script>
