@@ -66,6 +66,14 @@ public class MainActivity extends BridgeActivity {
     private boolean desktopMode = false;
     private boolean isNetworkAvailable = true;
 
+    /* ── User-Agents ──────────────────────────────────────────── */
+    private static final String DESKTOP_UA =
+            "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 "
+            + "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    private static final String MOBILE_UA =
+            "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 "
+            + "(KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
+
     /* ── UI references ────────────────────────────────────────── */
     private SwipeRefreshLayout swipeRefresh;
     private ProgressBar progressBar;
@@ -270,6 +278,9 @@ public class MainActivity extends BridgeActivity {
         s.setDatabaseEnabled(true);
         s.setAllowContentAccess(true);
 
+        // Desktop/Mobile toggle
+        s.setUserAgentString(desktopMode ? DESKTOP_UA : MOBILE_UA);
+
         // Viewport
         s.setUseWideViewPort(true);
         s.setLoadWithOverviewMode(false);
@@ -434,19 +445,23 @@ public class MainActivity extends BridgeActivity {
             callback.invoke(origin, true, false);
         }
 
-        // Let website's own JS alerts/confirm/prompt work normally
+        // Suppress JavaScript alert/confirm/popups from website
+        // These block the UI and prevent further interaction
         @Override
         public boolean onJsAlert(WebView wv, String url, String message,
                                  JsResult result) {
-            // Allow the website's alert() to show — don't suppress it
-            return super.onJsAlert(wv, url, message, result);
+            result.cancel();
+            return true;
         }
 
         @Override
         public boolean onJsConfirm(WebView wv, String url, String message,
                                    JsResult result) {
-            return super.onJsConfirm(wv, url, message, result);
+            result.cancel();
+            return true;
         }
+
+
 
         @Override
         public boolean onConsoleMessage(ConsoleMessage cm) {
