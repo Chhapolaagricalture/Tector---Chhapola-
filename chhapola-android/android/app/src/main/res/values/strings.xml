@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Chhapola</string>
+    <string name="title_activity_main">Chhapola</string>
+    <string name="package_name">com.chhapola.agriculture</string>
+    <string name="custom_url_scheme">com.chhapola.agriculture</string>
+    <string name="menu_refresh">🔄 Refresh</string>
+    <string name="menu_back">⬅️ Back</string>
+    <string name="menu_forward">➡️ Forward</string>
+    <string name="menu_desktop_on">🖥️ Desktop Site: ON</string>
+    <string name="menu_desktop_off">📱 Desktop Site: OFF</string>
+    <string name="menu_share">🔗 Share</string>
+    <string name="menu_find">🔍 Find in Page</string>
+    <string name="menu_about">ℹ️ About</string>
+    <string name="no_internet_title">No Internet Connection</string>
+    <string name="no_internet_msg">कृपया अपना internet connection जाँचें\nऔर फिर से try करें।</string>
+    <string name="retry">🔄 Retry</string>
+</resources>
