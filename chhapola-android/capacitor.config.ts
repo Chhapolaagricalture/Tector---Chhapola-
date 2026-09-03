@@ -15,10 +15,7 @@ const config: CapacitorConfig = {
     buildOptions: {
       keystorePath: undefined,
       keystoreAlias: undefined
-    },
-    webContentsDebuggingEnabled: false,
-    overrideUserAgent: undefined,
-    appendUserAgent: undefined
+    }
   },
   plugins: {
     Camera: {
