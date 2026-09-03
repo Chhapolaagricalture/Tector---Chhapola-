@@ -383,6 +383,11 @@ public class MainActivity extends BridgeActivity {
             super.onPageFinished(wv, url);
             if (progressBar != null) progressBar.setVisibility(View.GONE);
             if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+            // Desktop mode: inject viewport override after page fully loaded
+            // Delay 1500ms to let website JS initialize completely first
+            if (desktopMode) {
+                wv.postDelayed(() -> applyDesktopViewport(wv), 1500);
+            }
         }
 
         @Override
@@ -445,20 +450,18 @@ public class MainActivity extends BridgeActivity {
             callback.invoke(origin, true, false);
         }
 
-        // Suppress JavaScript alert/confirm/popups from website
-        // These block the UI and prevent further interaction
+        // Allow website's own JS alerts/confirm to work normally
+        // These are needed for scanner, record confirmation, etc.
         @Override
         public boolean onJsAlert(WebView wv, String url, String message,
                                  JsResult result) {
-            result.cancel();
-            return true;
+            return super.onJsAlert(wv, url, message, result);
         }
 
         @Override
         public boolean onJsConfirm(WebView wv, String url, String message,
                                    JsResult result) {
-            result.cancel();
-            return true;
+            return super.onJsConfirm(wv, url, message, result);
         }
 
 
@@ -705,6 +708,37 @@ public class MainActivity extends BridgeActivity {
         } else {
             webView.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
             if (errorPage != null) errorPage.setVisibility(View.VISIBLE);
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       HELPERS
+       ══════════════════════════════════════════════════════════════ */
+
+    /* ══════════════════════════════════════════════════════════════
+       DESKTOP VIEWPORT INJECTION
+       ══════════════════════════════════════════════════════════════ */
+
+    /**
+     * Override viewport meta tag to force desktop CSS layout.
+     * Called with 1500ms delay after page load to avoid breaking
+     * the website's own JS event handlers.
+     * Only applied in desktop mode.
+     */
+    private void applyDesktopViewport(WebView wv) {
+        try {
+            String js = "(function(){" +
+                    "try{" +
+                    "var vp=document.querySelector('meta[name=viewport]');" +
+                    "if(vp){vp.setAttribute('content','width=1200');}" +
+                    "else{var m=document.createElement('meta');" +
+                    "m.name='viewport';m.content='width=1200';" +
+                    "document.head.appendChild(m);}" +
+                    "}catch(e){}" +
+                    "})();";
+            wv.evaluateJavascript(js, null);
+        } catch (Exception e) {
+            // Silently ignore — don't break the page
         }
     }
 
