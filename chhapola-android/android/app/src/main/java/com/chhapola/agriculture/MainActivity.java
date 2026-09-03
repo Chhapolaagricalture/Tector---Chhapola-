@@ -279,14 +279,19 @@ public class MainActivity extends BridgeActivity {
 
         WebSettings s = webView.getSettings();
 
-        // Core
+        // Core — essential for Firebase, forms, and interactive features
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
-        s.setAllowFileAccess(true);
+        s.setAllowContentAccess(true);
+        // NOTE: setAllowFileAccess intentionally NOT set here —
+        // it can interfere with Firebase HTTPS origin detection.
 
-        // Desktop/Mobile toggle
-        s.setUserAgentString(desktopMode ? DESKTOP_UA : MOBILE_UA);
+        // Desktop/Mobile toggle — APPEND to default UA, don't replace.
+        // Capacitor may inject its own tokens; replacing the UA strips them.
+        String defaultUa = s.getUserAgentString();
+        String suffix = desktopMode ? " DesktopMode" : " MobileMode";
+        s.setUserAgentString(defaultUa + suffix);
 
         // Viewport
         s.setUseWideViewPort(true);
@@ -301,7 +306,7 @@ public class MainActivity extends BridgeActivity {
         // Cache
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
 
-        // Cookies (essential for Firebase/auth sessions)
+        // Cookies — essential for Firebase auth sessions
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
     }
@@ -408,9 +413,11 @@ public class MainActivity extends BridgeActivity {
             if (swipeRefresh != null) {
                 swipeRefresh.setRefreshing(false);
             }
-            // Desktop mode: override viewport to force desktop CSS layout
+            // Desktop mode: apply viewport override AFTER page fully loaded
+            // to avoid breaking the website's own event handlers.
+            // Using a delayed post to let JS finish initializing first.
             if (desktopMode) {
-                applyDesktopViewport(wv);
+                wv.postDelayed(() -> applyDesktopViewport(wv), 500);
             }
         }
 
@@ -747,14 +754,21 @@ public class MainActivity extends BridgeActivity {
      * their desktop CSS breakpoints.
      */
     private void applyDesktopViewport(WebView wv) {
-        String js = "(function(){" +
-                "var vp=document.querySelector('meta[name=viewport]');" +
-                "if(vp) vp.setAttribute('content','width=1200');" +
-                "else {var m=document.createElement('meta');" +
-                "m.name='viewport';m.content='width=1200';" +
-                "document.head.appendChild(m);}" +
-                "})();";
-        wv.evaluateJavascript(js, null);
+        try {
+            String js = "(function(){" +
+                    "var vp=document.querySelector('meta[name=viewport]');" +
+                    "if(vp) vp.setAttribute('content','width=1200');" +
+                    "else {var m=document.createElement('meta');" +
+                    "m.name='viewport';m.content='width=1200';" +
+                    "document.head.appendChild(m);}" +
+                    "})();";
+            wv.evaluateJavascript(js, value -> {
+                // Viewport override applied — page will re-layout
+                // with desktop CSS breakpoints.
+            });
+        } catch (Exception e) {
+            // Silently ignore — don't break the page
+        }
     }
 
     /* ══════════════════════════════════════════════════════════════
