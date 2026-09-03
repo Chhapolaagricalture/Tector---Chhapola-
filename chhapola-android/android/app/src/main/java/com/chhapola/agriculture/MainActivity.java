@@ -1,6 +1,7 @@
 package com.chhapola.agriculture;
 
 import android.os.Bundle;
+import android.webkit.WebSettings;
 import android.widget.Toast;
 import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.BridgeActivity;
@@ -8,12 +9,11 @@ import com.getcapacitor.BridgeActivity;
 /**
  * Chhapola Android App — MainActivity
  *
- * WebView viewport:
- *   setUseWideViewPort(true) makes the WebView respect the website's
- *   <meta name="viewport" content="width=device-width, initial-scale=1.0">
- *   just like Chrome mobile does. Without this, Android WebView ignores
- *   the viewport tag and renders at ~980px CSS width (desktop mode),
- *   causing horizontal overflow on mobile screens.
+ * Desktop Site Mode:
+ *   WebView uses a desktop Chrome User-Agent so the website serves its
+ *   desktop layout (same as Chrome "Desktop site ON"). The viewport is
+ *   configured with useWideViewPort(true) + loadWithOverviewMode(false)
+ *   so the full desktop-width page renders and the user can zoom/scroll.
  *
  * Back button = browser-back:
  *   1. WebView history exists → goBack() (previous website page)
@@ -24,6 +24,11 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
 
     private long lastBackTime = 0;
+
+    /** Desktop Chrome User-Agent — same as Chrome Desktop site ON */
+    private static final String DESKTOP_USER_AGENT =
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            + "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,19 +47,32 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
-        // Re-apply in onResume to survive any WebView recreation
-        // or Capacitor internal re-initialization.
         configureWebView();
     }
 
     /**
-     * Apply WebView viewport settings.
+     * Configure WebView for Desktop Site mode.
      * Called in both onCreate and onResume for reliability.
      */
     private void configureWebView() {
-        if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().getSettings().setUseWideViewPort(true);
-        }
+        if (getBridge() == null || getBridge().getWebView() == null) return;
+
+        WebSettings settings = getBridge().getWebView().getSettings();
+
+        // Desktop User-Agent: makes the website serve its desktop layout
+        settings.setUserAgentString(DESKTOP_USER_AGENT);
+
+        // Viewport: respect meta viewport + don't zoom-to-fit
+        settings.setUseWideViewPort(true);
+        settings.setLoadWithOverviewMode(false);
+
+        // Zoom: allow pinch-zoom and double-tap zoom (hide UI buttons for cleaner look)
+        settings.setSupportZoom(true);
+        settings.setBuiltInZoomControls(true);
+        settings.setDisplayZoomControls(false);
+
+        // Text zoom at 100%
+        settings.setTextZoom(100);
     }
 
     /**
