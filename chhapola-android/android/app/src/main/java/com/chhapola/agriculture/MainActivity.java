@@ -77,11 +77,14 @@ public class MainActivity extends BridgeActivity {
     private static final int PERMISSION_REQUEST = 2001;
 
     /* ── User-Agents ──────────────────────────────────────────── */
+    // Chrome "Desktop site ON" on Android: keeps Android identifiers,
+    // drops "Mobile" tag. This is what makes websites serve desktop layout.
     private static final String DESKTOP_UA =
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 "
             + "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    // Chrome default mobile: includes "Mobile" tag → website serves mobile layout.
     private static final String MOBILE_UA =
-            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 "
+            "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 "
             + "(KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
 
     /* ══════════════════════════════════════════════════════════════
