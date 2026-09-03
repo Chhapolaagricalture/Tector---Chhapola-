@@ -408,6 +408,10 @@ public class MainActivity extends BridgeActivity {
             if (swipeRefresh != null) {
                 swipeRefresh.setRefreshing(false);
             }
+            // Desktop mode: override viewport to force desktop CSS layout
+            if (desktopMode) {
+                applyDesktopViewport(wv);
+            }
         }
 
         @Override
@@ -730,6 +734,27 @@ public class MainActivity extends BridgeActivity {
             webView.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
             if (errorPage != null) errorPage.setVisibility(View.VISIBLE);
         }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       DESKTOP VIEWPORT INJECTION
+       ══════════════════════════════════════════════════════════════ */
+
+    /**
+     * Force desktop CSS layout by overriding the viewport meta tag.
+     * Chrome "Desktop site" does the same — it changes the CSS viewport
+     * width from device-width (~360dp) to ~1200px, making websites serve
+     * their desktop CSS breakpoints.
+     */
+    private void applyDesktopViewport(WebView wv) {
+        String js = "(function(){" +
+                "var vp=document.querySelector('meta[name=viewport]');" +
+                "if(vp) vp.setAttribute('content','width=1200');" +
+                "else {var m=document.createElement('meta');" +
+                "m.name='viewport';m.content='width=1200';" +
+                "document.head.appendChild(m);}" +
+                "})();";
+        wv.evaluateJavascript(js, null);
     }
 
     /* ══════════════════════════════════════════════════════════════
