@@ -11,15 +11,15 @@ import android.net.NetworkRequest;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
-import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
+import android.webkit.ConsoleMessage;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
 import android.webkit.GeolocationPermissions;
+import android.webkit.JsResult;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -29,7 +29,6 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.EditText;
 import android.widget.FrameLayout;
-import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -46,25 +45,28 @@ import com.getcapacitor.BridgeActivity;
  * Chhapola Agriculture — Professional Android App
  *
  * Features:
- *   - Desktop/Mobile Site toggle (Chrome Desktop site ON/OFF)
- *   - Pull-to-Refresh (SwipeRefreshLayout)
+ *   - Desktop/Mobile Site toggle
+ *   - Pull-to-Refresh
  *   - Three-Dot Professional Menu
  *   - File Upload / Camera / Gallery
  *   - Download handling
- *   - External links (Phone, Email, WhatsApp, Maps)
+ *   - External links
  *   - Loading indicator + Error page with retry
- *   - Network monitoring (offline → online auto-retry)
- *   - Login/Session preservation (Firebase via WebView)
- *   - Back button = browser-back with double-press exit
+ *   - Network monitoring
+ *   - Login/Session preservation
+ *   - Back button with double-press exit
+ *
+ * IMPORTANT: No JavaScript injection into the website.
+ * The website's own JS must run without interference.
  */
 public class MainActivity extends BridgeActivity {
 
     /* ── State ────────────────────────────────────────────────── */
     private long lastBackTime = 0;
-    private boolean desktopMode = true;
+    private boolean desktopMode = false;
     private boolean isNetworkAvailable = true;
 
-    /* ── UI references (created programmatically) ─────────────── */
+    /* ── UI references ────────────────────────────────────────── */
     private SwipeRefreshLayout swipeRefresh;
     private ProgressBar progressBar;
     private LinearLayout errorPage;
@@ -76,17 +78,6 @@ public class MainActivity extends BridgeActivity {
     private static final int FILE_CHOOSER_REQUEST = 1001;
     private static final int PERMISSION_REQUEST = 2001;
 
-    /* ── User-Agents ──────────────────────────────────────────── */
-    // Chrome "Desktop site ON" on Android: keeps Android identifiers,
-    // drops "Mobile" tag. This is what makes websites serve desktop layout.
-    private static final String DESKTOP_UA =
-            "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 "
-            + "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-    // Chrome default mobile: includes "Mobile" tag → website serves mobile layout.
-    private static final String MOBILE_UA =
-            "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 "
-            + "(KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
-
     /* ══════════════════════════════════════════════════════════════
        LIFECYCLE
        ══════════════════════════════════════════════════════════════ */
@@ -96,7 +87,7 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
 
         if (savedInstanceState != null) {
-            desktopMode = savedInstanceState.getBoolean("desktopMode", true);
+            desktopMode = savedInstanceState.getBoolean("desktopMode", false);
         }
 
         setupCustomViews();
@@ -129,24 +120,22 @@ public class MainActivity extends BridgeActivity {
     }
 
     /* ══════════════════════════════════════════════════════════════
-       VIEW SETUP — Toolbar + ProgressBar + SwipeRefresh + ErrorPage
+       VIEW SETUP
        ══════════════════════════════════════════════════════════════ */
 
     private void setupCustomViews() {
         WebView webView = getWebView();
         if (webView == null) return;
-        if (swipeRefresh != null) return; // already set up
+        if (swipeRefresh != null) return;
 
-        // Remove WebView from current parent
         if (webView.getParent() != null) {
             ((android.view.ViewGroup) webView.getParent()).removeView(webView);
         }
 
-        // Root container
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.WHITE);
 
-        // SwipeRefreshLayout (wraps WebView)
+        // SwipeRefreshLayout
         swipeRefresh = new SwipeRefreshLayout(this);
         swipeRefresh.setColorSchemeColors(
                 ContextCompat.getColor(this, R.color.colorPrimary));
@@ -154,12 +143,9 @@ public class MainActivity extends BridgeActivity {
             WebView wv = getWebView();
             if (wv != null) wv.reload();
         });
-
-        // Add WebView to SwipeRefresh
-        swipeRefresh.addView(webView,
-                new FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT));
+        swipeRefresh.addView(webView, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
 
         root.addView(swipeRefresh, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -174,12 +160,10 @@ public class MainActivity extends BridgeActivity {
         setSupportActionBar(toolbar);
 
         FrameLayout.LayoutParams toolbarParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(56));
+                FrameLayout.LayoutParams.MATCH_PARENT, dpToPx(56));
         toolbarParams.gravity = android.view.Gravity.TOP;
         root.addView(toolbar, toolbarParams);
 
-        // Push WebView below toolbar
         FrameLayout.LayoutParams swipeParams = (FrameLayout.LayoutParams)
                 swipeRefresh.getLayoutParams();
         swipeParams.topMargin = dpToPx(56);
@@ -228,39 +212,40 @@ public class MainActivity extends BridgeActivity {
         title.setTextSize(20);
         title.setTextColor(Color.parseColor("#333333"));
         title.setGravity(android.view.Gravity.CENTER);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-        titleParams.topMargin = dpToPx(16);
-        layout.addView(title, titleParams);
+        tp.topMargin = dpToPx(16);
+        layout.addView(title, tp);
 
-        TextView subtitle = new TextView(this);
-        subtitle.setText("कृपया अपना internet connection जाँचें\nऔर फिर से try करें।");
-        subtitle.setTextSize(14);
-        subtitle.setTextColor(Color.parseColor("#666666"));
-        subtitle.setGravity(android.view.Gravity.CENTER);
-        LinearLayout.LayoutParams subParams = new LinearLayout.LayoutParams(
+        TextView sub = new TextView(this);
+        sub.setText("कृपया अपना internet connection जाँचें\nऔर फिर से try करें।");
+        sub.setTextSize(14);
+        sub.setTextColor(Color.parseColor("#666666"));
+        sub.setGravity(android.view.Gravity.CENTER);
+        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-        subParams.topMargin = dpToPx(8);
-        layout.addView(subtitle, subParams);
+        sp.topMargin = dpToPx(8);
+        layout.addView(sub, sp);
 
         TextView retryBtn = new TextView(this);
         retryBtn.setText("🔄  Retry");
         retryBtn.setTextSize(16);
         retryBtn.setTextColor(Color.WHITE);
-        retryBtn.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
+        retryBtn.setBackgroundColor(
+                ContextCompat.getColor(this, R.color.colorPrimary));
         retryBtn.setPadding(dpToPx(32), dpToPx(12), dpToPx(32), dpToPx(12));
         retryBtn.setGravity(android.view.Gravity.CENTER);
         retryBtn.setOnClickListener(v -> {
             WebView wv = getWebView();
             if (wv != null && isNetworkAvailable) wv.reload();
         });
-        LinearLayout.LayoutParams retryParams = new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-        retryParams.topMargin = dpToPx(24);
-        layout.addView(retryBtn, retryParams);
+        rp.topMargin = dpToPx(24);
+        layout.addView(retryBtn, rp);
 
         return layout;
     }
@@ -284,14 +269,6 @@ public class MainActivity extends BridgeActivity {
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
         s.setAllowContentAccess(true);
-        // NOTE: setAllowFileAccess intentionally NOT set here —
-        // it can interfere with Firebase HTTPS origin detection.
-
-        // Desktop/Mobile toggle — APPEND to default UA, don't replace.
-        // Capacitor may inject its own tokens; replacing the UA strips them.
-        String defaultUa = s.getUserAgentString();
-        String suffix = desktopMode ? " DesktopMode" : " MobileMode";
-        s.setUserAgentString(defaultUa + suffix);
 
         // Viewport
         s.setUseWideViewPort(true);
@@ -343,45 +320,19 @@ public class MainActivity extends BridgeActivity {
         public boolean shouldOverrideUrlLoading(WebView wv, WebResourceRequest req) {
             String url = req.getUrl().toString();
 
-            // Phone
             if (url.startsWith("tel:")) {
                 startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse(url)));
                 return true;
             }
-            // Email
             if (url.startsWith("mailto:")) {
                 startActivity(new Intent(Intent.ACTION_SENDTO, Uri.parse(url)));
                 return true;
             }
-            // SMS
             if (url.startsWith("sms:")) {
                 startActivity(new Intent(Intent.ACTION_SENDTO, Uri.parse(url)));
                 return true;
             }
-            // WhatsApp
             if (url.contains("api.whatsapp.com") || url.contains("wa.me/")) {
-                try {
-                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-                } catch (Exception e) {
-                    startActivity(new Intent(Intent.ACTION_VIEW,
-                            Uri.parse("https://wa.me/" + url.substring(url.lastIndexOf("/") + 1))));
-                }
-                return true;
-            }
-            // Google Maps
-            if (url.startsWith("geo:") || url.contains("maps.google")) {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-                return true;
-            }
-            // Play Store
-            if (url.contains("play.google.com")) {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-                return true;
-            }
-            // Other external: YouTube, social media, etc.
-            if (!url.contains("chhapolaagriculture.com")
-                    && !url.startsWith("about:blank")
-                    && req.isForMainFrame()) {
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
                 } catch (Exception e) {
@@ -389,43 +340,44 @@ public class MainActivity extends BridgeActivity {
                 }
                 return true;
             }
+            if (url.startsWith("geo:") || url.contains("maps.google")) {
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                return true;
+            }
+            if (url.contains("play.google.com")) {
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                return true;
+            }
+            if (!url.contains("chhapolaagriculture.com")
+                    && !url.startsWith("about:blank")
+                    && req.isForMainFrame()) {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                } catch (Exception e) { /* ignore */ }
+                return true;
+            }
 
-            return false; // let WebView load it
+            return false;
         }
 
         @Override
         public void onPageStarted(WebView wv, String url, Bitmap favicon) {
             super.onPageStarted(wv, url, favicon);
-            if (progressBar != null) {
-                progressBar.setVisibility(View.VISIBLE);
-            }
-            if (errorPage != null) {
-                errorPage.setVisibility(View.GONE);
-            }
+            if (progressBar != null) progressBar.setVisibility(View.VISIBLE);
+            if (errorPage != null) errorPage.setVisibility(View.GONE);
         }
 
         @Override
         public void onPageFinished(WebView wv, String url) {
             super.onPageFinished(wv, url);
-            if (progressBar != null) {
-                progressBar.setVisibility(View.GONE);
-            }
-            if (swipeRefresh != null) {
-                swipeRefresh.setRefreshing(false);
-            }
-            // Desktop mode: apply viewport override AFTER page fully loaded
-            // to avoid breaking the website's own event handlers.
-            // Using a delayed post to let JS finish initializing first.
-            if (desktopMode) {
-                wv.postDelayed(() -> applyDesktopViewport(wv), 500);
-            }
+            if (progressBar != null) progressBar.setVisibility(View.GONE);
+            if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
         }
 
         @Override
         public void onReceivedError(WebView wv, WebResourceRequest req,
                                     WebResourceError error) {
             super.onReceivedError(wv, req, error);
-            // Only show error page for main frame
             if (req.isForMainFrame()) {
                 if (progressBar != null) progressBar.setVisibility(View.GONE);
                 if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
@@ -438,7 +390,6 @@ public class MainActivity extends BridgeActivity {
 
     private class ChhapolaChromeClient extends WebChromeClient {
 
-        // File upload
         @Override
         public boolean onShowFileChooser(WebView wv,
                                          ValueCallback<Uri[]> callback,
@@ -448,11 +399,12 @@ public class MainActivity extends BridgeActivity {
             }
             fileUploadCallback = callback;
 
-            // Camera permission
             if (ContextCompat.checkSelfPermission(MainActivity.this,
-                    Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    Manifest.permission.CAMERA)
+                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(MainActivity.this,
-                        new String[]{Manifest.permission.CAMERA}, PERMISSION_REQUEST);
+                        new String[]{Manifest.permission.CAMERA},
+                        PERMISSION_REQUEST);
                 return true;
             }
 
@@ -460,20 +412,15 @@ public class MainActivity extends BridgeActivity {
             return true;
         }
 
-        // Page loading progress
         @Override
         public void onProgressChanged(WebView wv, int newProgress) {
             if (progressBar != null) {
                 progressBar.setProgress(newProgress);
-                if (newProgress >= 100) {
-                    progressBar.setVisibility(View.GONE);
-                } else {
-                    progressBar.setVisibility(View.VISIBLE);
-                }
+                progressBar.setVisibility(newProgress >= 100
+                        ? View.GONE : View.VISIBLE);
             }
         }
 
-        // Geolocation (for maps on website)
         @Override
         public void onGeolocationPermissionsShowPrompt(String origin,
                 GeolocationPermissions.Callback callback) {
@@ -481,9 +428,30 @@ public class MainActivity extends BridgeActivity {
                     Manifest.permission.ACCESS_FINE_LOCATION)
                     != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(MainActivity.this,
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST);
+                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                        PERMISSION_REQUEST);
             }
             callback.invoke(origin, true, false);
+        }
+
+        // Let website's own JS alerts/confirm/prompt work normally
+        @Override
+        public boolean onJsAlert(WebView wv, String url, String message,
+                                 JsResult result) {
+            // Allow the website's alert() to show — don't suppress it
+            return super.onJsAlert(wv, url, message, result);
+        }
+
+        @Override
+        public boolean onJsConfirm(WebView wv, String url, String message,
+                                   JsResult result) {
+            return super.onJsConfirm(wv, url, message, result);
+        }
+
+        @Override
+        public boolean onConsoleMessage(ConsoleMessage cm) {
+            // Log console messages for debugging
+            return true;
         }
     }
 
@@ -492,7 +460,8 @@ public class MainActivity extends BridgeActivity {
        ══════════════════════════════════════════════════════════════ */
 
     private void launchFileChooser() {
-        Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+        Intent cameraIntent = new Intent(
+                android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
 
         Intent galleryIntent = new Intent(Intent.ACTION_GET_CONTENT);
         galleryIntent.setType("*/*");
@@ -509,18 +478,16 @@ public class MainActivity extends BridgeActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == FILE_CHOOSER_REQUEST) {
-            if (fileUploadCallback != null) {
-                Uri[] results = null;
-                if (resultCode == RESULT_OK && data != null) {
-                    String dataString = data.getDataString();
-                    if (dataString != null) {
-                        results = new Uri[]{Uri.parse(dataString)};
-                    }
+        if (requestCode == FILE_CHOOSER_REQUEST && fileUploadCallback != null) {
+            Uri[] results = null;
+            if (resultCode == RESULT_OK && data != null) {
+                String dataString = data.getDataString();
+                if (dataString != null) {
+                    results = new Uri[]{Uri.parse(dataString)};
                 }
-                fileUploadCallback.onReceiveValue(results);
-                fileUploadCallback = null;
             }
+            fileUploadCallback.onReceiveValue(results);
+            fileUploadCallback = null;
         }
     }
 
@@ -528,12 +495,9 @@ public class MainActivity extends BridgeActivity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions,
                                            int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST) {
-            // Permission granted — retry file chooser
-            if (grantResults.length > 0
-                    && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                launchFileChooser();
-            }
+        if (requestCode == PERMISSION_REQUEST && grantResults.length > 0
+                && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            launchFileChooser();
         }
     }
 
@@ -543,7 +507,6 @@ public class MainActivity extends BridgeActivity {
 
     private void requestPermissionsIfNeeded() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+
             if (ContextCompat.checkSelfPermission(this,
                     Manifest.permission.POST_NOTIFICATIONS)
                     != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -577,50 +540,41 @@ public class MainActivity extends BridgeActivity {
         if (webView == null) return true;
 
         switch (item.getItemId()) {
-            case 1: // Refresh
+            case 1:
                 webView.reload();
                 return true;
-
-            case 2: // Back
+            case 2:
                 if (webView.canGoBack()) webView.goBack();
                 return true;
-
-            case 3: // Forward
+            case 3:
                 if (webView.canGoForward()) webView.goForward();
                 return true;
-
-            case 4: // Desktop Site toggle
+            case 4:
+                // Desktop toggle — reload page with new settings
                 desktopMode = !desktopMode;
                 if (desktopToggle != null) {
                     desktopToggle.setTitle(desktopMode
                             ? "🖥️  Desktop Site: ON"
                             : "📱  Desktop Site: OFF");
                 }
-                configureWebView();
                 webView.reload();
                 Toast.makeText(this,
                         desktopMode ? "Desktop Site ON" : "Mobile Site ON",
                         Toast.LENGTH_SHORT).show();
                 return true;
-
-            case 5: // Share
+            case 5:
                 shareCurrentPage();
                 return true;
-
-            case 6: // Find in Page
+            case 6:
                 showFindInPage();
                 return true;
-
-            case 7: // About
+            case 7:
                 new AlertDialog.Builder(this)
                         .setTitle("Chhapola Agriculture")
-                        .setMessage("Version 1.0\n\n"
-                                + "Agriculture management app\n"
-                                + "chhapolaagriculture.com")
+                        .setMessage("Version 1.0\n\nAgriculture management app\nchhapolaagriculture.com")
                         .setPositiveButton("OK", null)
                         .show();
                 return true;
-
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -662,7 +616,6 @@ public class MainActivity extends BridgeActivity {
         WebView webView = getWebView();
         if (webView == null) { finish(); return; }
 
-        // Hide find-in-page if active
         webView.clearMatches();
 
         if (webView.canGoBack()) {
@@ -712,7 +665,6 @@ public class MainActivity extends BridgeActivity {
                 .build();
         cm.registerNetworkCallback(request, networkCallback);
 
-        // Initial state
         Network active = cm.getActiveNetwork();
         isNetworkAvailable = (active != null);
     }
@@ -732,42 +684,12 @@ public class MainActivity extends BridgeActivity {
         if (isNetworkAvailable) {
             if (errorPage != null) errorPage.setVisibility(View.GONE);
             webView.getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
-            // Auto-retry if error page was showing
-            if (webView.getVisibility() == View.VISIBLE
-                    && errorPage != null && errorPage.getVisibility() == View.VISIBLE) {
+            if (errorPage != null && errorPage.getVisibility() == View.VISIBLE) {
                 webView.reload();
             }
         } else {
             webView.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
             if (errorPage != null) errorPage.setVisibility(View.VISIBLE);
-        }
-    }
-
-    /* ══════════════════════════════════════════════════════════════
-       DESKTOP VIEWPORT INJECTION
-       ══════════════════════════════════════════════════════════════ */
-
-    /**
-     * Force desktop CSS layout by overriding the viewport meta tag.
-     * Chrome "Desktop site" does the same — it changes the CSS viewport
-     * width from device-width (~360dp) to ~1200px, making websites serve
-     * their desktop CSS breakpoints.
-     */
-    private void applyDesktopViewport(WebView wv) {
-        try {
-            String js = "(function(){" +
-                    "var vp=document.querySelector('meta[name=viewport]');" +
-                    "if(vp) vp.setAttribute('content','width=1200');" +
-                    "else {var m=document.createElement('meta');" +
-                    "m.name='viewport';m.content='width=1200';" +
-                    "document.head.appendChild(m);}" +
-                    "})();";
-            wv.evaluateJavascript(js, value -> {
-                // Viewport override applied — page will re-layout
-                // with desktop CSS breakpoints.
-            });
-        } catch (Exception e) {
-            // Silently ignore — don't break the page
         }
     }
 
