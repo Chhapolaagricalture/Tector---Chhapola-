@@ -1,41 +1,42 @@
 package com.chhapola.agriculture;
 
 import android.os.Bundle;
-import android.view.KeyEvent;
-import android.webkit.WebView;
+import android.widget.Toast;
 import com.getcapacitor.BridgeActivity;
 
 /**
- * Minimal MainActivity — lets the website render exactly like a mobile browser.
- * Back button navigates WebView history (like a browser back button).
+ * Back button = browser-back.
+ * - WebView history → goBack()
+ * - No history → toast, stay in app (prevent accidental exit)
+ * - Modal/drawer closing handled by website's own JS via popstate event
  */
 public class MainActivity extends BridgeActivity {
+
+    private long lastBackTime = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // No custom WebView settings — Capacitor defaults + the website's own
-        // viewport meta tag handle responsive layout correctly.
+        // No custom WebView settings — website's own viewport handles layout
     }
 
-    /**
-     * Back button = browser back.
-     * - If WebView has history → goBack()
-     * - If no history → call default behavior (Activity finishes naturally)
-     *
-     * Modal/drawer closing is handled by the website's own JavaScript
-     * via the standard 'popstate' / 'keydown' event listeners,
-     * exactly as it works in Chrome mobile.
-     */
     @Override
     public void onBackPressed() {
-        WebView webView = getBridge().getWebView();
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
+        if (getBridge() != null && getBridge().getWebView() != null
+                && getBridge().getWebView().canGoBack()) {
+            // Case 1 & 2: WebView has history → go back in website
+            // (website's own JS handles modal close via popstate if needed)
+            getBridge().getWebView().goBack();
         } else {
-            // No WebView history left — let the system handle it
-            // (Activity finishes, user returns to launcher)
-            super.onBackPressed();
+            // Case 3: No history → prevent accidental exit
+            long now = System.currentTimeMillis();
+            if (now - lastBackTime < 2500) {
+                // Second press within 2.5s → exit
+                super.onBackPressed();
+            } else {
+                lastBackTime = now;
+                Toast.makeText(this, "Back दबाकर app बंद करें", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 }
