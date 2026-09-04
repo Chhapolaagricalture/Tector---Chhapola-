@@ -88,6 +88,10 @@ public class MainActivity extends BridgeActivity {
     private static final int FILE_CHOOSER_REQUEST = 1001;
     private static final int PERMISSION_REQUEST = 2001;
 
+    /* ── WebView clients (created once, reused) ──────────────── */
+    private ChhapolaWebViewClient webViewClient;
+    private ChhapolaChromeClient chromeClient;
+
     /* ══════════════════════════════════════════════════════════════
        LIFECYCLE
        ══════════════════════════════════════════════════════════════ */
@@ -115,10 +119,11 @@ public class MainActivity extends BridgeActivity {
         super.onResume();
         setupCustomViews();
         configureWebView();
-        // Re-apply our WebChromeClient on every resume.
-        // Capacitor/Cordova may reset it during lifecycle events,
-        // so we ensure our onJsAlert/onJsConfirm overrides are active.
-        setupWebViewClients();
+        // Ensure our WebChromeClient is active after Capacitor lifecycle.
+        // Do NOT create new BridgeWebChromeClient here — its constructor
+        // calls bridge.registerForActivityResult() which crashes if
+        // called after onStart(). Instead, re-apply the existing clients.
+        reapplyWebViewClients();
     }
 
     @Override
@@ -313,8 +318,19 @@ public class MainActivity extends BridgeActivity {
         WebView webView = getWebView();
         if (webView == null) return;
 
-        webView.setWebViewClient(new ChhapolaWebViewClient());
-        webView.setWebChromeClient(new ChhapolaChromeClient(getBridge()));
+        // Create clients once and save references.
+        // BridgeWebChromeClient constructor calls registerForActivityResult()
+        // which can only be invoked before onStart() — never recreate these
+        // after the activity is running.
+        if (webViewClient == null) {
+            webViewClient = new ChhapolaWebViewClient();
+        }
+        if (chromeClient == null) {
+            chromeClient = new ChhapolaChromeClient(getBridge());
+        }
+
+        webView.setWebViewClient(webViewClient);
+        webView.setWebChromeClient(chromeClient);
 
         webView.setDownloadListener((url, userAgent, contentDisposition,
                                      mimetype, contentLength) -> {
@@ -327,6 +343,18 @@ public class MainActivity extends BridgeActivity {
                         Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    /**
+     * Re-apply saved clients to the WebView without creating new ones.
+     * Safe to call from onResume() because it never instantiates a new
+     * BridgeWebChromeClient (whose constructor requires pre-STARTED state).
+     */
+    private void reapplyWebViewClients() {
+        WebView webView = getWebView();
+        if (webView == null || webViewClient == null || chromeClient == null) return;
+        webView.setWebViewClient(webViewClient);
+        webView.setWebChromeClient(chromeClient);
     }
 
     /* ── WebViewClient ──────────────────────────────────────── */
