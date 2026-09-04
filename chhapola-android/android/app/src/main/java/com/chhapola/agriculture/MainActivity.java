@@ -40,6 +40,8 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebChromeClient;
+import com.getcapacitor.Bridge;
 
 /**
  * Chhapola Agriculture — Professional Android App
@@ -308,7 +310,7 @@ public class MainActivity extends BridgeActivity {
         if (webView == null) return;
 
         webView.setWebViewClient(new ChhapolaWebViewClient());
-        webView.setWebChromeClient(new ChhapolaChromeClient());
+        webView.setWebChromeClient(new ChhapolaChromeClient(getBridge()));
 
         webView.setDownloadListener((url, userAgent, contentDisposition,
                                      mimetype, contentLength) -> {
@@ -404,7 +406,15 @@ public class MainActivity extends BridgeActivity {
 
     /* ── WebChromeClient ────────────────────────────────────── */
 
-    private class ChhapolaChromeClient extends WebChromeClient {
+    /**
+     * Extends Capacitor's BridgeWebChromeClient so our onJsAlert
+     * override takes precedence over Capacitor's default dialog.
+     */
+    private class ChhapolaChromeClient extends BridgeWebChromeClient {
+
+        ChhapolaChromeClient(Bridge bridge) {
+            super(bridge);
+        }
 
         @Override
         public boolean onShowFileChooser(WebView wv,
