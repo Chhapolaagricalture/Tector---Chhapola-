@@ -115,6 +115,10 @@ public class MainActivity extends BridgeActivity {
         super.onResume();
         setupCustomViews();
         configureWebView();
+        // Re-apply our WebChromeClient on every resume.
+        // Capacitor/Cordova may reset it during lifecycle events,
+        // so we ensure our onJsAlert/onJsConfirm overrides are active.
+        setupWebViewClients();
     }
 
     @Override
@@ -200,8 +204,8 @@ public class MainActivity extends BridgeActivity {
         root.addView(errorPage, errorParams);
 
         setContentView(root);
-        setupWebViewClients();
         registerNetworkCallback();
+        setupWebViewClients();
     }
 
     private LinearLayout createErrorPage() {
@@ -460,19 +464,30 @@ public class MainActivity extends BridgeActivity {
             callback.invoke(origin, true, false);
         }
 
-        // Custom AlertDialog for JS alerts — styled with Chhapola theme,
-        // strips broken image/HTML tags so message displays cleanly,
-        // and always calls result.confirm() on OK.
+        // Custom AlertDialog for JS alerts.
+        // Uses a consumed-flag to prevent double-calling result.confirm()/cancel()
+        // which causes IllegalStateException and freezes JS execution.
         @Override
         public boolean onJsAlert(WebView wv, String url, String message,
                                  JsResult result) {
+            if (isFinishing()) { result.cancel(); return true; }
+            final boolean[] consumed = {false};
             new AlertDialog.Builder(MainActivity.this)
                     .setTitle(extractHost(url))
                     .setMessage(sanitizeAlertMessage(message))
                     .setCancelable(false)
-                    .setPositiveButton("OK",
-                            (dialog, which) -> result.confirm())
-                    .setOnDismissListener(dialog -> result.confirm())
+                    .setPositiveButton("OK", (dialog, which) -> {
+                        if (!consumed[0]) {
+                            consumed[0] = true;
+                            result.confirm();
+                        }
+                    })
+                    .setOnDismissListener(dialog -> {
+                        if (!consumed[0]) {
+                            consumed[0] = true;
+                            result.confirm();
+                        }
+                    })
                     .show();
             return true;
         }
@@ -480,15 +495,30 @@ public class MainActivity extends BridgeActivity {
         @Override
         public boolean onJsConfirm(WebView wv, String url, String message,
                                    JsResult result) {
+            if (isFinishing()) { result.cancel(); return true; }
+            final boolean[] consumed = {false};
             new AlertDialog.Builder(MainActivity.this)
                     .setTitle(extractHost(url))
                     .setMessage(sanitizeAlertMessage(message))
                     .setCancelable(false)
-                    .setPositiveButton("OK",
-                            (dialog, which) -> result.confirm())
-                    .setNegativeButton("Cancel",
-                            (dialog, which) -> result.cancel())
-                    .setOnDismissListener(dialog -> result.cancel())
+                    .setPositiveButton("OK", (dialog, which) -> {
+                        if (!consumed[0]) {
+                            consumed[0] = true;
+                            result.confirm();
+                        }
+                    })
+                    .setNegativeButton("Cancel", (dialog, which) -> {
+                        if (!consumed[0]) {
+                            consumed[0] = true;
+                            result.cancel();
+                        }
+                    })
+                    .setOnDismissListener(dialog -> {
+                        if (!consumed[0]) {
+                            consumed[0] = true;
+                            result.cancel();
+                        }
+                    })
                     .show();
             return true;
         }
