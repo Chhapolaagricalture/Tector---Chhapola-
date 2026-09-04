@@ -450,18 +450,37 @@ public class MainActivity extends BridgeActivity {
             callback.invoke(origin, true, false);
         }
 
-        // Allow website's own JS alerts/confirm to work normally
-        // These are needed for scanner, record confirmation, etc.
+        // Custom AlertDialog for JS alerts — styled with Chhapola theme,
+        // strips broken image/HTML tags so message displays cleanly,
+        // and always calls result.confirm() on OK.
         @Override
         public boolean onJsAlert(WebView wv, String url, String message,
                                  JsResult result) {
-            return super.onJsAlert(wv, url, message, result);
+            new AlertDialog.Builder(MainActivity.this)
+                    .setTitle(extractHost(url))
+                    .setMessage(sanitizeAlertMessage(message))
+                    .setCancelable(false)
+                    .setPositiveButton("OK",
+                            (dialog, which) -> result.confirm())
+                    .setOnDismissListener(dialog -> result.confirm())
+                    .show();
+            return true;
         }
 
         @Override
         public boolean onJsConfirm(WebView wv, String url, String message,
                                    JsResult result) {
-            return super.onJsConfirm(wv, url, message, result);
+            new AlertDialog.Builder(MainActivity.this)
+                    .setTitle(extractHost(url))
+                    .setMessage(sanitizeAlertMessage(message))
+                    .setCancelable(false)
+                    .setPositiveButton("OK",
+                            (dialog, which) -> result.confirm())
+                    .setNegativeButton("Cancel",
+                            (dialog, which) -> result.cancel())
+                    .setOnDismissListener(dialog -> result.cancel())
+                    .show();
+            return true;
         }
 
 
@@ -748,5 +767,29 @@ public class MainActivity extends BridgeActivity {
 
     private int dpToPx(int dp) {
         return (int) (dp * getResources().getDisplayMetrics().density);
+    }
+
+    /**
+     * Extract a clean hostname from a URL for dialog title.
+     * e.g. "https://chhapolaagriculture.com/something" → "chhapolaagriculture.com"
+     */
+    private String extractHost(String url) {
+        try {
+            return Uri.parse(url).getHost();
+        } catch (Exception e) {
+            return "Chhapola";
+        }
+    }
+
+    /**
+     * Sanitize JS alert message for clean display in AlertDialog.
+     * Strips HTML tags (images, scripts, etc.) that don't render
+     * in native TextView and show as broken icons.
+     */
+    private String sanitizeAlertMessage(String message) {
+        if (message == null || message.isEmpty()) return "";
+        // Strip all HTML tags — images, scripts, etc.
+        // that cause broken-image icons in native dialogs
+        return message.replaceAll("<[^>]*>", "").trim();
     }
 }
