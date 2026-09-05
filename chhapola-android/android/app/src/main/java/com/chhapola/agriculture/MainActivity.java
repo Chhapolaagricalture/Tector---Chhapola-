@@ -1,10 +1,12 @@
 package com.chhapola.agriculture;
 
 import android.Manifest;
+import android.app.Dialog;
 import android.util.Log;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -28,12 +30,16 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.view.Window;
+import android.view.WindowManager;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.Toolbar;
@@ -108,7 +114,6 @@ public class MainActivity extends BridgeActivity {
         setupCustomViews();
         configureWebView();
         requestPermissionsIfNeeded();
-        logActiveWebChromeClient("onCreate-after-setup");
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -122,7 +127,6 @@ public class MainActivity extends BridgeActivity {
         setupCustomViews();
         configureWebView();
         reapplyWebViewClients();
-        logActiveWebChromeClient("onResume");
     }
 
     @Override
@@ -326,7 +330,6 @@ public class MainActivity extends BridgeActivity {
 
         webView.setWebViewClient(webViewClient);
         webView.setWebChromeClient(chromeClient);
-        Log.i(TAG, "setupWebViewClients: set ChhapolaChromeClient = " + chromeClient.getClass().getName());
 
         webView.setDownloadListener((url, userAgent, contentDisposition,
                                      mimetype, contentLength) -> {
@@ -354,7 +357,6 @@ public class MainActivity extends BridgeActivity {
         }
         webView.setWebViewClient(webViewClient);
         webView.setWebChromeClient(chromeClient);
-        Log.i(TAG, "reapplyWebViewClients: applied ChhapolaChromeClient");
     }
 
     /* ── WebViewClient ──────────────────────────────────────── */
@@ -415,7 +417,6 @@ public class MainActivity extends BridgeActivity {
         @Override
         public void onPageFinished(WebView wv, String url) {
             super.onPageFinished(wv, url);
-            Log.i(TAG, "onPageFinished: url=" + url + " chromeClient=" + (chromeClient != null ? "SET" : "NULL"));
             if (progressBar != null) progressBar.setVisibility(View.GONE);
             if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
             if (desktopMode) {
@@ -494,59 +495,18 @@ public class MainActivity extends BridgeActivity {
         @Override
         public boolean onJsAlert(WebView wv, String url, String message,
                                  JsResult result) {
-            Log.e(TAG, ">>> onJsAlert CALLED <<< url=" + url + " message=" + message);
+            Log.i(TAG, "onJsAlert: url=" + url + " msg=" + message);
             if (isFinishing()) { result.cancel(); return true; }
-            final boolean[] consumed = {false};
-            new AlertDialog.Builder(MainActivity.this)
-                    .setTitle(extractHost(url))
-                    .setMessage(sanitizeAlertMessage(message))
-                    .setCancelable(false)
-                    .setPositiveButton("OK", (dialog, which) -> {
-                        if (!consumed[0]) {
-                            consumed[0] = true;
-                            result.confirm();
-                        }
-                    })
-                    .setOnDismissListener(dialog -> {
-                        if (!consumed[0]) {
-                            consumed[0] = true;
-                            result.confirm();
-                        }
-                    })
-                    .show();
-            Log.e(TAG, ">>> AlertDialog.SHOWN for alert <<<");
+            showCustomDialog(extractHost(url), message, null, result, true);
             return true;
         }
 
         @Override
         public boolean onJsConfirm(WebView wv, String url, String message,
                                    JsResult result) {
-            Log.e(TAG, ">>> onJsConfirm CALLED <<< url=" + url + " message=" + message);
+            Log.i(TAG, "onJsConfirm: url=" + url + " msg=" + message);
             if (isFinishing()) { result.cancel(); return true; }
-            final boolean[] consumed = {false};
-            new AlertDialog.Builder(MainActivity.this)
-                    .setTitle(extractHost(url))
-                    .setMessage(sanitizeAlertMessage(message))
-                    .setCancelable(false)
-                    .setPositiveButton("OK", (dialog, which) -> {
-                        if (!consumed[0]) {
-                            consumed[0] = true;
-                            result.confirm();
-                        }
-                    })
-                    .setNegativeButton("Cancel", (dialog, which) -> {
-                        if (!consumed[0]) {
-                            consumed[0] = true;
-                            result.cancel();
-                        }
-                    })
-                    .setOnDismissListener(dialog -> {
-                        if (!consumed[0]) {
-                            consumed[0] = true;
-                            result.cancel();
-                        }
-                    })
-                    .show();
+            showCustomDialog(extractHost(url), message, null, result, false);
             return true;
         }
 
@@ -825,32 +785,114 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private static final String TAG = "CHHAPOLA";
+
     /* ══════════════════════════════════════════════════════════════
-       DIAGNOSTIC LOGGING
+       CUSTOM JS DIALOG (replaces broken AlertDialog on MIUI/ROMs)
        ══════════════════════════════════════════════════════════════ */
 
-    private static final String TAG = "CHHAPOLA_DIAG";
-
     /**
-     * Log which WebChromeClient is currently set on the WebView.
-     * This confirms whether our ChhapolaChromeClient is active or
-     * Capacitor's BridgeWebChromeClient has taken over.
+     * Fully custom dialog for JavaScript alert()/confirm().
+     * Bypasses AlertDialog.Builder which fails on MIUI and some
+     * other Android ROMs (shows broken image, hides buttons).
      */
-    private void logActiveWebChromeClient(String caller) {
-        try {
-            WebView webView = getWebView();
-            if (webView == null) {
-                Log.e(TAG, caller + ": webView is NULL");
-                return;
-            }
-            // WebView doesn't expose getWebChromeClient(), but we can
-            // check our saved reference vs null to confirm setup state.
-            Log.e(TAG, caller + ": chromeClient==" + (chromeClient != null ? chromeClient.getClass().getName() : "NULL")
-                    + " | webViewClient==" + (webViewClient != null ? webViewClient.getClass().getName() : "NULL")
-                    + " | chromeClient==this.chromeClient? " + (chromeClient != null));
-        } catch (Exception e) {
-            Log.e(TAG, caller + ": logActiveWebChromeClient ERROR: " + e.getMessage());
+    private void showCustomDialog(String title, String message,
+                                  Runnable onCancel, JsResult result,
+                                  boolean isAlert) {
+        final boolean[] done = {false};
+
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dpToPx(24), dpToPx(20), dpToPx(24), dpToPx(12));
+        root.setBackgroundColor(Color.WHITE);
+
+        // ── Title ──
+        TextView titleView = new TextView(this);
+        titleView.setText(title != null ? title : "Chhapola");
+        titleView.setTextSize(18);
+        titleView.setTypeface(null, Typeface.BOLD);
+        titleView.setTextColor(Color.parseColor("#222222"));
+        root.addView(titleView);
+
+        // ── Separator ──
+        View sep = new View(this);
+        sep.setBackgroundColor(Color.parseColor("#CCCCCC"));
+        LinearLayout.LayoutParams sepP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 1);
+        sepP.topMargin = dpToPx(10);
+        sepP.bottomMargin = dpToPx(4);
+        root.addView(sep, sepP);
+
+        // ── Message (scrollable, max height capped) ──
+        ScrollView scroll = new ScrollView(this);
+        TextView msgView = new TextView(this);
+        msgView.setText(message != null ? message : "");
+        msgView.setTextSize(16);
+        msgView.setTextColor(Color.parseColor("#333333"));
+        msgView.setLineSpacing(0, 1.2f);
+        scroll.addView(msgView);
+        LinearLayout.LayoutParams scrollP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        scrollP.topMargin = dpToPx(8);
+        scrollP.bottomMargin = dpToPx(4);
+        root.addView(scroll, scrollP);
+
+        // ── Buttons row ──
+        LinearLayout btnRow = new LinearLayout(this);
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        btnRow.setGravity(android.view.Gravity.END);
+        LinearLayout.LayoutParams btnRowP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        btnRowP.topMargin = dpToPx(8);
+
+        if (!isAlert) {
+            Button cancelBtn = new Button(this);
+            cancelBtn.setText("Cancel");
+            cancelBtn.setTextColor(Color.parseColor("#666666"));
+            cancelBtn.setBackgroundColor(Color.TRANSPARENT);
+            cancelBtn.setOnClickListener(v -> {
+                if (!done[0]) {
+                    done[0] = true;
+                    result.cancel();
+                    dialog.dismiss();
+                }
+            });
+            btnRow.addView(cancelBtn);
         }
+
+        Button okBtn = new Button(this);
+        okBtn.setText("OK");
+        okBtn.setTextColor(Color.WHITE);
+        okBtn.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
+        okBtn.setPadding(dpToPx(24), dpToPx(8), dpToPx(24), dpToPx(8));
+        okBtn.setOnClickListener(v -> {
+            if (!done[0]) {
+                done[0] = true;
+                result.confirm();
+                dialog.dismiss();
+            }
+        });
+        btnRow.addView(okBtn);
+
+        root.addView(btnRow, btnRowP);
+
+        dialog.setContentView(root);
+        dialog.setCancelable(false);
+
+        // Width: 85% of screen — always fits, buttons always visible
+        if (dialog.getWindow() != null) {
+            int screenW = getResources().getDisplayMetrics().widthPixels;
+            dialog.getWindow().setLayout(
+                    (int) (screenW * 0.85),
+                    WindowManager.LayoutParams.WRAP_CONTENT);
+        }
+
+        dialog.show();
     }
 
     /* ══════════════════════════════════════════════════════════════
@@ -873,15 +915,5 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    /**
-     * Sanitize JS alert message for clean display in AlertDialog.
-     * Strips HTML tags (images, scripts, etc.) that don't render
-     * in native TextView and show as broken icons.
-     */
-    private String sanitizeAlertMessage(String message) {
-        if (message == null || message.isEmpty()) return "";
-        // Strip all HTML tags — images, scripts, etc.
-        // that cause broken-image icons in native dialogs
-        return message.replaceAll("<[^>]*>", "").trim();
-    }
+
 }
