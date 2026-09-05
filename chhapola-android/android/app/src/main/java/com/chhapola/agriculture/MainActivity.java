@@ -1,6 +1,7 @@
 package com.chhapola.agriculture;
 
 import android.Manifest;
+import android.util.Log;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -107,6 +108,7 @@ public class MainActivity extends BridgeActivity {
         setupCustomViews();
         configureWebView();
         requestPermissionsIfNeeded();
+        logActiveWebChromeClient("onCreate-after-setup");
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -119,11 +121,8 @@ public class MainActivity extends BridgeActivity {
         super.onResume();
         setupCustomViews();
         configureWebView();
-        // Ensure our WebChromeClient is active after Capacitor lifecycle.
-        // Do NOT create new BridgeWebChromeClient here — its constructor
-        // calls bridge.registerForActivityResult() which crashes if
-        // called after onStart(). Instead, re-apply the existing clients.
         reapplyWebViewClients();
+        logActiveWebChromeClient("onResume");
     }
 
     @Override
@@ -316,12 +315,8 @@ public class MainActivity extends BridgeActivity {
 
     private void setupWebViewClients() {
         WebView webView = getWebView();
-        if (webView == null) return;
+        if (webView == null) { Log.e(TAG, "setupWebViewClients: webView is NULL"); return; }
 
-        // Create clients once and save references.
-        // BridgeWebChromeClient constructor calls registerForActivityResult()
-        // which can only be invoked before onStart() — never recreate these
-        // after the activity is running.
         if (webViewClient == null) {
             webViewClient = new ChhapolaWebViewClient();
         }
@@ -331,6 +326,7 @@ public class MainActivity extends BridgeActivity {
 
         webView.setWebViewClient(webViewClient);
         webView.setWebChromeClient(chromeClient);
+        Log.i(TAG, "setupWebViewClients: set ChhapolaChromeClient = " + chromeClient.getClass().getName());
 
         webView.setDownloadListener((url, userAgent, contentDisposition,
                                      mimetype, contentLength) -> {
@@ -352,9 +348,13 @@ public class MainActivity extends BridgeActivity {
      */
     private void reapplyWebViewClients() {
         WebView webView = getWebView();
-        if (webView == null || webViewClient == null || chromeClient == null) return;
+        if (webView == null || webViewClient == null || chromeClient == null) {
+            Log.w(TAG, "reapplyWebViewClients: SKIPPED — webView=" + (webView!=null) + " wvClient=" + (webViewClient!=null) + " chrome=" + (chromeClient!=null));
+            return;
+        }
         webView.setWebViewClient(webViewClient);
         webView.setWebChromeClient(chromeClient);
+        Log.i(TAG, "reapplyWebViewClients: applied ChhapolaChromeClient");
     }
 
     /* ── WebViewClient ──────────────────────────────────────── */
@@ -415,10 +415,9 @@ public class MainActivity extends BridgeActivity {
         @Override
         public void onPageFinished(WebView wv, String url) {
             super.onPageFinished(wv, url);
+            Log.i(TAG, "onPageFinished: url=" + url + " chromeClient=" + (chromeClient != null ? "SET" : "NULL"));
             if (progressBar != null) progressBar.setVisibility(View.GONE);
             if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
-            // Desktop mode: inject viewport override after page fully loaded
-            // Delay 1500ms to let website JS initialize completely first
             if (desktopMode) {
                 wv.postDelayed(() -> applyDesktopViewport(wv), 1500);
             }
@@ -492,12 +491,10 @@ public class MainActivity extends BridgeActivity {
             callback.invoke(origin, true, false);
         }
 
-        // Custom AlertDialog for JS alerts.
-        // Uses a consumed-flag to prevent double-calling result.confirm()/cancel()
-        // which causes IllegalStateException and freezes JS execution.
         @Override
         public boolean onJsAlert(WebView wv, String url, String message,
                                  JsResult result) {
+            Log.e(TAG, ">>> onJsAlert CALLED <<< url=" + url + " message=" + message);
             if (isFinishing()) { result.cancel(); return true; }
             final boolean[] consumed = {false};
             new AlertDialog.Builder(MainActivity.this)
@@ -517,12 +514,14 @@ public class MainActivity extends BridgeActivity {
                         }
                     })
                     .show();
+            Log.e(TAG, ">>> AlertDialog.SHOWN for alert <<<");
             return true;
         }
 
         @Override
         public boolean onJsConfirm(WebView wv, String url, String message,
                                    JsResult result) {
+            Log.e(TAG, ">>> onJsConfirm CALLED <<< url=" + url + " message=" + message);
             if (isFinishing()) { result.cancel(); return true; }
             final boolean[] consumed = {false};
             new AlertDialog.Builder(MainActivity.this)
@@ -551,11 +550,8 @@ public class MainActivity extends BridgeActivity {
             return true;
         }
 
-
-
         @Override
         public boolean onConsoleMessage(ConsoleMessage cm) {
-            // Log console messages for debugging
             return true;
         }
     }
@@ -826,6 +822,34 @@ public class MainActivity extends BridgeActivity {
             wv.evaluateJavascript(js, null);
         } catch (Exception e) {
             // Silently ignore — don't break the page
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       DIAGNOSTIC LOGGING
+       ══════════════════════════════════════════════════════════════ */
+
+    private static final String TAG = "CHHAPOLA_DIAG";
+
+    /**
+     * Log which WebChromeClient is currently set on the WebView.
+     * This confirms whether our ChhapolaChromeClient is active or
+     * Capacitor's BridgeWebChromeClient has taken over.
+     */
+    private void logActiveWebChromeClient(String caller) {
+        try {
+            WebView webView = getWebView();
+            if (webView == null) {
+                Log.e(TAG, caller + ": webView is NULL");
+                return;
+            }
+            // WebView doesn't expose getWebChromeClient(), but we can
+            // check our saved reference vs null to confirm setup state.
+            Log.e(TAG, caller + ": chromeClient==" + (chromeClient != null ? chromeClient.getClass().getName() : "NULL")
+                    + " | webViewClient==" + (webViewClient != null ? webViewClient.getClass().getName() : "NULL")
+                    + " | chromeClient==this.chromeClient? " + (chromeClient != null));
+        } catch (Exception e) {
+            Log.e(TAG, caller + ": logActiveWebChromeClient ERROR: " + e.getMessage());
         }
     }
 
