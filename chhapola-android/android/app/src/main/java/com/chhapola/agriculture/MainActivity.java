@@ -497,7 +497,7 @@ public class MainActivity extends BridgeActivity {
                                  JsResult result) {
             Log.i(TAG, "onJsAlert: url=" + url + " msg=" + message);
             if (isFinishing()) { result.cancel(); return true; }
-            showCustomDialog(extractHost(url), message, null, result, true);
+            showJsDialog(extractHost(url), message, result, true);
             return true;
         }
 
@@ -506,7 +506,7 @@ public class MainActivity extends BridgeActivity {
                                    JsResult result) {
             Log.i(TAG, "onJsConfirm: url=" + url + " msg=" + message);
             if (isFinishing()) { result.cancel(); return true; }
-            showCustomDialog(extractHost(url), message, null, result, false);
+            showJsDialog(extractHost(url), message, result, false);
             return true;
         }
 
@@ -788,111 +788,49 @@ public class MainActivity extends BridgeActivity {
     private static final String TAG = "CHHAPOLA";
 
     /* ══════════════════════════════════════════════════════════════
-       CUSTOM JS DIALOG (replaces broken AlertDialog on MIUI/ROMs)
+       JS DIALOG — alert() and confirm()
        ══════════════════════════════════════════════════════════════ */
 
     /**
-     * Fully custom dialog for JavaScript alert()/confirm().
-     * Bypasses AlertDialog.Builder which fails on MIUI and some
-     * other Android ROMs (shows broken image, hides buttons).
+     * Shows a JavaScript alert()/confirm() dialog.
+     * Uses AlertDialog.Builder with explicit AppCompat theme context
+     * to ensure proper rendering on ALL Android ROMs including MIUI.
      */
-    private void showCustomDialog(String title, String message,
-                                  Runnable onCancel, JsResult result,
-                                  boolean isAlert) {
+    private void showJsDialog(String title, String message,
+                              JsResult result, boolean isAlert) {
         final boolean[] done = {false};
 
-        Dialog dialog = new Dialog(this);
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        try {
+            android.content.Context dialogCtx = new android.view.ContextThemeWrapper(
+                    this, androidx.appcompat.R.style.Theme_AppCompat_Light_Dialog);
 
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dpToPx(24), dpToPx(20), dpToPx(24), dpToPx(12));
-        root.setBackgroundColor(Color.WHITE);
+            AlertDialog.Builder builder = new AlertDialog.Builder(dialogCtx);
+            if (title != null) builder.setTitle(title);
+            if (message != null) builder.setMessage(message);
 
-        // ── Title ──
-        TextView titleView = new TextView(this);
-        titleView.setText(title != null ? title : "Chhapola");
-        titleView.setTextSize(18);
-        titleView.setTypeface(null, Typeface.BOLD);
-        titleView.setTextColor(Color.parseColor("#222222"));
-        root.addView(titleView);
-
-        // ── Separator ──
-        View sep = new View(this);
-        sep.setBackgroundColor(Color.parseColor("#CCCCCC"));
-        LinearLayout.LayoutParams sepP = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 1);
-        sepP.topMargin = dpToPx(10);
-        sepP.bottomMargin = dpToPx(4);
-        root.addView(sep, sepP);
-
-        // ── Message (scrollable, max height capped) ──
-        ScrollView scroll = new ScrollView(this);
-        TextView msgView = new TextView(this);
-        msgView.setText(message != null ? message : "");
-        msgView.setTextSize(16);
-        msgView.setTextColor(Color.parseColor("#333333"));
-        msgView.setLineSpacing(0, 1.2f);
-        scroll.addView(msgView);
-        LinearLayout.LayoutParams scrollP = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        scrollP.topMargin = dpToPx(8);
-        scrollP.bottomMargin = dpToPx(4);
-        root.addView(scroll, scrollP);
-
-        // ── Buttons row ──
-        LinearLayout btnRow = new LinearLayout(this);
-        btnRow.setOrientation(LinearLayout.HORIZONTAL);
-        btnRow.setGravity(android.view.Gravity.END);
-        LinearLayout.LayoutParams btnRowP = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        btnRowP.topMargin = dpToPx(8);
-
-        if (!isAlert) {
-            Button cancelBtn = new Button(this);
-            cancelBtn.setText("Cancel");
-            cancelBtn.setTextColor(Color.parseColor("#666666"));
-            cancelBtn.setBackgroundColor(Color.TRANSPARENT);
-            cancelBtn.setOnClickListener(v -> {
-                if (!done[0]) {
-                    done[0] = true;
-                    result.cancel();
-                    dialog.dismiss();
-                }
-            });
-            btnRow.addView(cancelBtn);
-        }
-
-        Button okBtn = new Button(this);
-        okBtn.setText("OK");
-        okBtn.setTextColor(Color.WHITE);
-        okBtn.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
-        okBtn.setPadding(dpToPx(24), dpToPx(8), dpToPx(24), dpToPx(8));
-        okBtn.setOnClickListener(v -> {
-            if (!done[0]) {
-                done[0] = true;
-                result.confirm();
-                dialog.dismiss();
+            if (isAlert) {
+                builder.setPositiveButton("OK", (dialog, which) -> {
+                    if (!done[0]) { done[0] = true; result.confirm(); }
+                });
+            } else {
+                builder.setPositiveButton("OK", (dialog, which) -> {
+                    if (!done[0]) { done[0] = true; result.confirm(); }
+                });
+                builder.setNegativeButton("Cancel", (dialog, which) -> {
+                    if (!done[0]) { done[0] = true; result.cancel(); }
+                });
             }
-        });
-        btnRow.addView(okBtn);
 
-        root.addView(btnRow, btnRowP);
+            builder.setCancelable(false);
+            builder.setOnCancelListener(dialog -> {
+                if (!done[0]) { done[0] = true; result.cancel(); }
+            });
 
-        dialog.setContentView(root);
-        dialog.setCancelable(false);
-
-        // Width: 85% of screen — always fits, buttons always visible
-        if (dialog.getWindow() != null) {
-            int screenW = getResources().getDisplayMetrics().widthPixels;
-            dialog.getWindow().setLayout(
-                    (int) (screenW * 0.85),
-                    WindowManager.LayoutParams.WRAP_CONTENT);
+            builder.show();
+        } catch (Exception e) {
+            Log.e(TAG, "showJsDialog failed: " + e.getMessage(), e);
+            if (!done[0]) { done[0] = true; result.confirm(); }
         }
-
-        dialog.show();
     }
 
     /* ══════════════════════════════════════════════════════════════
