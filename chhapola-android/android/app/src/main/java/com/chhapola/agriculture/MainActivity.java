@@ -126,7 +126,6 @@ public class MainActivity extends BridgeActivity {
         super.onResume();
         setupCustomViews();
         configureWebView();
-        reapplyWebViewClients();
     }
 
     @Override
