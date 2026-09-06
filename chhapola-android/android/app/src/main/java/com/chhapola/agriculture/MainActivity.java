@@ -15,6 +15,8 @@ import android.net.NetworkRequest;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -78,6 +80,9 @@ public class MainActivity extends BridgeActivity {
     private boolean isNetworkAvailable = true;
     private JsResult currentJsResult;
     private Dialog jsDialog;
+    private FrameLayout jsDialogOverlay;
+    private final Handler jsDialogWatchdog = new Handler(Looper.getMainLooper());
+    private boolean jsDialogFailedRendering;
 
     /* ── User-Agents ──────────────────────────────────────────── */
     private static final String DESKTOP_UA =
@@ -795,14 +800,10 @@ public class MainActivity extends BridgeActivity {
        ══════════════════════════════════════════════════════════════ */
 
     /**
-     * Shows a JavaScript alert()/confirm() dialog using a simple custom
-     * WebView-rendered HTML dialog instead of android.app.AlertDialog.
-     *
-     * Why: Native AlertDialog on some Android ROMs (MIUI, etc.) fails to
-     * render message text and/or buttons clearly, and even title positioning
-     * becomes unreliable. A custom HTML/JS dialog inside the WebView avoids
-     * all theme/rendering problems and renders exactly like the website does
-     * in a real browser.
+     * Shows a JavaScript alert()/confirm() dialog as a custom Android View
+     * overlay on top of the main WebView. Uses plain Android Views
+     * (TextView, Button) — no Dialog, no second WebView — so rendering is
+     * reliable on all devices and ROMs.
      */
     private void showJsDialog(String title, String message,
                               JsResult result, boolean isAlert) {
@@ -810,92 +811,179 @@ public class MainActivity extends BridgeActivity {
         if (title == null) title = "Chhapola";
 
         // Never allow two live popups — resolve any previous one safely.
-        if (jsDialog != null) {
-            JsResult previous = currentJsResult;
-            currentJsResult = null;
-            if (previous != null) previous.cancel();
-            try { jsDialog.dismiss(); } catch (Exception ignored) {}
-            jsDialog = null;
-        }
+        dismissJsDialog(false);
 
         currentJsResult = result;
 
-        // Self-contained HTML/JS dialog page — no Android AlertDialog theme involved.
-        String html = "<!DOCTYPE html><html><head>"
-                + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-                + "<style>"
-                + "html,body{margin:0;padding:0;width:100%;height:100%;}"
-                + "body{display:flex;align-items:center;justify-content:center;"
-                + "  background:rgba(0,0,0,0.35);box-sizing:border-box;padding:20px;}"
-                + ".d{font:16px sans-serif;color:#000;background:#fff;border:1px solid #c2c2c2;"
-                + "  border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.25);"
-                + "  padding:16px 20px;width:100%;max-width:360px;box-sizing:border-box;}"
-                + ".t{font-weight:600;font-size:15px;text-align:center;margin-bottom:10px;"
-                + "  padding-bottom:9px;border-bottom:1px solid #c2c2c2;}"
-                + ".m{text-align:center;font-size:14px;line-height:1.5;color:#1a1a1a;}"
-                + ".b{display:flex;justify-content:flex-end;gap:10px;margin-top:6px;}"
-                + ".b button{font:15px sans-serif;border:1px solid #7b7b7b;"
-                + "  background:#f7f7f7;color:#000;border-radius:5px;"
-                + "  padding:10px 22px;cursor:pointer;min-width:84px}"
-                + ".b button.o{background:#1976d2;color:#fff;border-color:#1976d2;"
-                + "  font-weight:600;padding:10px 22px;min-width:84px}"
-                + "</style></head><body>"
-                + "<div class=\"d\">"
-                + "<div class=\"t\">" + escapeHtml(title) + "</div>"
-                + "<div class=\"m\">" + escapeHtml(message).replace("\n", "<br>") + "</div>"
-                + "<div class=\"b\">"
-                + (isAlert
-                    ? "<button class=\"o\" onclick=\"Android.chhapolaConfirm()\">OK</button>"
-                    : "<button onclick=\"Android.chhapolaCancel()\">Cancel</button>"
-                      + "<button class=\"o\" onclick=\"Android.chhapolaConfirm()\">OK</button>")
-                + "</div></div></body></html>";
+        // Safety net: auto-resolve after timeout so Script.js never hangs.
+        jsDialogWatchdog.postDelayed(JS_DIALOG_WATCHDOG, JS_DIALOG_TIMEOUT_MS);
 
-        // Dedicated WebView for the popup — renders pure HTML/JS,
-        // completely bypassing native AlertDialog theme rendering.
-        WebView dialogView = new WebView(this);
-        WebSettings ds = dialogView.getSettings();
-        ds.setJavaScriptEnabled(true);
-        ds.setDefaultTextEncodingName("utf-8");
-        dialogView.setBackgroundColor(Color.TRANSPARENT);
-        dialogView.addJavascriptInterface(new JsDialogBridge(), "Android");
-        dialogView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
+        try {
+            // --- Overlay backdrop (blocks touches on the website) ---
+            jsDialogOverlay = new FrameLayout(this);
+            jsDialogOverlay.setBackgroundColor(Color.parseColor("#99000000"));
+            jsDialogOverlay.setOnTouchListener((v, event) -> true);
 
-        Dialog dialog = new Dialog(this);
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-        dialog.setContentView(dialogView, new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT));
-        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        WindowManager.LayoutParams wlp = new WindowManager.LayoutParams();
-        wlp.copyFrom(dialog.getWindow().getAttributes());
-        wlp.width = WindowManager.LayoutParams.MATCH_PARENT;
-        wlp.height = WindowManager.LayoutParams.MATCH_PARENT;
-        dialog.getWindow().setAttributes(wlp);
-        dialog.setCancelable(false);
-        dialog.show();
+            // --- White card, centered ---
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setBackgroundColor(Color.WHITE);
+            card.setPadding(dpToPx(20), dpToPx(16), dpToPx(20), dpToPx(16));
+            FrameLayout.LayoutParams cardParams = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT);
+            cardParams.gravity = android.view.Gravity.CENTER;
+            cardParams.leftMargin = dpToPx(24);
+            cardParams.rightMargin = dpToPx(24);
+            jsDialogOverlay.addView(card, cardParams);
 
-        jsDialog = dialog;
+            // --- Title (e.g. "chhapolaagriculture.com") ---
+            TextView titleView = new TextView(this);
+            titleView.setText(title);
+            titleView.setTextSize(15);
+            titleView.setTextColor(Color.parseColor("#333333"));
+            titleView.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            titleView.setGravity(android.view.Gravity.CENTER);
+            card.addView(titleView);
+
+            // --- Divider ---
+            View divider = new View(this);
+            divider.setBackgroundColor(Color.parseColor("#c2c2c2"));
+            LinearLayout.LayoutParams divParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, 1);
+            divParams.topMargin = dpToPx(10);
+            divParams.bottomMargin = dpToPx(10);
+            card.addView(divider, divParams);
+
+            // --- Message ---
+            TextView msgView = new TextView(this);
+            msgView.setText(message);
+            msgView.setTextSize(14);
+            msgView.setTextColor(Color.parseColor("#1a1a1a"));
+            msgView.setGravity(android.view.Gravity.CENTER);
+            msgView.setLineSpacing(0, 1.4f);
+            LinearLayout.LayoutParams msgParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            msgParams.bottomMargin = dpToPx(16);
+            card.addView(msgView, msgParams);
+
+            // --- Buttons row ---
+            LinearLayout btnRow = new LinearLayout(this);
+            btnRow.setOrientation(LinearLayout.HORIZONTAL);
+            btnRow.setGravity(android.view.Gravity.END);
+            LinearLayout.LayoutParams btnRowParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            card.addView(btnRow, btnRowParams);
+
+            if (!isAlert) {
+                Button cancelBtn = new Button(this);
+                cancelBtn.setText("Cancel");
+                cancelBtn.setOnClickListener(v -> resolveJsResult(false));
+                LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT);
+                cancelParams.rightMargin = dpToPx(8);
+                btnRow.addView(cancelBtn, cancelParams);
+            }
+
+            Button okBtn = new Button(this);
+            okBtn.setText("OK");
+            okBtn.setOnClickListener(v -> resolveJsResult(true));
+            btnRow.addView(okBtn);
+
+            // --- Add overlay on top of everything in the root layout ---
+            FrameLayout root = (FrameLayout) swipeRefresh.getParent();
+            root.addView(jsDialogOverlay, new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT));
+
+        } catch (Throwable t) {
+            Log.e(TAG, "showJsDialog: overlay failed, using native fallback", t);
+            showNativeJsDialogFallback(title, message, isAlert);
+        }
     }
 
-    /** JS bridge used ONLY by the custom HTML popup's OK/Cancel buttons. */
-    private class JsDialogBridge {
-        @JavascriptInterface
-        public void chhapolaConfirm() {
-            runOnUiThread(() -> resolveJsResult(true));
-        }
-
-        @JavascriptInterface
-        public void chhapolaCancel() {
-            runOnUiThread(() -> resolveJsResult(false));
+    /**
+     * Last-resort native popup (plain android.app.AlertDialog, default system
+     * theme). Used only when the WebView popup fails to render, so the user
+     * still sees a working popup and Script.js always resumes.
+     */
+    private void showNativeJsDialogFallback(String title, String message,
+                                            boolean isAlert) {
+        try {
+            android.app.AlertDialog.Builder fb = new android.app.AlertDialog.Builder(this);
+            fb.setTitle(title)
+              .setMessage(message)
+              .setCancelable(false)
+              .setPositiveButton("OK", (d, w) -> resolveJsResult(true));
+            if (!isAlert) {
+                fb.setNegativeButton("Cancel", (d, w) -> resolveJsResult(false));
+            }
+            Dialog dialog = fb.create();
+            dialog.setCanceledOnTouchOutside(false);
+            dialog.show();
+            jsDialog = dialog;
+        } catch (Throwable t) {
+            // Even the native fallback failed — resolve so JS can continue.
+            Log.e(TAG, "showJsDialog: native fallback failed too", t);
+            resolveJsResult(false);
         }
     }
+
+    /** Dismisses the current popup; optionally cancels its pending JS callback. */
+    private void dismissJsDialog(boolean cancelPending) {
+        jsDialogWatchdog.removeCallbacks(JS_DIALOG_WATCHDOG);
+        JsResult pending = currentJsResult;
+        currentJsResult = null;
+        if (cancelPending && pending != null) {
+            try { pending.cancel(); } catch (Exception ignored) {}
+        }
+        if (jsDialogOverlay != null) {
+            try {
+                FrameLayout root = (FrameLayout) swipeRefresh.getParent();
+                if (root != null) root.removeView(jsDialogOverlay);
+            } catch (Exception ignored) {}
+            jsDialogOverlay = null;
+        }
+        if (jsDialog != null) {
+            try { jsDialog.dismiss(); } catch (Exception ignored) {}
+            jsDialog = null;
+        }
+    }
+
+    /**
+     * Watchdog: if the popup is still on screen after the timeout (nothing
+     * rendered, no tap possible, JS blocked), resolve it safely so Script.js
+     * can continue and the app never stays stuck on a white screen.
+     */
+    private final Runnable JS_DIALOG_WATCHDOG = new Runnable() {
+        @Override
+        public void run() {
+            if (jsDialogOverlay == null && (jsDialog == null || !jsDialog.isShowing())) return;
+            Log.e(TAG, "JS dialog did not resolve in "
+                    + JS_DIALOG_TIMEOUT_MS + "ms — auto-resolving");
+            dismissJsDialog(true);
+        }
+    };
+
+    private static final long JS_DIALOG_TIMEOUT_MS = 15000;
 
     /** Resolves the pending JsResult exactly once (double-call safe). */
     private void resolveJsResult(boolean confirmed) {
+        jsDialogWatchdog.removeCallbacks(JS_DIALOG_WATCHDOG);
         JsResult r = currentJsResult;
         currentJsResult = null;
         if (r != null) {
             if (confirmed) r.confirm(); else r.cancel();
+        }
+        if (jsDialogOverlay != null) {
+            try {
+                FrameLayout root = (FrameLayout) swipeRefresh.getParent();
+                if (root != null) root.removeView(jsDialogOverlay);
+            } catch (Exception ignored) {}
+            jsDialogOverlay = null;
         }
         if (jsDialog != null) {
             try { jsDialog.dismiss(); } catch (Exception ignored) {}
