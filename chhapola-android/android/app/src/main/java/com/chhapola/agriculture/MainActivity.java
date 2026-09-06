@@ -1,12 +1,13 @@
 package com.chhapola.agriculture;
 
 import android.Manifest;
+import android.content.Context;
 import android.app.Dialog;
 import android.util.Log;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -17,11 +18,14 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.webkit.ConsoleMessage;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
 import android.webkit.GeolocationPermissions;
+import android.webkit.JavascriptInterface;
 import android.webkit.JsResult;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -38,8 +42,6 @@ import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.view.Window;
-import android.view.WindowManager;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.Toolbar;
@@ -74,6 +76,8 @@ public class MainActivity extends BridgeActivity {
     private long lastBackTime = 0;
     private boolean desktopMode = false;
     private boolean isNetworkAvailable = true;
+    private JsResult currentJsResult;
+    private Dialog jsDialog;
 
     /* ── User-Agents ──────────────────────────────────────────── */
     private static final String DESKTOP_UA =
@@ -791,52 +795,121 @@ public class MainActivity extends BridgeActivity {
        ══════════════════════════════════════════════════════════════ */
 
     /**
-     * Shows a JavaScript alert()/confirm() dialog.
-     * Uses AlertDialog.Builder with explicit AppCompat theme context
-     * to ensure proper rendering on ALL Android ROMs including MIUI.
+     * Shows a JavaScript alert()/confirm() dialog using a simple custom
+     * WebView-rendered HTML dialog instead of android.app.AlertDialog.
+     *
+     * Why: Native AlertDialog on some Android ROMs (MIUI, etc.) fails to
+     * render message text and/or buttons clearly, and even title positioning
+     * becomes unreliable. A custom HTML/JS dialog inside the WebView avoids
+     * all theme/rendering problems and renders exactly like the website does
+     * in a real browser.
      */
     private void showJsDialog(String title, String message,
                               JsResult result, boolean isAlert) {
-        final boolean[] done = {false};
+        if (message == null) message = "";
+        if (title == null) title = "Chhapola";
 
-        try {
-            AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-
-            if (title != null) builder.setTitle(title);
-            if (message != null) builder.setMessage(message);
-            if (isAlert) {
-                builder.setPositiveButton("OK", (dialog, which) -> {
-                    if (!done[0]) { done[0] = true; result.confirm(); }
-                });
-            } else {
-                builder.setPositiveButton("OK", (dialog, which) -> {
-                    if (!done[0]) { done[0] = true; result.confirm(); }
-                });
-                builder.setNegativeButton("Cancel", (dialog, which) -> {
-                    if (!done[0]) { done[0] = true; result.cancel(); }
-                });
-            }
-
-            builder.setCancelable(false);
-            builder.setOnCancelListener(dialog -> {
-                if (!done[0]) { done[0] = true; result.cancel(); }
-            });
-
-            AlertDialog dialog = builder.create();
-            dialog.show();
-
-            // Style buttons only after show(), when references are guaranteed.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                Button okButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-                if (okButton != null) okButton.setTextColor(Color.BLACK);
-                Button cancelButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
-                if (cancelButton != null) cancelButton.setTextColor(Color.BLACK);
-            }
-
-        } catch (Exception e) {
-            Log.e(TAG, "showJsDialog failed: " + e.getMessage(), e);
-            if (!done[0]) { done[0] = true; result.confirm(); }
+        // Never allow two live popups — resolve any previous one safely.
+        if (jsDialog != null) {
+            JsResult previous = currentJsResult;
+            currentJsResult = null;
+            if (previous != null) previous.cancel();
+            try { jsDialog.dismiss(); } catch (Exception ignored) {}
+            jsDialog = null;
         }
+
+        currentJsResult = result;
+
+        // Self-contained HTML/JS dialog page — no Android AlertDialog theme involved.
+        String html = "<!DOCTYPE html><html><head>"
+                + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+                + "<style>"
+                + "html,body{margin:0;padding:0;width:100%;height:100%;}"
+                + "body{display:flex;align-items:center;justify-content:center;"
+                + "  background:rgba(0,0,0,0.35);box-sizing:border-box;padding:20px;}"
+                + ".d{font:16px sans-serif;color:#000;background:#fff;border:1px solid #c2c2c2;"
+                + "  border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.25);"
+                + "  padding:16px 20px;width:100%;max-width:360px;box-sizing:border-box;}"
+                + ".t{font-weight:600;font-size:15px;text-align:center;margin-bottom:10px;"
+                + "  padding-bottom:9px;border-bottom:1px solid #c2c2c2;}"
+                + ".m{text-align:center;font-size:14px;line-height:1.5;color:#1a1a1a;}"
+                + ".b{display:flex;justify-content:flex-end;gap:10px;margin-top:6px;}"
+                + ".b button{font:15px sans-serif;border:1px solid #7b7b7b;"
+                + "  background:#f7f7f7;color:#000;border-radius:5px;"
+                + "  padding:10px 22px;cursor:pointer;min-width:84px}"
+                + ".b button.o{background:#1976d2;color:#fff;border-color:#1976d2;"
+                + "  font-weight:600;padding:10px 22px;min-width:84px}"
+                + "</style></head><body>"
+                + "<div class=\"d\">"
+                + "<div class=\"t\">" + escapeHtml(title) + "</div>"
+                + "<div class=\"m\">" + escapeHtml(message).replace("\n", "<br>") + "</div>"
+                + "<div class=\"b\">"
+                + (isAlert
+                    ? "<button class=\"o\" onclick=\"Android.chhapolaConfirm()\">OK</button>"
+                    : "<button onclick=\"Android.chhapolaCancel()\">Cancel</button>"
+                      + "<button class=\"o\" onclick=\"Android.chhapolaConfirm()\">OK</button>")
+                + "</div></div></body></html>";
+
+        // Dedicated WebView for the popup — renders pure HTML/JS,
+        // completely bypassing native AlertDialog theme rendering.
+        WebView dialogView = new WebView(this);
+        WebSettings ds = dialogView.getSettings();
+        ds.setJavaScriptEnabled(true);
+        ds.setDefaultTextEncodingName("utf-8");
+        dialogView.setBackgroundColor(Color.TRANSPARENT);
+        dialogView.addJavascriptInterface(new JsDialogBridge(), "Android");
+        dialogView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
+
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(dialogView, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        WindowManager.LayoutParams wlp = new WindowManager.LayoutParams();
+        wlp.copyFrom(dialog.getWindow().getAttributes());
+        wlp.width = WindowManager.LayoutParams.MATCH_PARENT;
+        wlp.height = WindowManager.LayoutParams.MATCH_PARENT;
+        dialog.getWindow().setAttributes(wlp);
+        dialog.setCancelable(false);
+        dialog.show();
+
+        jsDialog = dialog;
+    }
+
+    /** JS bridge used ONLY by the custom HTML popup's OK/Cancel buttons. */
+    private class JsDialogBridge {
+        @JavascriptInterface
+        public void chhapolaConfirm() {
+            runOnUiThread(() -> resolveJsResult(true));
+        }
+
+        @JavascriptInterface
+        public void chhapolaCancel() {
+            runOnUiThread(() -> resolveJsResult(false));
+        }
+    }
+
+    /** Resolves the pending JsResult exactly once (double-call safe). */
+    private void resolveJsResult(boolean confirmed) {
+        JsResult r = currentJsResult;
+        currentJsResult = null;
+        if (r != null) {
+            if (confirmed) r.confirm(); else r.cancel();
+        }
+        if (jsDialog != null) {
+            try { jsDialog.dismiss(); } catch (Exception ignored) {}
+            jsDialog = null;
+        }
+    }
+
+    private String escapeHtml(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 
     /* ══════════════════════════════════════════════════════════════
