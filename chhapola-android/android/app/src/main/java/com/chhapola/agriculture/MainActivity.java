@@ -1,6 +1,7 @@
 package com.chhapola.agriculture;
 
 import android.Manifest;
+import android.content.Context;
 import android.app.Dialog;
 import android.util.Log;
 import android.content.Intent;
@@ -801,7 +802,10 @@ public class MainActivity extends BridgeActivity {
         final boolean[] done = {false};
 
         try {
-            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            Context dlgContext = MainActivity.this;
+            int dialogTheme = android.R.style.Theme_Material_Light_Dialog;
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(dlgContext, dialogTheme);
             if (title != null) builder.setTitle(title);
             if (message != null) builder.setMessage(message);
 
@@ -826,12 +830,16 @@ public class MainActivity extends BridgeActivity {
             AlertDialog dialog = builder.create();
             dialog.show();
 
-            // Explicitly set button text colors to fix MIUI/ROM rendering
+            // Style buttons after the dialog is shown so they are guaranteed visible
             Button okButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            if (okButton != null) okButton.setTextColor(0xFF1976D2);
+            if (okButton != null) {
+                okButton.setTextColor(Color.BLACK);
+            }
 
             Button cancelButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
-            if (cancelButton != null) cancelButton.setTextColor(0xFF1976D2);
+            if (cancelButton != null) {
+                cancelButton.setTextColor(Color.BLACK);
+            }
 
         } catch (Exception e) {
             Log.e(TAG, "showJsDialog failed: " + e.getMessage(), e);
