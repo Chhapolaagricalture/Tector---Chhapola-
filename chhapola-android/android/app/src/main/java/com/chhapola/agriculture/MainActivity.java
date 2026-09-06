@@ -1,7 +1,6 @@
 package com.chhapola.agriculture;
 
 import android.Manifest;
-import android.content.Context;
 import android.app.Dialog;
 import android.util.Log;
 import android.content.Intent;
@@ -802,13 +801,10 @@ public class MainActivity extends BridgeActivity {
         final boolean[] done = {false};
 
         try {
-            Context dlgContext = MainActivity.this;
-            int dialogTheme = android.R.style.Theme_Material_Light_Dialog;
+            AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
 
-            AlertDialog.Builder builder = new AlertDialog.Builder(dlgContext, dialogTheme);
             if (title != null) builder.setTitle(title);
             if (message != null) builder.setMessage(message);
-
             if (isAlert) {
                 builder.setPositiveButton("OK", (dialog, which) -> {
                     if (!done[0]) { done[0] = true; result.confirm(); }
@@ -830,15 +826,12 @@ public class MainActivity extends BridgeActivity {
             AlertDialog dialog = builder.create();
             dialog.show();
 
-            // Style buttons after the dialog is shown so they are guaranteed visible
-            Button okButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            if (okButton != null) {
-                okButton.setTextColor(Color.BLACK);
-            }
-
-            Button cancelButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
-            if (cancelButton != null) {
-                cancelButton.setTextColor(Color.BLACK);
+            // Style buttons only after show(), when references are guaranteed.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                Button okButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+                if (okButton != null) okButton.setTextColor(Color.BLACK);
+                Button cancelButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+                if (cancelButton != null) cancelButton.setTextColor(Color.BLACK);
             }
 
         } catch (Exception e) {
