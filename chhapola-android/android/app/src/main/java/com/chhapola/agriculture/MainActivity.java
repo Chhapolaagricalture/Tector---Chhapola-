@@ -1,6 +1,7 @@
 package com.chhapola.agriculture;
 
 import android.Manifest;
+import android.util.Base64;
 import android.util.Log;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -12,6 +13,7 @@ import android.net.NetworkRequest;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -20,6 +22,7 @@ import android.webkit.ConsoleMessage;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
 import android.webkit.GeolocationPermissions;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -42,6 +45,9 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebChromeClient;
 import com.getcapacitor.Bridge;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 
 /**
  * Chhapola Agriculture — Professional Android App
@@ -51,12 +57,13 @@ import com.getcapacitor.Bridge;
  *   - Pull-to-Refresh
  *   - Three-Dot Professional Menu
  *   - File Upload / Camera / Gallery
- *   - Download handling
+ *   - Download handling (incl. jsPDF Blob/data-URL PDFs)
  *   - External links
  *   - Loading indicator + Error page with retry
  *   - Network monitoring
  *   - Login/Session preservation
  *   - Back button with double-press exit
+ *   - Post-dialog DOM reflow for records list
  *
  * IMPORTANT: No JavaScript injection into the website.
  * The website's own JS must run without interference.
@@ -91,6 +98,9 @@ public class MainActivity extends BridgeActivity {
     /* ── WebView clients (created once, reused) ──────────────── */
     private ChhapolaWebViewClient webViewClient;
     private ChhapolaChromeClient chromeClient;
+
+    /* ── Records reflow flag ────────────────────────────────── */
+    private boolean pendingReflow = false;
 
     /* ══════════════════════════════════════════════════════════════
        LIFECYCLE
@@ -323,8 +333,21 @@ public class MainActivity extends BridgeActivity {
         webView.setWebViewClient(webViewClient);
         webView.setWebChromeClient(chromeClient);
 
+        // Register JS bridge for Blob/PDF downloads
+        webView.addJavascriptInterface(this, "AndroidBridge");
+
         webView.setDownloadListener((url, userAgent, contentDisposition,
                                      mimetype, contentLength) -> {
+            /*
+             * Blob/data URLs (e.g. from jsPDF doc.save()) cannot be resolved
+             * via ACTION_VIEW. The jsPDF monkey-patch in onPageStarted should
+             * have already handled these through the bridge. Fall through for
+             * regular HTTP downloads.
+             */
+            if (url.startsWith("blob:") || url.startsWith("data:")) {
+                // Already handled by jsPDF monkey-patch → bridge
+                return;
+            }
             try {
                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                 startActivity(intent);
@@ -334,21 +357,6 @@ public class MainActivity extends BridgeActivity {
                         Toast.LENGTH_SHORT).show();
             }
         });
-    }
-
-    /**
-     * Re-apply saved clients to the WebView without creating new ones.
-     * Safe to call from onResume() because it never instantiates a new
-     * BridgeWebChromeClient (whose constructor requires pre-STARTED state).
-     */
-    private void reapplyWebViewClients() {
-        WebView webView = getWebView();
-        if (webView == null || webViewClient == null || chromeClient == null) {
-            Log.w(TAG, "reapplyWebViewClients: SKIPPED — webView=" + (webView!=null) + " wvClient=" + (webViewClient!=null) + " chrome=" + (chromeClient!=null));
-            return;
-        }
-        webView.setWebViewClient(webViewClient);
-        webView.setWebChromeClient(chromeClient);
     }
 
     /* ── WebViewClient ──────────────────────────────────────── */
@@ -404,6 +412,57 @@ public class MainActivity extends BridgeActivity {
             super.onPageStarted(wv, url, favicon);
             if (progressBar != null) progressBar.setVisibility(View.VISIBLE);
             if (errorPage != null) errorPage.setVisibility(View.GONE);
+
+            /*
+             * Inject the jsPDF monkey-patch EARLY, before page scripts run.
+             * Script.js uses "type=module" (deferred), so scripts haven't
+             * executed yet at onPageStarted.  The patch intercepts
+             * jsPDF.save() to send PDF bytes through the bridge, avoiding
+             * Blob/data-URL download issues in WebView.
+             */
+            wv.evaluateJavascript(
+                "(function(){" +
+                "if(window.jspdf && window.jspdf.jsPDF){" +
+                "  var Orig=window.jspdf.jsPDF;" +
+                "  var origSave=Orig.prototype.save;" +
+                "  Orig.prototype.save=function(n){" +
+                "    try{" +
+                "      var d=this.datauristring();" +
+                "      if(d && window.AndroidBridge){" +
+                "        window.AndroidBridge.onPdfReady(d, n||'document.pdf');" +
+                "      }" +
+                "    }catch(e){}" +
+                "    return origSave.call(this,n);" +
+                "  };" +
+                "}" +
+                "})()", null);
+
+            /*
+             * Also patch after modules load (1s delay) as a safety net —
+             * in case jsPDF loads after the initial injection.
+             */
+            wv.postDelayed(() -> {
+                WebView wv2 = getWebView();
+                if (wv2 != null) {
+                    wv2.evaluateJavascript(
+                        "(function(){" +
+                        "if(!window.__jspdfPatched && window.jspdf && window.jspdf.jsPDF){" +
+                        "  window.__jspdfPatched=true;" +
+                        "  var Orig=window.jspdf.jsPDF;" +
+                        "  var origSave=Orig.prototype.save;" +
+                        "  Orig.prototype.save=function(n){" +
+                        "    try{" +
+                        "      var d=this.datauristring();" +
+                        "      if(d && window.AndroidBridge){" +
+                        "        window.AndroidBridge.onPdfReady(d, n||'document.pdf');" +
+                        "      }" +
+                        "    }catch(e){}" +
+                        "    return origSave.call(this,n);" +
+                        "  };" +
+                        "}" +
+                        "})()", null);
+                }
+            }, 1000);
         }
 
         @Override
@@ -413,6 +472,13 @@ public class MainActivity extends BridgeActivity {
             if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
             if (desktopMode) {
                 wv.postDelayed(() -> applyDesktopViewport(wv), 1500);
+            }
+
+            // Force DOM reflow if a dialog was just dismissed — fixes
+            // records list not visually updating after alert().
+            if (pendingReflow) {
+                pendingReflow = false;
+                postAlertReflow();
             }
         }
 
@@ -486,11 +552,115 @@ public class MainActivity extends BridgeActivity {
             callback.invoke(origin, true, false);
         }
 
+        @Override
+        public boolean onJsAlert(WebView wv, String url, String message,
+                                 android.webkit.JsResult result) {
+            // Flag that a dialog is open — when it closes, onPageFinished
+            // will trigger a DOM reflow so the records list repaints.
+            pendingReflow = true;
+            return super.onJsAlert(wv, url, message, result);
+        }
+
+        @Override
+        public boolean onJsConfirm(WebView wv, String url, String message,
+                                   android.webkit.JsResult result) {
+            pendingReflow = true;
+            return super.onJsConfirm(wv, url, message, result);
+        }
 
         @Override
         public boolean onConsoleMessage(ConsoleMessage cm) {
             return true;
         }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       PDF DOWNLOAD  —  jsPDF monkey-patch bridge receiver
+       ══════════════════════════════════════════════════════════════ */
+
+    /**
+     * Called from JavaScript when jsPDF's save() fires.
+     * {@code dataUrl} is the data-uristring produced by jsPDF
+     * (e.g. "data:application/pdf;base64,JVBERi0...").
+     * {@code filename} is the name the user passed to doc.save().
+     */
+    @JavascriptInterface
+    public void onPdfReady(String dataUrl, String filename) {
+        try {
+            // Strip the data-URI prefix:  "data:<mime>;base64,<payload>"
+            int comma = dataUrl.indexOf(',');
+            if (comma < 0) { Log.w(TAG, "onPdfReady: bad dataUrl"); return; }
+            String base64 = dataUrl.substring(comma + 1);
+            byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+
+            // Choose save location
+            File dir;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                dir = new File(getFilesDir(), "downloads");
+            } else {
+                dir = Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_DOWNLOADS);
+            }
+            if (dir != null && !dir.exists()) dir.mkdirs();
+            File outFile = new File(dir != null ? dir : getFilesDir(), filename);
+
+            OutputStream os = new FileOutputStream(outFile);
+            os.write(bytes);
+            os.close();
+
+            // Make it visible in the Gallery / Files app
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                android.content.ContentValues cv = new android.content.ContentValues();
+                cv.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, filename);
+                cv.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/pdf");
+                cv.put(android.provider.MediaStore.Downloads.RELATIVE_PATH,
+                        Environment.DIRECTORY_DOWNLOADS);
+                cv.put(android.provider.MediaStore.Downloads.IS_PENDING, 1);
+                android.net.Uri uri = getContentResolver().insert(
+                        android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
+                if (uri != null) {
+                    OutputStream out = getContentResolver().openOutputStream(uri);
+                    if (out != null) { out.write(bytes); out.close(); }
+                    cv.clear();
+                    cv.put(android.provider.MediaStore.Downloads.IS_PENDING, 0);
+                    getContentResolver().update(uri, cv, null, null);
+                }
+            } else {
+                android.media.MediaScannerConnection.scanFile(
+                        this, new String[]{outFile.getAbsolutePath()},
+                        new String[]{"application/pdf"}, null);
+            }
+
+            runOnUiThread(() -> Toast.makeText(this,
+                    "PDF saved: " + filename, Toast.LENGTH_LONG).show());
+        } catch (Exception e) {
+            Log.e(TAG, "onPdfReady failed", e);
+            runOnUiThread(() -> Toast.makeText(this,
+                    "PDF save failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       POST-ALERT DOM RE-FLOW  (fixes records list not rendering)
+       ══════════════════════════════════════════════════════════════ */
+
+    /**
+     * Force the WebView to re-render the records list after any
+     * JavaScript alert/confirm is dismissed.  Some Android WebView
+     * builds skip the visual repaint when innerHTML changes while
+     * a native dialog was on screen.
+     */
+    private void postAlertReflow() {
+        WebView webView = getWebView();
+        if (webView == null) return;
+        String js = "(function(){"
+            + "var el=document.getElementById('list');"
+            + "if(!el)return;"
+            + "el.style.display='none';"
+            + "void el.offsetHeight;"
+            + "el.style.display='';"
+            + "})()";
+        webView.postDelayed(() -> webView.evaluateJavascript(js, null), 300);
     }
 
     /* ══════════════════════════════════════════════════════════════
@@ -732,10 +902,6 @@ public class MainActivity extends BridgeActivity {
     }
 
     /* ══════════════════════════════════════════════════════════════
-       HELPERS
-       ══════════════════════════════════════════════════════════════ */
-
-    /* ══════════════════════════════════════════════════════════════
        DESKTOP VIEWPORT INJECTION
        ══════════════════════════════════════════════════════════════ */
 
@@ -747,27 +913,26 @@ public class MainActivity extends BridgeActivity {
      */
     private void applyDesktopViewport(WebView wv) {
         try {
-            String js = "(function(){" +
-                    "try{" +
-                    "var vp=document.querySelector('meta[name=viewport]');" +
-                    "if(vp){vp.setAttribute('content','width=1200');}" +
-                    "else{var m=document.createElement('meta');" +
-                    "m.name='viewport';m.content='width=1200';" +
-                    "document.head.appendChild(m);}" +
-                    "}catch(e){}" +
-                    "})();";
+            String js = "(function(){"
+                    + "try{"
+                    + "var vp=document.querySelector('meta[name=viewport]');"
+                    + "if(vp){vp.setAttribute('content','width=1200');}"
+                    + "else{var m=document.createElement('meta');"
+                    + "m.name='viewport';m.content='width=1200';"
+                    + "document.head.appendChild(m);}"
+                    + "}catch(e){}"
+                    + "})()";
             wv.evaluateJavascript(js, null);
         } catch (Exception e) {
             // Silently ignore — don't break the page
         }
     }
 
-    private static final String TAG = "CHHAPOLA";
-
-
     /* ══════════════════════════════════════════════════════════════
        HELPERS
        ══════════════════════════════════════════════════════════════ */
+
+    private static final String TAG = "CHHAPOLA";
 
     private int dpToPx(int dp) {
         return (int) (dp * getResources().getDisplayMetrics().density);
@@ -784,6 +949,4 @@ public class MainActivity extends BridgeActivity {
             return "Chhapola";
         }
     }
-
-
 }
