@@ -413,56 +413,10 @@ public class MainActivity extends BridgeActivity {
             if (progressBar != null) progressBar.setVisibility(View.VISIBLE);
             if (errorPage != null) errorPage.setVisibility(View.GONE);
 
-            /*
-             * Inject the jsPDF monkey-patch EARLY, before page scripts run.
-             * Script.js uses "type=module" (deferred), so scripts haven't
-             * executed yet at onPageStarted.  The patch intercepts
-             * jsPDF.save() to send PDF bytes through the bridge, avoiding
-             * Blob/data-URL download issues in WebView.
-             */
-            wv.evaluateJavascript(
-                "(function(){" +
-                "if(window.jspdf && window.jspdf.jsPDF){" +
-                "  var Orig=window.jspdf.jsPDF;" +
-                "  var origSave=Orig.prototype.save;" +
-                "  Orig.prototype.save=function(n){" +
-                "    try{" +
-                "      var d=this.datauristring();" +
-                "      if(d && window.AndroidBridge){" +
-                "        window.AndroidBridge.onPdfReady(d, n||'document.pdf');" +
-                "      }" +
-                "    }catch(e){}" +
-                "    return origSave.call(this,n);" +
-                "  };" +
-                "}" +
-                "})()", null);
-
-            /*
-             * Also patch after modules load (1s delay) as a safety net —
-             * in case jsPDF loads after the initial injection.
-             */
-            wv.postDelayed(() -> {
-                WebView wv2 = getWebView();
-                if (wv2 != null) {
-                    wv2.evaluateJavascript(
-                        "(function(){" +
-                        "if(!window.__jspdfPatched && window.jspdf && window.jspdf.jsPDF){" +
-                        "  window.__jspdfPatched=true;" +
-                        "  var Orig=window.jspdf.jsPDF;" +
-                        "  var origSave=Orig.prototype.save;" +
-                        "  Orig.prototype.save=function(n){" +
-                        "    try{" +
-                        "      var d=this.datauristring();" +
-                        "      if(d && window.AndroidBridge){" +
-                        "        window.AndroidBridge.onPdfReady(d, n||'document.pdf');" +
-                        "      }" +
-                        "    }catch(e){}" +
-                        "    return origSave.call(this,n);" +
-                        "  };" +
-                        "}" +
-                        "})()", null);
-                }
-            }, 1000);
+            // Start polling for jsPDF availability — patches as soon as
+            // jsPDF is loaded by the page, replacing the unreliable
+            // one-shot + 1s-delay approach.
+            patchJsPdfOnLoad(wv);
         }
 
         @Override
@@ -474,8 +428,10 @@ public class MainActivity extends BridgeActivity {
                 wv.postDelayed(() -> applyDesktopViewport(wv), 1500);
             }
 
-            // Force DOM reflow if a dialog was just dismissed — fixes
-            // records list not visually updating after alert().
+            // Safety-net reflow: immediate reflow happens in
+            // onJsAlert/onJsConfirm right when the dialog closes.
+            // This catches any edge-case where the immediate reflow
+            // didn't fully take effect.
             if (pendingReflow) {
                 pendingReflow = false;
                 postAlertReflow();
@@ -555,17 +511,23 @@ public class MainActivity extends BridgeActivity {
         @Override
         public boolean onJsAlert(WebView wv, String url, String message,
                                  android.webkit.JsResult result) {
-            // Flag that a dialog is open — when it closes, onPageFinished
-            // will trigger a DOM reflow so the records list repaints.
             pendingReflow = true;
-            return super.onJsAlert(wv, url, message, result);
+            // super.onJsAlert() is BLOCKING — it returns only after the
+            // user dismisses the dialog. Trigger reflow immediately.
+            boolean handled = super.onJsAlert(wv, url, message, result);
+            wv.postDelayed(() -> triggerListReflow(wv), 100);
+            return handled;
         }
 
         @Override
         public boolean onJsConfirm(WebView wv, String url, String message,
                                    android.webkit.JsResult result) {
             pendingReflow = true;
-            return super.onJsConfirm(wv, url, message, result);
+            // super.onJsConfirm() is BLOCKING — trigger reflow immediately
+            // after user taps OK/Cancel.
+            boolean handled = super.onJsConfirm(wv, url, message, result);
+            wv.postDelayed(() -> triggerListReflow(wv), 100);
+            return handled;
         }
 
         @Override
@@ -653,6 +615,15 @@ public class MainActivity extends BridgeActivity {
     private void postAlertReflow() {
         WebView webView = getWebView();
         if (webView == null) return;
+        triggerListReflow(webView);
+    }
+
+    /**
+     * Immediately trigger a DOM repaint of the records list element.
+     * Called right after super.onJsAlert/onJsConfirm returns (dialog
+     * dismissed) so the list updates without waiting for onPageFinished.
+     */
+    private void triggerListReflow(WebView wv) {
         String js = "(function(){"
             + "var el=document.getElementById('list');"
             + "if(!el)return;"
@@ -660,7 +631,56 @@ public class MainActivity extends BridgeActivity {
             + "void el.offsetHeight;"
             + "el.style.display='';"
             + "})()";
-        webView.postDelayed(() -> webView.evaluateJavascript(js, null), 300);
+        wv.evaluateJavascript(js, null);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       jsPDF PATCH POLLING  (intercept doc.save() for PDF download)
+       ══════════════════════════════════════════════════════════════ */
+
+    /**
+     * Poll until jsPDF is available, then patch jsPDF.prototype.save
+     * once to route PDF bytes through the AndroidBridge.  Retries
+     * every 500ms for up to 10 seconds (20 attempts).
+     */
+    private void patchJsPdfOnLoad(WebView wv) {
+        final String PATCH_JS =
+            "(function(){" +
+            "if(window.__jspdfPatched || !window.jspdf || !window.jspdf.jsPDF)" +
+            "  return false;" +
+            "window.__jspdfPatched=true;" +
+            "var Orig=window.jspdf.jsPDF;" +
+            "var origSave=Orig.prototype.save;" +
+            "Orig.prototype.save=function(n){" +
+            "  try{" +
+            "    var d=this.datauristring();" +
+            "    if(d && window.AndroidBridge)" +
+            "      window.AndroidBridge.onPdfReady(d, n||'document.pdf');" +
+            "  }catch(e){}" +
+            "  return origSave.call(this,n);" +
+            "};" +
+            "return true;" +
+            "})()";
+
+        final int[] attempts = {0};
+        Runnable poll = new Runnable() {
+            @Override
+            public void run() {
+                WebView wv2 = getWebView();
+                if (wv2 == null) return;
+                attempts[0]++;
+                wv2.evaluateJavascript(PATCH_JS, result -> {
+                    // result is "true" if patched, "false" if not yet available
+                    if (result == null || !result.contains("true")) {
+                        if (attempts[0] < 20) {
+                            wv2.postDelayed(this, 500);
+                        }
+                    }
+                    // else: patched successfully, stop polling
+                });
+            }
+        };
+        wv.postDelayed(poll, 500);
     }
 
     /* ══════════════════════════════════════════════════════════════
