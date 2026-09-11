@@ -1,8 +1,6 @@
 package com.chhapola.agriculture;
 
 import android.Manifest;
-import android.util.Base64;
-import android.util.Log;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -14,15 +12,17 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
-import android.webkit.ConsoleMessage;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
 import android.webkit.GeolocationPermissions;
-import android.webkit.JavascriptInterface;
+import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -45,29 +45,36 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebChromeClient;
 import com.getcapacitor.Bridge;
+import android.app.DownloadManager;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStream;
+import java.net.URLEncoder;
 
 /**
  * Chhapola Agriculture — Professional Android App
  *
- * Features:
- *   - Desktop/Mobile Site toggle
+ * Clean WebView wrapper that loads the live website from
+ * https://chhapolaagriculture.com/
+ *
+ * All business logic, Firebase auth, records, PDF generation,
+ * AI Munshi, scanner, and all features run inside the website.
+ * This Android class provides ONLY native integration:
+ *   - Professional toolbar & branding
  *   - Pull-to-Refresh
- *   - Three-Dot Professional Menu
- *   - File Upload / Camera / Gallery
- *   - Download handling (incl. jsPDF Blob/data-URL PDFs)
- *   - External links
- *   - Loading indicator + Error page with retry
- *   - Network monitoring
- *   - Login/Session preservation
+ *   - Loading indicator & error page
  *   - Back button with double-press exit
+   - External link handling (tel, mailto, WhatsApp, maps)
+ *   - File upload / camera / gallery
+ *   - Desktop / Mobile site toggle
+ *   - Network monitoring
+ *   - Standard download handling via DownloadManager
  *
  * IMPORTANT: No JavaScript injection into the website.
- * The website's own JS must run without interference.
+ * The website's own JS must run without any interference.
  */
 public class MainActivity extends BridgeActivity {
+
+    private static final String TAG = "CHHAPOLA";
+    private static final String WEBSITE_URL = "https://chhapolaagriculture.com/";
 
     /* ── State ────────────────────────────────────────────────── */
     private long lastBackTime = 0;
@@ -167,8 +174,8 @@ public class MainActivity extends BridgeActivity {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
 
-        // Prevent SwipeRefreshLayout from intercepting scroll when WebView
-        // content is scrollable (fixes entries not visible after 9th item)
+        // Prevent SwipeRefreshLayout from intercepting scroll when
+        // WebView content is scrollable — standard Android pattern
         swipeRefresh.setOnChildScrollUpCallback(
                 (parent, child) -> webView.canScrollVertically(-1));
 
@@ -227,7 +234,7 @@ public class MainActivity extends BridgeActivity {
         layout.setPadding(dpToPx(32), dpToPx(32), dpToPx(32), dpToPx(32));
 
         TextView icon = new TextView(this);
-        icon.setText("📡");
+        icon.setText("\uD83D\uDCE1");
         icon.setTextSize(48);
         icon.setGravity(android.view.Gravity.CENTER);
         layout.addView(icon);
@@ -244,7 +251,7 @@ public class MainActivity extends BridgeActivity {
         layout.addView(title, tp);
 
         TextView sub = new TextView(this);
-        sub.setText("कृपया अपना internet connection जाँचें\nऔर फिर से try करें।");
+        sub.setText("\u0915\u0943\u092A\u092F\u093E \u0905\u092A\u0928\u093E internet connection \u091C\u093E\u0901\u094D\u091A\u0947\u0902\n\u0914\u0930 \u092B\u093F\u0930 \u0938\u0947 try \u0915\u0930\u0947\u0902\u0964");
         sub.setTextSize(14);
         sub.setTextColor(Color.parseColor("#666666"));
         sub.setGravity(android.view.Gravity.CENTER);
@@ -255,7 +262,7 @@ public class MainActivity extends BridgeActivity {
         layout.addView(sub, sp);
 
         TextView retryBtn = new TextView(this);
-        retryBtn.setText("🔄  Retry");
+        retryBtn.setText("\uD83D\uDD04  Retry");
         retryBtn.setTextSize(16);
         retryBtn.setTextColor(Color.WHITE);
         retryBtn.setBackgroundColor(
@@ -295,7 +302,7 @@ public class MainActivity extends BridgeActivity {
         s.setDatabaseEnabled(true);
         s.setAllowContentAccess(true);
 
-        // Desktop/Mobile toggle
+        // User agent — mobile or desktop
         s.setUserAgentString(desktopMode ? DESKTOP_UA : MOBILE_UA);
 
         // Viewport
@@ -322,7 +329,10 @@ public class MainActivity extends BridgeActivity {
 
     private void setupWebViewClients() {
         WebView webView = getWebView();
-        if (webView == null) { Log.e(TAG, "setupWebViewClients: webView is NULL"); return; }
+        if (webView == null) {
+            Log.e(TAG, "setupWebViewClients: webView is NULL");
+            return;
+        }
 
         if (webViewClient == null) {
             webViewClient = new ChhapolaWebViewClient();
@@ -334,31 +344,70 @@ public class MainActivity extends BridgeActivity {
         webView.setWebViewClient(webViewClient);
         webView.setWebChromeClient(chromeClient);
 
-        // Register JS bridge for Blob/PDF downloads
-        webView.addJavascriptInterface(this, "AndroidBridge");
+        // Standard download handling via DownloadManager
+        webView.setDownloadListener(createDownloadListener());
+    }
 
-        webView.setDownloadListener((url, userAgent, contentDisposition,
-                                     mimetype, contentLength) -> {
-            /*
-             * Blob/data URLs (e.g. from jsPDF doc.save()) cannot be resolved
-             * via ACTION_VIEW. The jsPDF monkey-patch should have already
-             * handled these through the bridge. Fall through for regular
-             * HTTP downloads only.
-             */
+    /**
+     * Clean download handler using Android DownloadManager.
+     * Handles regular HTTP/HTTPS file downloads.
+     * For blob/data URLs (e.g. from jsPDF), the website's own
+     * download mechanism or browser fallback is used.
+     */
+    private DownloadListener createDownloadListener() {
+        return (url, userAgent, contentDisposition, mimetype, contentLength) -> {
+            // For blob/data URLs — let the WebView handle naturally
             if (url.startsWith("blob:") || url.startsWith("data:")) {
-                // Expected: bridge already handled this via onPdfReady
+                Log.i(TAG, "DownloadListener: blob/data URL received, "
+                        + "using website download mechanism");
                 return;
             }
+
             try {
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                startActivity(intent);
-                Toast.makeText(this, "Download started…", Toast.LENGTH_SHORT).show();
+                DownloadManager.Request request =
+                        new DownloadManager.Request(Uri.parse(url));
+                request.setMimeType(mimetype);
+
+                // Use same User-Agent as the WebView
+                String cookies = CookieManager.getInstance()
+                        .getCookie(url);
+                if (cookies != null) {
+                    request.addRequestHeader("Cookie", cookies);
+                }
+                request.addRequestHeader("User-Agent", userAgent);
+                request.setDescription("Downloading file...");
+
+                String fileName = URLUtil.guessFileName(
+                        url, contentDisposition, mimetype);
+                request.setTitle(fileName);
+                request.setNotificationVisibility(
+                        DownloadManager.Request
+                                .VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                request.setDestinationInExternalPublicDir(
+                        Environment.DIRECTORY_DOWNLOADS, fileName);
+
+                DownloadManager dm = (DownloadManager)
+                        getSystemService(DOWNLOAD_SERVICE);
+                if (dm != null) {
+                    dm.enqueue(request);
+                    runOnUiThread(() -> Toast.makeText(this,
+                            "Downloading " + fileName,
+                            Toast.LENGTH_SHORT).show());
+                }
             } catch (Exception e) {
-                Log.e(TAG, "DownloadListener: cannot open " + url, e);
-                Toast.makeText(this, "Cannot open download link",
-                        Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "DownloadListener: failed for " + url, e);
+                // Fallback: try to open in browser
+                try {
+                    Intent intent = new Intent(
+                            Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(intent);
+                } catch (Exception ex) {
+                    runOnUiThread(() -> Toast.makeText(this,
+                            "Cannot download file",
+                            Toast.LENGTH_SHORT).show());
+                }
             }
-        });
+        };
     }
 
     /* ── WebViewClient ──────────────────────────────────────── */
@@ -366,42 +415,57 @@ public class MainActivity extends BridgeActivity {
     private class ChhapolaWebViewClient extends WebViewClient {
 
         @Override
-        public boolean shouldOverrideUrlLoading(WebView wv, WebResourceRequest req) {
+        public boolean shouldOverrideUrlLoading(WebView wv,
+                WebResourceRequest req) {
             String url = req.getUrl().toString();
 
+            // Telephone
             if (url.startsWith("tel:")) {
-                startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse(url)));
+                startActivity(new Intent(Intent.ACTION_DIAL,
+                        Uri.parse(url)));
                 return true;
             }
+            // Email
             if (url.startsWith("mailto:")) {
-                startActivity(new Intent(Intent.ACTION_SENDTO, Uri.parse(url)));
+                startActivity(new Intent(Intent.ACTION_SENDTO,
+                        Uri.parse(url)));
                 return true;
             }
+            // SMS
             if (url.startsWith("sms:")) {
-                startActivity(new Intent(Intent.ACTION_SENDTO, Uri.parse(url)));
+                startActivity(new Intent(Intent.ACTION_SENDTO,
+                        Uri.parse(url)));
                 return true;
             }
-            if (url.contains("api.whatsapp.com") || url.contains("wa.me/")) {
+            // WhatsApp
+            if (url.contains("api.whatsapp.com")
+                    || url.contains("wa.me/")) {
                 try {
-                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-                } catch (Exception e) {
-                    // ignore
-                }
+                    startActivity(new Intent(Intent.ACTION_VIEW,
+                            Uri.parse(url)));
+                } catch (Exception e) { /* ignore */ }
                 return true;
             }
-            if (url.startsWith("geo:") || url.contains("maps.google")) {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+            // Maps / Geo
+            if (url.startsWith("geo:")
+                    || url.contains("maps.google")) {
+                startActivity(new Intent(Intent.ACTION_VIEW,
+                        Uri.parse(url)));
                 return true;
             }
+            // Play Store
             if (url.contains("play.google.com")) {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                startActivity(new Intent(Intent.ACTION_VIEW,
+                        Uri.parse(url)));
                 return true;
             }
+            // External links — open in browser, keep app for our domain
             if (!url.contains("chhapolaagriculture.com")
                     && !url.startsWith("about:blank")
                     && req.isForMainFrame()) {
                 try {
-                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                    startActivity(new Intent(Intent.ACTION_VIEW,
+                            Uri.parse(url)));
                 } catch (Exception e) { /* ignore */ }
                 return true;
             }
@@ -410,40 +474,40 @@ public class MainActivity extends BridgeActivity {
         }
 
         @Override
-        public void onPageStarted(WebView wv, String url, Bitmap favicon) {
+        public void onPageStarted(WebView wv, String url,
+                Bitmap favicon) {
             super.onPageStarted(wv, url, favicon);
-            if (progressBar != null) progressBar.setVisibility(View.VISIBLE);
-            if (errorPage != null) errorPage.setVisibility(View.GONE);
-
-            // Start polling for jsPDF availability — patches as soon as
-            // jsPDF is loaded by the page.
-            patchJsPdfOnLoad(wv);
+            if (progressBar != null)
+                progressBar.setVisibility(View.VISIBLE);
+            if (errorPage != null)
+                errorPage.setVisibility(View.GONE);
         }
 
         @Override
         public void onPageFinished(WebView wv, String url) {
             super.onPageFinished(wv, url);
-            if (progressBar != null) progressBar.setVisibility(View.GONE);
-            if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+            if (progressBar != null)
+                progressBar.setVisibility(View.GONE);
+            if (swipeRefresh != null)
+                swipeRefresh.setRefreshing(false);
+
+            // Desktop mode viewport override
             if (desktopMode) {
                 wv.postDelayed(() -> applyDesktopViewport(wv), 1500);
             }
-
-            // Re-inject jsPDF patch as backup (covers SPA navigation
-            // where onPageStarted doesn't fire again).
-            patchJsPdfOnLoad(wv);
-
-            // NO DOM repaint workarounds — let website's own show() render
         }
 
         @Override
         public void onReceivedError(WebView wv, WebResourceRequest req,
-                                    WebResourceError error) {
+                WebResourceError error) {
             super.onReceivedError(wv, req, error);
             if (req.isForMainFrame()) {
-                if (progressBar != null) progressBar.setVisibility(View.GONE);
-                if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
-                if (errorPage != null) errorPage.setVisibility(View.VISIBLE);
+                if (progressBar != null)
+                    progressBar.setVisibility(View.GONE);
+                if (swipeRefresh != null)
+                    swipeRefresh.setRefreshing(false);
+                if (errorPage != null)
+                    errorPage.setVisibility(View.VISIBLE);
             }
         }
     }
@@ -453,8 +517,8 @@ public class MainActivity extends BridgeActivity {
     /**
      * Extends Capacitor's BridgeWebChromeClient.
      * JS alert/confirm/prompt dialogs are handled by Capacitor's
-     * default BridgeWebChromeClient implementation (standard Android
-     * AlertDialog with visible message + buttons).
+     * default BridgeWebChromeClient (standard Android AlertDialog).
+     * No custom dialog or DOM interference.
      */
     private class ChhapolaChromeClient extends BridgeWebChromeClient {
 
@@ -464,8 +528,8 @@ public class MainActivity extends BridgeActivity {
 
         @Override
         public boolean onShowFileChooser(WebView wv,
-                                         ValueCallback<Uri[]> callback,
-                                         FileChooserParams params) {
+                ValueCallback<Uri[]> callback,
+                FileChooserParams params) {
             if (fileUploadCallback != null) {
                 fileUploadCallback.onReceiveValue(null);
             }
@@ -473,7 +537,8 @@ public class MainActivity extends BridgeActivity {
 
             if (ContextCompat.checkSelfPermission(MainActivity.this,
                     Manifest.permission.CAMERA)
-                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    != android.content.pm.PackageManager
+                            .PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(MainActivity.this,
                         new String[]{Manifest.permission.CAMERA},
                         PERMISSION_REQUEST);
@@ -498,34 +563,19 @@ public class MainActivity extends BridgeActivity {
                 GeolocationPermissions.Callback callback) {
             if (ContextCompat.checkSelfPermission(MainActivity.this,
                     Manifest.permission.ACCESS_FINE_LOCATION)
-                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    != android.content.pm.PackageManager
+                            .PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(MainActivity.this,
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                        new String[]{
+                                Manifest.permission.ACCESS_FINE_LOCATION},
                         PERMISSION_REQUEST);
             }
             callback.invoke(origin, true, false);
         }
 
         @Override
-        public boolean onJsAlert(WebView wv, String url, String message,
-                                 android.webkit.JsResult result) {
-            // Delegate to Capacitor's default dialog — no DOM interference.
-            // super.onJsAlert() is BLOCKING: returns after dialog dismiss.
-            return super.onJsAlert(wv, url, message, result);
-        }
-
-        @Override
-        public boolean onJsConfirm(WebView wv, String url, String message,
-                                   android.webkit.JsResult result) {
-            // Delegate to Capacitor's default dialog — no DOM interference.
-            // super.onJsConfirm() is BLOCKING: returns after OK/Cancel.
-            return super.onJsConfirm(wv, url, message, result);
-        }
-
-        @Override
-        public boolean onConsoleMessage(ConsoleMessage cm) {
-            // Log JS console messages to Logcat so errors/warnings are visible
-            // during debugging. Do NOT suppress — let default handling proceed.
+        public boolean onConsoleMessage(
+                android.webkit.ConsoleMessage cm) {
             if (cm != null) {
                 String level = cm.messageLevel() != null
                         ? cm.messageLevel().name() : "UNKNOWN";
@@ -536,180 +586,6 @@ public class MainActivity extends BridgeActivity {
             }
             return super.onConsoleMessage(cm);
         }
-    }
-
-    /* ══════════════════════════════════════════════════════════════
-       PDF DOWNLOAD  —  jsPDF monkey-patch bridge receiver
-       ══════════════════════════════════════════════════════════════ */
-
-    /**
-     * Sanitize a filename by removing path separators and other
-     * characters that are invalid on Android/POSIX filesystems.
-     */
-    private static String sanitizeFilename(String name) {
-        if (name == null || name.isEmpty()) return "document.pdf";
-        // Remove path separators, null bytes, and leading/trailing dots/spaces
-        return name.replaceAll("[/\\\\:\\x00]", "_")
-                   .replaceAll("^\\.+|\\.$", "")
-                   .replaceAll("^\\s+|\\s+$", "");
-    }
-
-    /**
-     * Called from JavaScript when jsPDF's save() fires.
-     * {@code dataUrl} is the data-uristring produced by jsPDF
-     * (e.g. "data:application/pdf;base64,JVBERi0...").
-     * {@code filename} is the name the user passed to doc.save().
-     *
-     * Save path:
-     *   Android 10+  → MediaStore.Downloads (no file-system copy needed)
-     *   Android < 10 → External Downloads directory + MediaScanner
-     */
-    @JavascriptInterface
-    public void onPdfReady(String dataUrl, String filename) {
-        final String safeName = sanitizeFilename(filename);
-        Log.i(TAG, "onPdfReady: filename=" + safeName
-                + " dataUrlLen=" + (dataUrl != null ? dataUrl.length() : 0));
-
-        if (dataUrl == null || dataUrl.isEmpty()) {
-            Log.e(TAG, "onPdfReady: dataUrl is null or empty");
-            return;
-        }
-
-        try {
-            // Strip the data-URI prefix:  "data:<mime>;base64,<payload>"
-            int comma = dataUrl.indexOf(',');
-            if (comma < 0) {
-                Log.e(TAG, "onPdfReady: no comma in dataUrl — bad format");
-                return;
-            }
-            String base64 = dataUrl.substring(comma + 1);
-            byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
-
-            if (bytes == null || bytes.length == 0) {
-                Log.e(TAG, "onPdfReady: decoded bytes are empty");
-                return;
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // ── Android 10+: MediaStore.Downloads ──
-                android.content.ContentValues cv = new android.content.ContentValues();
-                cv.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, safeName);
-                cv.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/pdf");
-                cv.put(android.provider.MediaStore.Downloads.RELATIVE_PATH,
-                        Environment.DIRECTORY_DOWNLOADS);
-                cv.put(android.provider.MediaStore.Downloads.IS_PENDING, 1);
-
-                android.net.Uri uri = getContentResolver().insert(
-                        android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
-
-                if (uri == null) {
-                    Log.e(TAG, "onPdfReady: MediaStore insert returned null URI");
-                    return;
-                }
-
-                try (OutputStream out = getContentResolver().openOutputStream(uri)) {
-                    if (out == null) {
-                        Log.e(TAG, "onPdfReady: openOutputStream returned null for " + uri);
-                        return;
-                    }
-                    out.write(bytes);
-                }
-
-                // Mark as complete
-                cv.clear();
-                cv.put(android.provider.MediaStore.Downloads.IS_PENDING, 0);
-                int updated = getContentResolver().update(uri, cv, null, null);
-                Log.i(TAG, "onPdfReady: MediaStore saved " + safeName
-                        + " (" + bytes.length + " bytes, rows=" + updated + ")");
-
-            } else {
-                // ── Android 9 and below: direct Downloads directory ──
-                File dir = Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_DOWNLOADS);
-                if (dir != null && !dir.exists()) dir.mkdirs();
-                File outFile = new File(dir != null ? dir : getFilesDir(), safeName);
-
-                try (FileOutputStream fos = new FileOutputStream(outFile)) {
-                    fos.write(bytes);
-                }
-
-                // Make visible in file managers / gallery
-                android.media.MediaScannerConnection.scanFile(
-                        this,
-                        new String[]{outFile.getAbsolutePath()},
-                        new String[]{"application/pdf"},
-                        (path, uri) -> Log.i(TAG, "onPdfReady: MediaScanner → " + path));
-
-                Log.i(TAG, "onPdfReady: saved " + outFile.getAbsolutePath()
-                        + " (" + bytes.length + " bytes)");
-            }
-
-            runOnUiThread(() ->
-                    Toast.makeText(this, "✅ PDF saved: " + safeName,
-                            Toast.LENGTH_LONG).show());
-
-        } catch (Exception e) {
-            Log.e(TAG, "onPdfReady: FAILED", e);
-            runOnUiThread(() ->
-                    Toast.makeText(this, "❌ PDF save failed: " + e.getMessage(),
-                            Toast.LENGTH_LONG).show());
-        }
-    }
-
-    /* ══════════════════════════════════════════════════════════════
-       jsPDF PATCH POLLING  (intercept doc.save() for PDF download)
-       ══════════════════════════════════════════════════════════════ */
-
-    /**
-     * Poll until jsPDF is available, then patch jsPDF.prototype.save
-     * once to route PDF bytes through the AndroidBridge.
-     *
-     * When the bridge call succeeds, we return without calling the
-     * original save — this prevents a duplicate browser-level download.
-     * The {@code __pdfBridgeOk} flag tracks whether the bridge received
-     * the data so the fallback (origSave) can fire if the bridge is
-     * unavailable.
-     */
-    private void patchJsPdfOnLoad(WebView wv) {
-        final String PATCH_JS =
-            "(function(){"
-            + "if(window.__jspdfPatched||!window.jspdf||!window.jspdf.jsPDF)"
-            + "  return false;"
-            + "window.__jspdfPatched=true;"
-            + "var Orig=window.jspdf.jsPDF;"
-            + "var origSave=Orig.prototype.save;"
-            + "Orig.prototype.save=function(n){"
-            + "  window.__pdfBridgeOk=false;"
-            + "  try{"
-            + "    var d=this.output('datauristring');"
-            + "    if(d&&window.AndroidBridge){"
-            + "      window.AndroidBridge.onPdfReady(d,n||'document.pdf');"
-            + "      window.__pdfBridgeOk=true;"
-            + "    }"
-            + "  }catch(e){}"
-            + "  if(window.__pdfBridgeOk) return;"
-            + "  return origSave.call(this,n);"
-            + "};"
-            + "return true;"
-            + "})()";
-
-        final int[] attempts = {0};
-        Runnable poll = new Runnable() {
-            @Override
-            public void run() {
-                WebView wv2 = getWebView();
-                if (wv2 == null) return;
-                attempts[0]++;
-                wv2.evaluateJavascript(PATCH_JS, result -> {
-                    if (result == null || !result.contains("true")) {
-                        if (attempts[0] < 20) {
-                            wv2.postDelayed(this, 500);
-                        }
-                    }
-                });
-            }
-        };
-        wv.postDelayed(poll, 500);
     }
 
     /* ══════════════════════════════════════════════════════════════
@@ -724,7 +600,8 @@ public class MainActivity extends BridgeActivity {
         galleryIntent.setType("*/*");
         galleryIntent.addCategory(Intent.CATEGORY_OPENABLE);
 
-        Intent chooser = Intent.createChooser(galleryIntent, "Select File");
+        Intent chooser = Intent.createChooser(galleryIntent,
+                "Select File");
         chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS,
                 new Intent[]{cameraIntent});
 
@@ -732,10 +609,12 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    protected void onActivityResult(int requestCode, int resultCode,
+            Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == FILE_CHOOSER_REQUEST && fileUploadCallback != null) {
+        if (requestCode == FILE_CHOOSER_REQUEST
+                && fileUploadCallback != null) {
             Uri[] results = null;
             if (resultCode == RESULT_OK && data != null) {
                 String dataString = data.getDataString();
@@ -749,11 +628,14 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                                           int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST && grantResults.length > 0
-                && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+    public void onRequestPermissionsResult(int requestCode,
+            String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions,
+                grantResults);
+        if (requestCode == PERMISSION_REQUEST
+                && grantResults.length > 0
+                && grantResults[0] == android.content.pm.PackageManager
+                        .PERMISSION_GRANTED) {
             launchFileChooser();
         }
     }
@@ -766,9 +648,11 @@ public class MainActivity extends BridgeActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this,
                     Manifest.permission.POST_NOTIFICATIONS)
-                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    != android.content.pm.PackageManager
+                            .PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        new String[]{
+                                Manifest.permission.POST_NOTIFICATIONS},
                         PERMISSION_REQUEST);
             }
         }
@@ -780,14 +664,16 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(0, 1, 0, "🔄  Refresh");
-        menu.add(0, 2, 1, "⬅️  Back");
-        menu.add(0, 3, 2, "➡️  Forward");
+        menu.add(0, 1, 0, "\uD83D\uDD04  Refresh");
+        menu.add(0, 2, 1, "\u2B05\uFE0F  Back");
+        menu.add(0, 3, 2, "\u27A1\uFE0F  Forward");
         desktopToggle = menu.add(0, 4, 3,
-                desktopMode ? "🖥️  Desktop Site: ON" : "📱  Desktop Site: OFF");
-        menu.add(0, 5, 4, "🔗  Share");
-        menu.add(0, 6, 5, "🔍  Find in Page");
-        menu.add(0, 7, 6, "ℹ️  About");
+                desktopMode
+                        ? "\uD83D\uDDA5\uFE0F  Desktop Site: ON"
+                        : "\uD83D\uDCF1  Desktop Site: OFF");
+        menu.add(0, 5, 4, "\uD83D\uDD17  Share");
+        menu.add(0, 6, 5, "\uD83D\uDD0D  Find in Page");
+        menu.add(0, 7, 6, "\u2139\uFE0F  About");
         return true;
     }
 
@@ -807,16 +693,16 @@ public class MainActivity extends BridgeActivity {
                 if (webView.canGoForward()) webView.goForward();
                 return true;
             case 4:
-                // Desktop toggle — reload page with new settings
                 desktopMode = !desktopMode;
                 if (desktopToggle != null) {
                     desktopToggle.setTitle(desktopMode
-                            ? "🖥️  Desktop Site: ON"
-                            : "📱  Desktop Site: OFF");
+                            ? "\uD83D\uDDA5\uFE0F  Desktop Site: ON"
+                            : "\uD83D\uDCF1  Desktop Site: OFF");
                 }
                 webView.reload();
                 Toast.makeText(this,
-                        desktopMode ? "Desktop Site ON" : "Mobile Site ON",
+                        desktopMode ? "Desktop Site ON"
+                                : "Mobile Site ON",
                         Toast.LENGTH_SHORT).show();
                 return true;
             case 5:
@@ -828,7 +714,9 @@ public class MainActivity extends BridgeActivity {
             case 7:
                 new AlertDialog.Builder(this)
                         .setTitle("Chhapola Agriculture")
-                        .setMessage("Version 1.0\n\nAgriculture management app\nchhapolaagriculture.com")
+                        .setMessage("Version 1.0\n\n"
+                                + "Agriculture management app\n"
+                                + "chhapolaagriculture.com")
                         .setPositiveButton("OK", null)
                         .show();
                 return true;
@@ -848,7 +736,7 @@ public class MainActivity extends BridgeActivity {
 
     private void showFindInPage() {
         EditText input = new EditText(this);
-        input.setHint("Search on page…");
+        input.setHint("Search on page\u2026");
         input.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
 
         new AlertDialog.Builder(this)
@@ -858,7 +746,8 @@ public class MainActivity extends BridgeActivity {
                     String query = input.getText().toString().trim();
                     if (!query.isEmpty()) {
                         WebView webView = getWebView();
-                        if (webView != null) webView.findAllAsync(query);
+                        if (webView != null)
+                            webView.findAllAsync(query);
                     }
                 })
                 .setNegativeButton("Cancel", null)
@@ -884,7 +773,9 @@ public class MainActivity extends BridgeActivity {
             } else {
                 lastBackTime = now;
                 Toast.makeText(this,
-                        "Back दबाकर app बंद करें", Toast.LENGTH_SHORT).show();
+                        "Back \u0926\u092C\u093E\u0915\u0930 app "
+                        + "\u092C\u0902\u0926 \u0915\u0930\u0947\u0902",
+                        Toast.LENGTH_SHORT).show();
             }
         }
     }
@@ -918,7 +809,8 @@ public class MainActivity extends BridgeActivity {
         };
 
         NetworkRequest request = new NetworkRequest.Builder()
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addCapability(
+                        NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 .build();
         cm.registerNetworkCallback(request, networkCallback);
 
@@ -930,7 +822,8 @@ public class MainActivity extends BridgeActivity {
         if (networkCallback != null) {
             ConnectivityManager cm = (ConnectivityManager)
                     getSystemService(CONNECTIVITY_SERVICE);
-            if (cm != null) cm.unregisterNetworkCallback(networkCallback);
+            if (cm != null)
+                cm.unregisterNetworkCallback(networkCallback);
         }
     }
 
@@ -939,14 +832,19 @@ public class MainActivity extends BridgeActivity {
         if (webView == null) return;
 
         if (isNetworkAvailable) {
-            if (errorPage != null) errorPage.setVisibility(View.GONE);
-            webView.getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
-            if (errorPage != null && errorPage.getVisibility() == View.VISIBLE) {
+            if (errorPage != null)
+                errorPage.setVisibility(View.GONE);
+            webView.getSettings().setCacheMode(
+                    WebSettings.LOAD_DEFAULT);
+            if (errorPage != null
+                    && errorPage.getVisibility() == View.VISIBLE) {
                 webView.reload();
             }
         } else {
-            webView.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
-            if (errorPage != null) errorPage.setVisibility(View.VISIBLE);
+            webView.getSettings().setCacheMode(
+                    WebSettings.LOAD_CACHE_ELSE_NETWORK);
+            if (errorPage != null)
+                errorPage.setVisibility(View.VISIBLE);
         }
     }
 
@@ -956,16 +854,17 @@ public class MainActivity extends BridgeActivity {
 
     /**
      * Override viewport meta tag to force desktop CSS layout.
-     * Called with 1500ms delay after page load to avoid breaking
-     * the website's own JS event handlers.
-     * Only applied in desktop mode.
+     * Only applied in desktop mode with a delay to avoid
+     * interfering with the website's own JS.
      */
     private void applyDesktopViewport(WebView wv) {
         try {
             String js = "(function(){"
                     + "try{"
-                    + "var vp=document.querySelector('meta[name=viewport]');"
-                    + "if(vp){vp.setAttribute('content','width=1200');}"
+                    + "var vp=document.querySelector"
+                    + "('meta[name=viewport]');"
+                    + "if(vp){vp.setAttribute("
+                    + "'content','width=1200');}"
                     + "else{var m=document.createElement('meta');"
                     + "m.name='viewport';m.content='width=1200';"
                     + "document.head.appendChild(m);}"
@@ -981,21 +880,7 @@ public class MainActivity extends BridgeActivity {
        HELPERS
        ══════════════════════════════════════════════════════════════ */
 
-    private static final String TAG = "CHHAPOLA";
-
     private int dpToPx(int dp) {
         return (int) (dp * getResources().getDisplayMetrics().density);
-    }
-
-    /**
-     * Extract a clean hostname from a URL for dialog title.
-     * e.g. "https://chhapolaagriculture.com/something" → "chhapolaagriculture.com"
-     */
-    private String extractHost(String url) {
-        try {
-            return Uri.parse(url).getHost();
-        } catch (Exception e) {
-            return "Chhapola";
-        }
     }
 }
