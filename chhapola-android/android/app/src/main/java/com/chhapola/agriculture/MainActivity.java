@@ -63,7 +63,6 @@ import java.io.OutputStream;
  *   - Network monitoring
  *   - Login/Session preservation
  *   - Back button with double-press exit
- *   - Post-dialog DOM reflow for records list
  *
  * IMPORTANT: No JavaScript injection into the website.
  * The website's own JS must run without interference.
@@ -98,33 +97,6 @@ public class MainActivity extends BridgeActivity {
     /* ── WebView clients (created once, reused) ──────────────── */
     private ChhapolaWebViewClient webViewClient;
     private ChhapolaChromeClient chromeClient;
-
-    /* ── Records reflow flag ────────────────────────────────── */
-    private boolean pendingReflow = false;
-
-    /* ── Diagnostic: log DOM state after each dialog dismiss ── */
-    private void logDomState(String trigger, WebView wv) {
-        String js = "(function(){"
-            + "var info={};"
-            + "info.recordsLength=(window.records?window.records.length:-1);"
-            + "info.listExists=(document.getElementById('list')!=null);"
-            + "var listEl=document.getElementById('list');"
-            + "info.listInnerHtmlLen=listEl?listEl.innerHTML.length:0;"
-            + "info.listInnerText=listEl?(listEl.innerText||'').substring(0,500):'';"
-            + "info.listDisplay=listEl?listEl.style.display:'N/A';"
-            + "info.listOffsetHeight=listEl?listEl.offsetHeight:0;"
-            + "info.listOffsetWidth=listEl?listEl.offsetWidth:0;"
-            + "info.listRect=listEl?JSON.parse(JSON.stringify(listEl.getBoundingClientRect())):{height:0,width:0};"
-            + "info.listFirstCard=(listEl&&listEl.innerHTML)?listEl.innerHTML.substring(0,500):'';"
-            + "info.trigger='" + trigger + "';"
-            + "info.timestamp=new Date().toISOString();"
-            + "console.log('[CHHAPOLA-DIAG] '+JSON.stringify(info));"
-            + "return JSON.stringify(info);"
-            + "})()";
-        wv.evaluateJavascript(js, result -> {
-            Log.i(TAG, "[DIAG-DOM] " + trigger + " → " + result);
-        });
-    }
 
     /* ══════════════════════════════════════════════════════════════
        LIFECYCLE
@@ -359,20 +331,17 @@ public class MainActivity extends BridgeActivity {
 
         // Register JS bridge for Blob/PDF downloads
         webView.addJavascriptInterface(this, "AndroidBridge");
-        Log.i(TAG, "[DIAG-BRIDGE] AndroidBridge registered on WebView");
 
         webView.setDownloadListener((url, userAgent, contentDisposition,
                                      mimetype, contentLength) -> {
-            Log.i(TAG, "[DIAG-DOWNLOAD] DownloadListener fired: url=" + url
-                    + " mime=" + mimetype + " length=" + contentLength);
             /*
              * Blob/data URLs (e.g. from jsPDF doc.save()) cannot be resolved
-             * via ACTION_VIEW. The jsPDF monkey-patch in onPageStarted should
-             * have already handled these through the bridge. Fall through for
-             * regular HTTP downloads.
+             * via ACTION_VIEW. The jsPDF monkey-patch should have already
+             * handled these through the bridge. Fall through for regular
+             * HTTP downloads only.
              */
             if (url.startsWith("blob:") || url.startsWith("data:")) {
-                Log.i(TAG, "[DIAG-DOWNLOAD] blob/data URL intercepted — expecting bridge to handle");
+                // Expected: bridge already handled this via onPdfReady
                 return;
             }
             try {
@@ -380,7 +349,7 @@ public class MainActivity extends BridgeActivity {
                 startActivity(intent);
                 Toast.makeText(this, "Download started…", Toast.LENGTH_SHORT).show();
             } catch (Exception e) {
-                Log.e(TAG, "[DIAG-DOWNLOAD] Cannot open download link", e);
+                Log.e(TAG, "DownloadListener: cannot open " + url, e);
                 Toast.makeText(this, "Cannot open download link",
                         Toast.LENGTH_SHORT).show();
             }
@@ -438,42 +407,28 @@ public class MainActivity extends BridgeActivity {
         @Override
         public void onPageStarted(WebView wv, String url, Bitmap favicon) {
             super.onPageStarted(wv, url, favicon);
-            Log.i(TAG, "[DIAG-PAGE] onPageStarted: " + url);
             if (progressBar != null) progressBar.setVisibility(View.VISIBLE);
             if (errorPage != null) errorPage.setVisibility(View.GONE);
 
             // Start polling for jsPDF availability — patches as soon as
-            // jsPDF is loaded by the page, replacing the unreliable
-            // one-shot + 1s-delay approach.
+            // jsPDF is loaded by the page.
             patchJsPdfOnLoad(wv);
         }
 
         @Override
         public void onPageFinished(WebView wv, String url) {
             super.onPageFinished(wv, url);
-            Log.i(TAG, "[DIAG-PAGE] onPageFinished: " + url);
             if (progressBar != null) progressBar.setVisibility(View.GONE);
             if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
             if (desktopMode) {
                 wv.postDelayed(() -> applyDesktopViewport(wv), 1500);
             }
 
-            // Inject MutationObserver to force repaint when #list content
-            // changes after async show() completes.
-            injectListRepaintObserver(wv);
-
-            // Also re-inject jsPDF patch as backup (covers SPA navigation
+            // Re-inject jsPDF patch as backup (covers SPA navigation
             // where onPageStarted doesn't fire again).
             patchJsPdfOnLoad(wv);
 
-            // Safety-net reflow
-            if (pendingReflow) {
-                pendingReflow = false;
-                postAlertReflow();
-            }
-
-            // Log DOM state on page finish (initial state)
-            wv.postDelayed(() -> logDomState("PAGE-FINISHED+2s", wv), 2000);
+            // NO DOM repaint workarounds — let website's own show() render
         }
 
         @Override
@@ -549,75 +504,32 @@ public class MainActivity extends BridgeActivity {
         @Override
         public boolean onJsAlert(WebView wv, String url, String message,
                                  android.webkit.JsResult result) {
-            Log.i(TAG, "[DIAG-ALERT] onJsAlert fired: message=" + message);
-            pendingReflow = true;
-            // Ensure MutationObserver is active (may have been lost on
-            // SPA navigation or WebView recreation).
-            injectListRepaintObserver(wv);
-
-            // Log DOM state BEFORE dialog shows (snapshot)
-            logDomState("ALERT-BEFORE", wv);
-
-            // super.onJsAlert() is BLOCKING — returns after dialog dismiss.
-            boolean handled = super.onJsAlert(wv, url, message, result);
-
-            Log.i(TAG, "[DIAG-ALERT] Dialog dismissed. Scheduling DOM checks...");
-
-            // Log DOM state immediately after dialog dismiss (show() may still be running)
-            logDomState("ALERT-IMMEDIATE", wv);
-
-            // Log at 300ms — show() Firestore query likely completed
-            wv.postDelayed(() -> {
-                logDomState("ALERT+300ms", wv);
-                triggerListReflow(wv);
-            }, 300);
-
-            // Log at 1s — should be fully rendered
-            wv.postDelayed(() -> {
-                logDomState("ALERT+1s", wv);
-                triggerListReflow(wv);
-            }, 1000);
-
-            // Log at 2s — final check
-            wv.postDelayed(() -> logDomState("ALERT+2s", wv), 2000);
-
-            return handled;
+            // Delegate to Capacitor's default dialog — no DOM interference.
+            // super.onJsAlert() is BLOCKING: returns after dialog dismiss.
+            return super.onJsAlert(wv, url, message, result);
         }
 
         @Override
         public boolean onJsConfirm(WebView wv, String url, String message,
                                    android.webkit.JsResult result) {
-            Log.i(TAG, "[DIAG-CONFIRM] onJsConfirm fired: message=" + message);
-            pendingReflow = true;
-            injectListRepaintObserver(wv);
-
-            logDomState("CONFIRM-BEFORE", wv);
-
-            // super.onJsConfirm() is BLOCKING — returns after OK/Cancel.
-            boolean handled = super.onJsConfirm(wv, url, message, result);
-
-            Log.i(TAG, "[DIAG-CONFIRM] Dialog dismissed. Scheduling DOM checks...");
-
-            logDomState("CONFIRM-IMMEDIATE", wv);
-
-            wv.postDelayed(() -> {
-                logDomState("CONFIRM+300ms", wv);
-                triggerListReflow(wv);
-            }, 300);
-
-            wv.postDelayed(() -> {
-                logDomState("CONFIRM+1s", wv);
-                triggerListReflow(wv);
-            }, 1000);
-
-            wv.postDelayed(() -> logDomState("CONFIRM+2s", wv), 2000);
-
-            return handled;
+            // Delegate to Capacitor's default dialog — no DOM interference.
+            // super.onJsConfirm() is BLOCKING: returns after OK/Cancel.
+            return super.onJsConfirm(wv, url, message, result);
         }
 
         @Override
         public boolean onConsoleMessage(ConsoleMessage cm) {
-            return true;
+            // Log JS console messages to Logcat so errors/warnings are visible
+            // during debugging. Do NOT suppress — let default handling proceed.
+            if (cm != null) {
+                String level = cm.messageLevel() != null
+                        ? cm.messageLevel().name() : "UNKNOWN";
+                Log.i(TAG, "[JS:" + level + "] "
+                        + cm.message()
+                        + " (source: " + cm.sourceId()
+                        + " line " + cm.lineNumber() + ")");
+            }
+            return super.onConsoleMessage(cm);
         }
     }
 
@@ -626,154 +538,117 @@ public class MainActivity extends BridgeActivity {
        ══════════════════════════════════════════════════════════════ */
 
     /**
+     * Sanitize a filename by removing path separators and other
+     * characters that are invalid on Android/POSIX filesystems.
+     */
+    private static String sanitizeFilename(String name) {
+        if (name == null || name.isEmpty()) return "document.pdf";
+        // Remove path separators, null bytes, and leading/trailing dots/spaces
+        return name.replaceAll("[/\\\\:\\x00]", "_")
+                   .replaceAll("^\\.+|\\.$", "")
+                   .replaceAll("^\\s+|\\s+$", "");
+    }
+
+    /**
      * Called from JavaScript when jsPDF's save() fires.
      * {@code dataUrl} is the data-uristring produced by jsPDF
      * (e.g. "data:application/pdf;base64,JVBERi0...").
      * {@code filename} is the name the user passed to doc.save().
+     *
+     * Save path:
+     *   Android 10+  → MediaStore.Downloads (no file-system copy needed)
+     *   Android < 10 → External Downloads directory + MediaScanner
      */
     @JavascriptInterface
     public void onPdfReady(String dataUrl, String filename) {
-        Log.i(TAG, "[DIAG-PDF] ═══ onPdfReady ENTERED ═══ filename=" + filename);
-        Log.i(TAG, "[DIAG-PDF] dataUrl length=" + (dataUrl != null ? dataUrl.length() : "NULL"));
-        Log.i(TAG, "[DIAG-PDF] dataUrl prefix=" + (dataUrl != null ? dataUrl.substring(0, Math.min(80, dataUrl.length())) : "NULL"));
+        final String safeName = sanitizeFilename(filename);
+        Log.i(TAG, "onPdfReady: filename=" + safeName
+                + " dataUrlLen=" + (dataUrl != null ? dataUrl.length() : 0));
+
+        if (dataUrl == null || dataUrl.isEmpty()) {
+            Log.e(TAG, "onPdfReady: dataUrl is null or empty");
+            return;
+        }
 
         try {
             // Strip the data-URI prefix:  "data:<mime>;base64,<payload>"
             int comma = dataUrl.indexOf(',');
             if (comma < 0) {
-                Log.e(TAG, "[DIAG-PDF] FAIL: no comma in dataUrl — bad format");
+                Log.e(TAG, "onPdfReady: no comma in dataUrl — bad format");
                 return;
             }
             String base64 = dataUrl.substring(comma + 1);
-            Log.i(TAG, "[DIAG-PDF] Base64 payload length=" + base64.length());
-
             byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
-            Log.i(TAG, "[DIAG-PDF] Base64 decoded → bytes length=" + bytes.length);
 
-            // Choose save location
-            File dir;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                dir = new File(getFilesDir(), "downloads");
-                Log.i(TAG, "[DIAG-PDF] Android Q+ → internal dir: " + dir.getAbsolutePath());
-            } else {
-                dir = Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_DOWNLOADS);
-                Log.i(TAG, "[DIAG-PDF] Pre-Q → external dir: " + (dir != null ? dir.getAbsolutePath() : "NULL"));
+            if (bytes == null || bytes.length == 0) {
+                Log.e(TAG, "onPdfReady: decoded bytes are empty");
+                return;
             }
-            if (dir != null && !dir.exists()) {
-                boolean created = dir.mkdirs();
-                Log.i(TAG, "[DIAG-PDF] dir.mkdirs()=" + created);
-            }
-            File outFile = new File(dir != null ? dir : getFilesDir(), filename);
-            Log.i(TAG, "[DIAG-PDF] outFile: " + outFile.getAbsolutePath());
 
-            // Write to file
-            FileOutputStream fos = new FileOutputStream(outFile);
-            fos.write(bytes);
-            fos.close();
-            Log.i(TAG, "[DIAG-PDF] ✅ File write SUCCESS: " + outFile.getAbsolutePath() + " (" + bytes.length + " bytes)");
-
-            // Make it visible in the Gallery / Files app
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                Log.i(TAG, "[DIAG-PDF] Attempting MediaStore insert (Android Q+)...");
+                // ── Android 10+: MediaStore.Downloads ──
                 android.content.ContentValues cv = new android.content.ContentValues();
-                cv.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, filename);
+                cv.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, safeName);
                 cv.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/pdf");
                 cv.put(android.provider.MediaStore.Downloads.RELATIVE_PATH,
                         Environment.DIRECTORY_DOWNLOADS);
                 cv.put(android.provider.MediaStore.Downloads.IS_PENDING, 1);
+
                 android.net.Uri uri = getContentResolver().insert(
                         android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
-                if (uri != null) {
-                    Log.i(TAG, "[DIAG-PDF] MediaStore URI obtained: " + uri);
-                    OutputStream out = getContentResolver().openOutputStream(uri);
-                    if (out != null) {
-                        out.write(bytes);
-                        out.close();
-                        Log.i(TAG, "[DIAG-PDF] ✅ MediaStore write SUCCESS");
-                    } else {
-                        Log.e(TAG, "[DIAG-PDF] FAIL: openOutputStream returned null for URI " + uri);
-                    }
-                    cv.clear();
-                    cv.put(android.provider.MediaStore.Downloads.IS_PENDING, 0);
-                    int updated = getContentResolver().update(uri, cv, null, null);
-                    Log.i(TAG, "[DIAG-PDF] MediaStore update IS_PENDING=0 → rows=" + updated);
-                } else {
-                    Log.e(TAG, "[DIAG-PDF] FAIL: MediaStore insert returned null URI");
+
+                if (uri == null) {
+                    Log.e(TAG, "onPdfReady: MediaStore insert returned null URI");
+                    return;
                 }
+
+                try (OutputStream out = getContentResolver().openOutputStream(uri)) {
+                    if (out == null) {
+                        Log.e(TAG, "onPdfReady: openOutputStream returned null for " + uri);
+                        return;
+                    }
+                    out.write(bytes);
+                }
+
+                // Mark as complete
+                cv.clear();
+                cv.put(android.provider.MediaStore.Downloads.IS_PENDING, 0);
+                int updated = getContentResolver().update(uri, cv, null, null);
+                Log.i(TAG, "onPdfReady: MediaStore saved " + safeName
+                        + " (" + bytes.length + " bytes, rows=" + updated + ")");
+
             } else {
-                Log.i(TAG, "[DIAG-PDF] Pre-Q: scanning file with MediaScanner...");
+                // ── Android 9 and below: direct Downloads directory ──
+                File dir = Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_DOWNLOADS);
+                if (dir != null && !dir.exists()) dir.mkdirs();
+                File outFile = new File(dir != null ? dir : getFilesDir(), safeName);
+
+                try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                    fos.write(bytes);
+                }
+
+                // Make visible in file managers / gallery
                 android.media.MediaScannerConnection.scanFile(
-                        this, new String[]{outFile.getAbsolutePath()},
-                        new String[]{"application/pdf"}, (path, uri) ->
-                            Log.i(TAG, "[DIAG-PDF] MediaScanner callback: path=" + path + " uri=" + uri)
-                );
+                        this,
+                        new String[]{outFile.getAbsolutePath()},
+                        new String[]{"application/pdf"},
+                        (path, uri) -> Log.i(TAG, "onPdfReady: MediaScanner → " + path));
+
+                Log.i(TAG, "onPdfReady: saved " + outFile.getAbsolutePath()
+                        + " (" + bytes.length + " bytes)");
             }
 
-            Log.i(TAG, "[DIAG-PDF] ═══ onPdfReady COMPLETE ═══");
-            runOnUiThread(() -> Toast.makeText(this,
-                    "PDF saved: " + filename, Toast.LENGTH_LONG).show());
+            runOnUiThread(() ->
+                    Toast.makeText(this, "✅ PDF saved: " + safeName,
+                            Toast.LENGTH_LONG).show());
+
         } catch (Exception e) {
-            Log.e(TAG, "[DIAG-PDF] ═══ onPdfReady FAILED ═══", e);
-            runOnUiThread(() -> Toast.makeText(this,
-                    "PDF save failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            Log.e(TAG, "onPdfReady: FAILED", e);
+            runOnUiThread(() ->
+                    Toast.makeText(this, "❌ PDF save failed: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show());
         }
-    }
-
-    /* ══════════════════════════════════════════════════════════════
-       DOM RE-FLOW HELPERS  (fixes records list not rendering)
-       ══════════════════════════════════════════════════════════════ */
-
-    /**
-     * Safety-net reflow for onPageFinished.
-     */
-    private void postAlertReflow() {
-        WebView webView = getWebView();
-        if (webView == null) return;
-        triggerListReflow(webView);
-    }
-
-    /**
-     * Force a DOM repaint of the records list element by toggling
-     * display. Used as a fallback alongside the MutationObserver.
-     */
-    private void triggerListReflow(WebView wv) {
-        String js = "(function(){"
-            + "var el=document.getElementById('list');"
-            + "if(!el)return;"
-            + "el.style.display='none';"
-            + "void el.offsetHeight;"
-            + "el.style.display='';"
-            + "})()";
-        wv.evaluateJavascript(js, null);
-    }
-
-    /**
-     * Inject a MutationObserver that watches the #list element for
-     * DOM changes (childList, subtree, characterData) and forces a
-     * WebView repaint. This is the PRIMARY fix for records not showing:
-     * show() is async and awaits Firestore — the timed reflows fire
-     * before the DOM is updated. The observer reacts to the exact
-     * moment the DOM changes, regardless of timing.
-     *
-     * Injected from onPageFinished (initial load) and from
-     * onJsAlert/onJsConfirm (safety — in case observer was lost).
-     */
-    private void injectListRepaintObserver(WebView wv) {
-        String js = "(function(){"
-            + "if(window.__listRepaintObserver)return;"
-            + "var list=document.getElementById('list');"
-            + "if(!list)return;"
-            + "window.__listRepaintObserver=true;"
-            + "new MutationObserver(function(){"
-            + "  var el=document.getElementById('list');"
-            + "  if(!el)return;"
-            + "  el.style.display='none';"
-            + "  void el.offsetHeight;"
-            + "  el.style.display='';"
-            + "}).observe(list,{childList:true,subtree:true,characterData:true});"
-            + "})()";
-        wv.evaluateJavascript(js, null);
     }
 
     /* ══════════════════════════════════════════════════════════════
@@ -782,31 +657,36 @@ public class MainActivity extends BridgeActivity {
 
     /**
      * Poll until jsPDF is available, then patch jsPDF.prototype.save
-     * once to route PDF bytes through the AndroidBridge.  Retries
-     * every 500ms for up to 10 seconds (20 attempts).
+     * once to route PDF bytes through the AndroidBridge.
+     *
+     * When the bridge call succeeds, we return without calling the
+     * original save — this prevents a duplicate browser-level download.
+     * The {@code __pdfBridgeOk} flag tracks whether the bridge received
+     * the data so the fallback (origSave) can fire if the bridge is
+     * unavailable.
      */
     private void patchJsPdfOnLoad(WebView wv) {
         final String PATCH_JS =
-            "(function(){" +
-            "if(window.__jspdfPatched || !window.jspdf || !window.jspdf.jsPDF)" +
-            "  return false;" +
-            "window.__jspdfPatched=true;" +
-            "console.log('[CHHAPOLA-DIAG] jsPDF monkey-patch APPLIED');" +
-            "var Orig=window.jspdf.jsPDF;" +
-            "var origSave=Orig.prototype.save;" +
-            "Orig.prototype.save=function(n){" +
-            "  console.log('[CHHAPOLA-DIAG] doc.save() called with filename='+(n||'document.pdf'));" +
-            "  try{" +
-            "    var d=this.datauristring();" +
-            "    console.log('[CHHAPOLA-DIAG] datauristring() length='+(d?d.length:0));" +
-            "    if(d && window.AndroidBridge)" +
-            "      window.AndroidBridge.onPdfReady(d, n||'document.pdf');" +
-            "    else console.log('[CHHAPOLA-DIAG] Bridge/dataUrl NOT available: d='+(d!=null)+' bridge='+(window.AndroidBridge!=null));" +
-            "  }catch(e){console.log('[CHHAPOLA-DIAG] doc.save() bridge call FAILED: '+e);}" +
-            "  return origSave.call(this,n);" +
-            "};" +
-            "return true;" +
-            "})()";
+            "(function(){"
+            + "if(window.__jspdfPatched||!window.jspdf||!window.jspdf.jsPDF)"
+            + "  return false;"
+            + "window.__jspdfPatched=true;"
+            + "var Orig=window.jspdf.jsPDF;"
+            + "var origSave=Orig.prototype.save;"
+            + "Orig.prototype.save=function(n){"
+            + "  window.__pdfBridgeOk=false;"
+            + "  try{"
+            + "    var d=this.datauristring();"
+            + "    if(d&&window.AndroidBridge){"
+            + "      window.AndroidBridge.onPdfReady(d,n||'document.pdf');"
+            + "      window.__pdfBridgeOk=true;"
+            + "    }"
+            + "  }catch(e){}"
+            + "  if(window.__pdfBridgeOk) return;"
+            + "  return origSave.call(this,n);"
+            + "};"
+            + "return true;"
+            + "})()";
 
         final int[] attempts = {0};
         Runnable poll = new Runnable() {
@@ -816,16 +696,11 @@ public class MainActivity extends BridgeActivity {
                 if (wv2 == null) return;
                 attempts[0]++;
                 wv2.evaluateJavascript(PATCH_JS, result -> {
-                    // result is "true" if patched, "false" if not yet available
-                    Log.i(TAG, "[DIAG-PDF] jsPDF poll attempt=" + attempts[0] + " result=" + result);
                     if (result == null || !result.contains("true")) {
                         if (attempts[0] < 20) {
                             wv2.postDelayed(this, 500);
-                        } else {
-                            Log.w(TAG, "[DIAG-PDF] jsPDF poll EXHAUSTED after 20 attempts — jsPDF not found");
                         }
                     }
-                    // else: patched successfully, stop polling
                 });
             }
         };
