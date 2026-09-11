@@ -167,6 +167,11 @@ public class MainActivity extends BridgeActivity {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
 
+        // Prevent SwipeRefreshLayout from intercepting scroll when WebView
+        // content is scrollable (fixes entries not visible after 9th item)
+        swipeRefresh.setOnChildScrollUpCallback(
+                (parent, child) -> webView.canScrollVertically(-1));
+
         root.addView(swipeRefresh, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
@@ -676,7 +681,7 @@ public class MainActivity extends BridgeActivity {
             + "Orig.prototype.save=function(n){"
             + "  window.__pdfBridgeOk=false;"
             + "  try{"
-            + "    var d=this.datauristring();"
+            + "    var d=this.output('datauristring');"
             + "    if(d&&window.AndroidBridge){"
             + "      window.AndroidBridge.onPdfReady(d,n||'document.pdf');"
             + "      window.__pdfBridgeOk=true;"
