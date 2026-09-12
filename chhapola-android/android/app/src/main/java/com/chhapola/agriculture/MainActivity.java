@@ -9,11 +9,12 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.net.Uri;
+import android.content.ContentValues;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
-import android.os.Looper;
+import android.provider.MediaStore;
+import android.util.Base64;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -21,7 +22,7 @@ import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
-import android.webkit.GeolocationPermissions;
+import android.webkit.JsResult;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -42,12 +43,17 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
-import com.getcapacitor.BridgeActivity;
-import com.getcapacitor.BridgeWebChromeClient;
 import com.getcapacitor.Bridge;
-import android.app.DownloadManager;
+import com.getcapacitor.BridgeWebChromeClient;
+import com.getcapacitor.BridgeActivity;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.net.URLEncoder;
+import android.app.DownloadManager;
 
 /**
  * Chhapola Agriculture — Professional Android App
@@ -57,74 +63,66 @@ import java.net.URLEncoder;
  *
  * All business logic, Firebase auth, records, PDF generation,
  * AI Munshi, scanner, and all features run inside the website.
+ *
  * This Android class provides ONLY native integration:
  *   - Professional toolbar & branding
  *   - Pull-to-Refresh
  *   - Loading indicator & error page
  *   - Back button with double-press exit
-   - External link handling (tel, mailto, WhatsApp, maps)
- *   - File upload / camera / gallery
- *   - Desktop / Mobile site toggle
+ *   - External link handling (tel, mailto, WhatsApp, maps)
+ *   - File upload (camera/gallery)
  *   - Network monitoring
- *   - Standard download handling via DownloadManager
+ *   - Standard file download handling
+ *   - PDF saving via PdfBridge (called from website jsPDF)
  *
- * IMPORTANT: No JavaScript injection into the website.
- * The website's own JS must run without any interference.
+ * IMPORTANT: No JavaScript is injected into the website.
+ * The website's own JS runs without any interference.
  */
 public class MainActivity extends BridgeActivity {
 
     private static final String TAG = "CHHAPOLA";
-    private static final String WEBSITE_URL = "https://chhapolaagriculture.com/";
+    private static final String WEBSITE_URL =
+            "https://chhapolaagriculture.com/";
 
-    /* ── State ────────────────────────────────────────────────── */
+    /* ── State ─────────────────────────────────────────── */
     private long lastBackTime = 0;
-    private boolean desktopMode = false;
     private boolean isNetworkAvailable = true;
 
-    /* ── User-Agents ──────────────────────────────────────────── */
-    private static final String DESKTOP_UA =
-            "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 "
-            + "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-    private static final String MOBILE_UA =
-            "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 "
-            + "(KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
-
-    /* ── UI references ────────────────────────────────────────── */
+    /* ── UI references ─────────────────────────────────── */
     private SwipeRefreshLayout swipeRefresh;
     private ProgressBar progressBar;
     private LinearLayout errorPage;
     private Toolbar toolbar;
-    private MenuItem desktopToggle;
 
-    /* ── File upload ──────────────────────────────────────────── */
+    /* ── File upload ───────────────────────────────────── */
     private ValueCallback<Uri[]> fileUploadCallback;
     private static final int FILE_CHOOSER_REQUEST = 1001;
     private static final int PERMISSION_REQUEST = 2001;
 
-    /* ── WebView clients (created once, reused) ──────────────── */
+    /* ── WebView clients ───────────────────────────────── */
     private ChhapolaWebViewClient webViewClient;
     private ChhapolaChromeClient chromeClient;
 
-    /* ══════════════════════════════════════════════════════════════
+    /* ════════════════════════════════════════════════════════
        LIFECYCLE
-       ══════════════════════════════════════════════════════════════ */
+       ════════════════════════════════════════════════════════ */
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        if (savedInstanceState != null) {
-            desktopMode = savedInstanceState.getBoolean("desktopMode", false);
-        }
-
         setupCustomViews();
         configureWebView();
+        setupClients();
         requestPermissionsIfNeeded();
 
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() { handleBackNavigation(); }
-        });
+        getOnBackPressedDispatcher().addCallback(this,
+                new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        handleBackNavigation();
+                    }
+                });
     }
 
     @Override
@@ -135,20 +133,19 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    public void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        outState.putBoolean("desktopMode", desktopMode);
-    }
-
-    @Override
     public void onDestroy() {
         unregisterNetworkCallback();
         super.onDestroy();
     }
 
-    /* ══════════════════════════════════════════════════════════════
+    /* ════════════════════════════════════════════════════════
        VIEW SETUP
-       ══════════════════════════════════════════════════════════════ */
+       ════════════════════════════════════════════════════════ */
+
+    private WebView getWebView() {
+        Bridge bridge = getBridge();
+        return bridge != null ? bridge.getWebView() : null;
+    }
 
     private void setupCustomViews() {
         WebView webView = getWebView();
@@ -156,34 +153,14 @@ public class MainActivity extends BridgeActivity {
         if (swipeRefresh != null) return;
 
         if (webView.getParent() != null) {
-            ((android.view.ViewGroup) webView.getParent()).removeView(webView);
+            ((android.view.ViewGroup) webView.getParent())
+                    .removeView(webView);
         }
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.WHITE);
 
-        // SwipeRefreshLayout
-        swipeRefresh = new SwipeRefreshLayout(this);
-        swipeRefresh.setColorSchemeColors(
-                ContextCompat.getColor(this, R.color.colorPrimary));
-        swipeRefresh.setOnRefreshListener(() -> {
-            WebView wv = getWebView();
-            if (wv != null) wv.reload();
-        });
-        swipeRefresh.addView(webView, new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT));
-
-        // Prevent SwipeRefreshLayout from intercepting scroll when
-        // WebView content is scrollable — standard Android pattern
-        swipeRefresh.setOnChildScrollUpCallback(
-                (parent, child) -> webView.canScrollVertically(-1));
-
-        root.addView(swipeRefresh, new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT));
-
-        // Toolbar
+        /* ── Toolbar ───────────────────────────────────── */
         toolbar = new Toolbar(this);
         toolbar.setBackgroundColor(
                 ContextCompat.getColor(this, R.color.colorPrimary));
@@ -191,39 +168,63 @@ public class MainActivity extends BridgeActivity {
         toolbar.setTitle("Chhapola");
         setSupportActionBar(toolbar);
 
-        FrameLayout.LayoutParams toolbarParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, dpToPx(56));
+        FrameLayout.LayoutParams toolbarParams =
+                new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        dpToPx(56));
         toolbarParams.gravity = android.view.Gravity.TOP;
         root.addView(toolbar, toolbarParams);
 
-        FrameLayout.LayoutParams swipeParams = (FrameLayout.LayoutParams)
-                swipeRefresh.getLayoutParams();
-        swipeParams.topMargin = dpToPx(56);
-        swipeRefresh.setLayoutParams(swipeParams);
+        /* ── SwipeRefreshLayout ────────────────────────── */
+        swipeRefresh = new SwipeRefreshLayout(this);
+        swipeRefresh.setColorSchemeColors(
+                ContextCompat.getColor(this, R.color.colorPrimary));
+        swipeRefresh.setOnRefreshListener(() -> {
+            WebView wv = getWebView();
+            if (wv != null) wv.reload();
+        });
 
-        // ProgressBar
+        FrameLayout.LayoutParams swipeParams =
+                new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT);
+        swipeParams.topMargin = dpToPx(56);
+        swipeRefresh.addView(webView, swipeParams);
+
+        /* Prevent SwipeRefreshLayout from intercepting scroll
+         * when WebView content is scrollable */
+        swipeRefresh.setOnChildScrollUpCallback(
+                (parent, child) -> webView.canScrollVertically(-1));
+
+        root.addView(swipeRefresh, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
+
+        /* ── Progress bar ─────────────────────────────── */
         progressBar = new ProgressBar(this, null,
                 android.R.attr.progressBarStyleHorizontal);
         progressBar.setMax(100);
         progressBar.setVisibility(View.GONE);
-        FrameLayout.LayoutParams progressParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, dpToPx(3));
+        FrameLayout.LayoutParams progressParams =
+                new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        dpToPx(3));
         progressParams.gravity = android.view.Gravity.TOP;
         progressParams.topMargin = dpToPx(56);
         root.addView(progressBar, progressParams);
 
-        // Error page
+        /* ── Error page ───────────────────────────────── */
         errorPage = createErrorPage();
         errorPage.setVisibility(View.GONE);
-        FrameLayout.LayoutParams errorParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT);
+        FrameLayout.LayoutParams errorParams =
+                new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT);
         errorParams.topMargin = dpToPx(56);
         root.addView(errorPage, errorParams);
 
         setContentView(root);
         registerNetworkCallback();
-        setupWebViewClients();
     }
 
     private LinearLayout createErrorPage() {
@@ -231,7 +232,8 @@ public class MainActivity extends BridgeActivity {
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setGravity(android.view.Gravity.CENTER);
         layout.setBackgroundColor(Color.WHITE);
-        layout.setPadding(dpToPx(32), dpToPx(32), dpToPx(32), dpToPx(32));
+        layout.setPadding(dpToPx(32), dpToPx(32),
+                dpToPx(32), dpToPx(32));
 
         TextView icon = new TextView(this);
         icon.setText("\uD83D\uDCE1");
@@ -251,7 +253,11 @@ public class MainActivity extends BridgeActivity {
         layout.addView(title, tp);
 
         TextView sub = new TextView(this);
-        sub.setText("\u0915\u0943\u092A\u092F\u093E \u0905\u092A\u0928\u093E internet connection \u091C\u093E\u0901\u094D\u091A\u0947\u0902\n\u0914\u0930 \u092B\u093F\u0930 \u0938\u0947 try \u0915\u0930\u0947\u0902\u0964");
+        sub.setText("\u0915\u0943\u092A\u092F\u093E "
+                + "\u0905\u092A\u0928\u093E internet "
+                + "connection \u091C\u093E\u0901\u094D\u091A\u0947\u0902"
+                + "\n\u0914\u0930 \u092B\u093F\u0930 "
+                + "\u0938\u0947 try \u0915\u0930\u0947\u0902\u0964");
         sub.setTextSize(14);
         sub.setTextColor(Color.parseColor("#666666"));
         sub.setGravity(android.view.Gravity.CENTER);
@@ -267,11 +273,14 @@ public class MainActivity extends BridgeActivity {
         retryBtn.setTextColor(Color.WHITE);
         retryBtn.setBackgroundColor(
                 ContextCompat.getColor(this, R.color.colorPrimary));
-        retryBtn.setPadding(dpToPx(32), dpToPx(12), dpToPx(32), dpToPx(12));
+        retryBtn.setPadding(dpToPx(32), dpToPx(12),
+                dpToPx(32), dpToPx(12));
         retryBtn.setGravity(android.view.Gravity.CENTER);
         retryBtn.setOnClickListener(v -> {
-            WebView wv = getWebView();
-            if (wv != null && isNetworkAvailable) wv.reload();
+            if (isNetworkAvailable) {
+                WebView wv = getWebView();
+                if (wv != null) wv.reload();
+            }
         });
         LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -282,13 +291,9 @@ public class MainActivity extends BridgeActivity {
         return layout;
     }
 
-    /* ══════════════════════════════════════════════════════════════
+    /* ════════════════════════════════════════════════════════
        WEBVIEW CONFIGURATION
-       ══════════════════════════════════════════════════════════════ */
-
-    private WebView getWebView() {
-        return (getBridge() != null) ? getBridge().getWebView() : null;
-    }
+       ════════════════════════════════════════════════════════ */
 
     private void configureWebView() {
         WebView webView = getWebView();
@@ -302,8 +307,11 @@ public class MainActivity extends BridgeActivity {
         s.setDatabaseEnabled(true);
         s.setAllowContentAccess(true);
 
-        // User agent — mobile or desktop
-        s.setUserAgentString(desktopMode ? DESKTOP_UA : MOBILE_UA);
+        // User agent — mobile
+        s.setUserAgentString(
+                "Mozilla/5.0 (Linux; Android 14; Pixel 7) "
+                + "AppleWebKit/537.36 (KHTML, like Gecko) "
+                + "Chrome/131.0.0.0 Mobile Safari/537.36");
 
         // Viewport
         s.setUseWideViewPort(true);
@@ -318,19 +326,26 @@ public class MainActivity extends BridgeActivity {
         // Cache
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
 
+        // Allow mixed content (some resources might be http)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            s.setMixedContentMode(
+                    WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+        }
+
         // Cookies — essential for Firebase auth sessions
-        CookieManager.getInstance().setAcceptCookie(true);
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
+        CookieManager cm = CookieManager.getInstance();
+        cm.setAcceptCookie(true);
+        cm.setAcceptThirdPartyCookies(webView, true);
     }
 
-    /* ══════════════════════════════════════════════════════════════
+    /* ════════════════════════════════════════════════════════
        WEBVIEW CLIENTS
-       ══════════════════════════════════════════════════════════════ */
+       ════════════════════════════════════════════════════════ */
 
-    private void setupWebViewClients() {
+    private void setupClients() {
         WebView webView = getWebView();
         if (webView == null) {
-            Log.e(TAG, "setupWebViewClients: webView is NULL");
+            Log.e(TAG, "setupClients: webView is NULL");
             return;
         }
 
@@ -343,74 +358,257 @@ public class MainActivity extends BridgeActivity {
 
         webView.setWebViewClient(webViewClient);
         webView.setWebChromeClient(chromeClient);
-
-        // Standard download handling via DownloadManager
         webView.setDownloadListener(createDownloadListener());
+
+        // Register PDF bridge — website can call
+        // window.AndroidBridge.savePdf(dataUrl, filename)
+        webView.addJavascriptInterface(new PdfBridge(), "AndroidBridge");
     }
 
+    /* ── DownloadListener ─────────────────────────────── */
+
     /**
-     * Clean download handler using Android DownloadManager.
-     * Handles regular HTTP/HTTPS file downloads.
-     * For blob/data URLs (e.g. from jsPDF), the website's own
-     * download mechanism or browser fallback is used.
+     * Handles file downloads from the website.
+     * - HTTP/HTTPS files → Android DownloadManager
+     * - Blob/data URLs from jsPDF → PdfBridge via data URL
+     *   (some devices support blob downloads natively;
+     *    the bridge handles the rest)
      */
     private DownloadListener createDownloadListener() {
-        return (url, userAgent, contentDisposition, mimetype, contentLength) -> {
-            // For blob/data URLs — let the WebView handle naturally
-            if (url.startsWith("blob:") || url.startsWith("data:")) {
-                Log.i(TAG, "DownloadListener: blob/data URL received, "
-                        + "using website download mechanism");
+        return (url, userAgent, contentDisposition,
+                mimetype, contentLength) -> {
+
+            Log.i(TAG, "Download: " + (url != null
+                    ? url.substring(0, Math.min(80, url.length()))
+                    : "null")
+                    + " | type=" + mimetype);
+
+            /* ── Blob URLs — may fire on some devices ─── */
+            if (url != null && url.startsWith("blob:")) {
+                handleBlobDownload(url, userAgent,
+                        contentDisposition, mimetype);
                 return;
             }
 
+            /* ── Data URLs — convert and save ─────────── */
+            if (url != null && url.startsWith("data:")) {
+                handleDataUrlDownload(url, contentDisposition);
+                return;
+            }
+
+            /* ── Regular HTTP/HTTPS downloads ─────────── */
+            if (url != null && (url.startsWith("http://")
+                    || url.startsWith("https://"))) {
+                handleHttpDownload(url, userAgent,
+                        contentDisposition, mimetype);
+                return;
+            }
+
+            /* ── Fallback: try to open in browser ─────── */
             try {
-                DownloadManager.Request request =
-                        new DownloadManager.Request(Uri.parse(url));
-                request.setMimeType(mimetype);
-
-                // Use same User-Agent as the WebView
-                String cookies = CookieManager.getInstance()
-                        .getCookie(url);
-                if (cookies != null) {
-                    request.addRequestHeader("Cookie", cookies);
-                }
-                request.addRequestHeader("User-Agent", userAgent);
-                request.setDescription("Downloading file...");
-
-                String fileName = URLUtil.guessFileName(
-                        url, contentDisposition, mimetype);
-                request.setTitle(fileName);
-                request.setNotificationVisibility(
-                        DownloadManager.Request
-                                .VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                request.setDestinationInExternalPublicDir(
-                        Environment.DIRECTORY_DOWNLOADS, fileName);
-
-                DownloadManager dm = (DownloadManager)
-                        getSystemService(DOWNLOAD_SERVICE);
-                if (dm != null) {
-                    dm.enqueue(request);
-                    runOnUiThread(() -> Toast.makeText(this,
-                            "Downloading " + fileName,
-                            Toast.LENGTH_SHORT).show());
-                }
+                Intent intent = new Intent(
+                        Intent.ACTION_VIEW, Uri.parse(url));
+                startActivity(intent);
             } catch (Exception e) {
-                Log.e(TAG, "DownloadListener: failed for " + url, e);
-                // Fallback: try to open in browser
-                try {
-                    Intent intent = new Intent(
-                            Intent.ACTION_VIEW, Uri.parse(url));
-                    startActivity(intent);
-                } catch (Exception ex) {
-                    runOnUiThread(() -> Toast.makeText(this,
-                            "Cannot download file",
-                            Toast.LENGTH_SHORT).show());
-                }
+                runOnUiThread(() -> Toast.makeText(this,
+                        "Cannot open file",
+                        Toast.LENGTH_SHORT).show());
             }
         };
     }
 
-    /* ── WebViewClient ──────────────────────────────────────── */
+    /**
+     * Handle blob URL download.
+     * Tries DownloadManager first; if it fails (common for
+     * blob URLs on some devices), falls back to opening in
+     * browser.
+     */
+    private void handleBlobDownload(String blobUrl,
+            String userAgent, String contentDisposition,
+            String mimetype) {
+        try {
+            String fileName = URLUtil.guessFileName(
+                    blobUrl, contentDisposition, mimetype);
+            if (fileName == null || fileName.isEmpty()) {
+                fileName = "download";
+            }
+            final String finalName = fileName;
+
+            DownloadManager.Request request =
+                    new DownloadManager.Request(Uri.parse(blobUrl));
+            request.setMimeType(mimetype);
+            request.addRequestHeader("User-Agent", userAgent);
+            request.setDescription("Downloading " + finalName);
+            request.setTitle(finalName);
+            request.setNotificationVisibility(
+                    DownloadManager.Request
+                            .VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationInExternalPublicDir(
+                    Environment.DIRECTORY_DOWNLOADS, finalName);
+
+            DownloadManager dm = (DownloadManager)
+                    getSystemService(DOWNLOAD_SERVICE);
+            if (dm != null) {
+                dm.enqueue(request);
+                runOnUiThread(() -> Toast.makeText(this,
+                        "Downloading " + finalName,
+                        Toast.LENGTH_SHORT).show());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Blob download failed: " + e.getMessage());
+            // Fallback: try to open blob URL in browser
+            try {
+                Intent intent = new Intent(
+                        Intent.ACTION_VIEW, Uri.parse(blobUrl));
+                startActivity(intent);
+            } catch (Exception ex) {
+                runOnUiThread(() -> Toast.makeText(this,
+                        "Cannot download file",
+                        Toast.LENGTH_SHORT).show());
+            }
+        }
+    }
+
+    /**
+     * Handle data URL download.
+     * Decodes data URL (base64) and saves to Downloads.
+     */
+    private void handleDataUrlDownload(String dataUrl,
+            String contentDisposition) {
+        try {
+            // Parse data URL: data:application/pdf;base64,<data>
+            int commaIdx = dataUrl.indexOf(',');
+            if (commaIdx < 0) {
+                runOnUiThread(() -> Toast.makeText(this,
+                        "Invalid data URL",
+                        Toast.LENGTH_SHORT).show());
+                return;
+            }
+
+            String header = dataUrl.substring(0, commaIdx);
+            String base64Data = dataUrl.substring(commaIdx + 1);
+
+            // Extract filename from content-disposition or default
+            String filename = "document.pdf";
+            if (contentDisposition != null
+                    && contentDisposition.contains("filename=")) {
+                int start = contentDisposition.indexOf("filename=")
+                        + 9;
+                int end = contentDisposition.indexOf(';', start);
+                if (end < 0) end = contentDisposition.length();
+                filename = contentDisposition
+                        .substring(start, end)
+                        .replaceAll("[\"']", "").trim();
+            }
+
+            String finalFilename = sanitizeFilename(filename);
+
+            // Decode base64
+            byte[] pdfBytes = Base64.decode(base64Data,
+                    Base64.DEFAULT);
+
+            // Save to Downloads
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Android 10+: use MediaStore
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.Downloads.DISPLAY_NAME,
+                        finalFilename);
+                values.put(MediaStore.Downloads.MIME_TYPE,
+                        "application/pdf");
+                values.put(MediaStore.Downloads.RELATIVE_PATH,
+                        Environment.DIRECTORY_DOWNLOADS);
+
+                Uri uri = getContentResolver().insert(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        values);
+                if (uri != null) {
+                    try (OutputStream os =
+                            getContentResolver()
+                                    .openOutputStream(uri)) {
+                        if (os != null) {
+                            os.write(pdfBytes);
+                            os.flush();
+                        }
+                    }
+                    showPdfSavedToast(finalFilename);
+                }
+            } else {
+                // Android 9 and below
+                @SuppressWarnings("deprecation")
+                File downloads = Environment
+                        .getExternalStoragePublicDirectory(
+                                Environment.DIRECTORY_DOWNLOADS);
+                File file = new File(downloads, finalFilename);
+                try (FileOutputStream fos =
+                        new FileOutputStream(file)) {
+                    fos.write(pdfBytes);
+                    fos.flush();
+                }
+                showPdfSavedToast(finalFilename);
+            }
+
+            Log.i(TAG, "Data URL PDF saved: " + finalFilename
+                    + " (" + pdfBytes.length + " bytes)");
+        } catch (Exception e) {
+            Log.e(TAG, "Data URL download failed: "
+                    + e.getMessage(), e);
+            runOnUiThread(() -> Toast.makeText(this,
+                    "PDF save failed: " + e.getMessage(),
+                    Toast.LENGTH_LONG).show());
+        }
+    }
+
+    /**
+     * Handle regular HTTP/HTTPS file download via
+     * Android DownloadManager.
+     */
+    private void handleHttpDownload(String url, String userAgent,
+            String contentDisposition, String mimetype) {
+        try {
+            DownloadManager.Request request =
+                    new DownloadManager.Request(Uri.parse(url));
+            request.setMimeType(mimetype);
+
+            String cookies = CookieManager.getInstance()
+                    .getCookie(url);
+            if (cookies != null) {
+                request.addRequestHeader("Cookie", cookies);
+            }
+            request.addRequestHeader("User-Agent", userAgent);
+            request.setDescription("Downloading file...");
+
+            String fileName = URLUtil.guessFileName(
+                    url, contentDisposition, mimetype);
+            request.setTitle(fileName);
+            request.setNotificationVisibility(
+                    DownloadManager.Request
+                            .VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationInExternalPublicDir(
+                    Environment.DIRECTORY_DOWNLOADS, fileName);
+
+            DownloadManager dm = (DownloadManager)
+                    getSystemService(DOWNLOAD_SERVICE);
+            if (dm != null) {
+                dm.enqueue(request);
+                runOnUiThread(() -> Toast.makeText(this,
+                        "Downloading " + fileName,
+                        Toast.LENGTH_SHORT).show());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "HTTP download failed: " + e.getMessage());
+            try {
+                Intent intent = new Intent(
+                        Intent.ACTION_VIEW, Uri.parse(url));
+                startActivity(intent);
+            } catch (Exception ex) {
+                runOnUiThread(() -> Toast.makeText(this,
+                        "Cannot download file",
+                        Toast.LENGTH_SHORT).show());
+            }
+        }
+    }
+
+    /* ── WebViewClient ────────────────────────────────── */
 
     private class ChhapolaWebViewClient extends WebViewClient {
 
@@ -419,25 +617,21 @@ public class MainActivity extends BridgeActivity {
                 WebResourceRequest req) {
             String url = req.getUrl().toString();
 
-            // Telephone
             if (url.startsWith("tel:")) {
                 startActivity(new Intent(Intent.ACTION_DIAL,
                         Uri.parse(url)));
                 return true;
             }
-            // Email
             if (url.startsWith("mailto:")) {
                 startActivity(new Intent(Intent.ACTION_SENDTO,
                         Uri.parse(url)));
                 return true;
             }
-            // SMS
             if (url.startsWith("sms:")) {
                 startActivity(new Intent(Intent.ACTION_SENDTO,
                         Uri.parse(url)));
                 return true;
             }
-            // WhatsApp
             if (url.contains("api.whatsapp.com")
                     || url.contains("wa.me/")) {
                 try {
@@ -446,20 +640,22 @@ public class MainActivity extends BridgeActivity {
                 } catch (Exception e) { /* ignore */ }
                 return true;
             }
-            // Maps / Geo
             if (url.startsWith("geo:")
                     || url.contains("maps.google")) {
-                startActivity(new Intent(Intent.ACTION_VIEW,
-                        Uri.parse(url)));
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW,
+                            Uri.parse(url)));
+                } catch (Exception e) { /* ignore */ }
                 return true;
             }
-            // Play Store
             if (url.contains("play.google.com")) {
-                startActivity(new Intent(Intent.ACTION_VIEW,
-                        Uri.parse(url)));
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW,
+                            Uri.parse(url)));
+                } catch (Exception e) { /* ignore */ }
                 return true;
             }
-            // External links — open in browser, keep app for our domain
+            // External links — open in browser
             if (!url.contains("chhapolaagriculture.com")
                     && !url.startsWith("about:blank")
                     && req.isForMainFrame()) {
@@ -490,16 +686,11 @@ public class MainActivity extends BridgeActivity {
                 progressBar.setVisibility(View.GONE);
             if (swipeRefresh != null)
                 swipeRefresh.setRefreshing(false);
-
-            // Desktop mode viewport override
-            if (desktopMode) {
-                wv.postDelayed(() -> applyDesktopViewport(wv), 1500);
-            }
         }
 
         @Override
-        public void onReceivedError(WebView wv, WebResourceRequest req,
-                WebResourceError error) {
+        public void onReceivedError(WebView wv,
+                WebResourceRequest req, WebResourceError error) {
             super.onReceivedError(wv, req, error);
             if (req.isForMainFrame()) {
                 if (progressBar != null)
@@ -512,15 +703,17 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    /* ── WebChromeClient ────────────────────────────────────── */
+    /* ── WebChromeClient ──────────────────────────────── */
 
     /**
      * Extends Capacitor's BridgeWebChromeClient.
-     * JS alert/confirm/prompt dialogs are handled by Capacitor's
-     * default BridgeWebChromeClient (standard Android AlertDialog).
+     * JS alert/confirm/prompt dialogs are handled by
+     * Capacitor's default BridgeWebChromeClient
+     * (standard Android AlertDialog).
      * No custom dialog or DOM interference.
      */
-    private class ChhapolaChromeClient extends BridgeWebChromeClient {
+    private class ChhapolaChromeClient
+            extends BridgeWebChromeClient {
 
         ChhapolaChromeClient(Bridge bridge) {
             super(bridge);
@@ -535,11 +728,12 @@ public class MainActivity extends BridgeActivity {
             }
             fileUploadCallback = callback;
 
-            if (ContextCompat.checkSelfPermission(MainActivity.this,
-                    Manifest.permission.CAMERA)
+            if (ContextCompat.checkSelfPermission(
+                    MainActivity.this, Manifest.permission.CAMERA)
                     != android.content.pm.PackageManager
                             .PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(MainActivity.this,
+                ActivityCompat.requestPermissions(
+                        MainActivity.this,
                         new String[]{Manifest.permission.CAMERA},
                         PERMISSION_REQUEST);
                 return true;
@@ -550,7 +744,8 @@ public class MainActivity extends BridgeActivity {
         }
 
         @Override
-        public void onProgressChanged(WebView wv, int newProgress) {
+        public void onProgressChanged(WebView wv,
+                int newProgress) {
             if (progressBar != null) {
                 progressBar.setProgress(newProgress);
                 progressBar.setVisibility(newProgress >= 100
@@ -559,18 +754,17 @@ public class MainActivity extends BridgeActivity {
         }
 
         @Override
-        public void onGeolocationPermissionsShowPrompt(String origin,
-                GeolocationPermissions.Callback callback) {
-            if (ContextCompat.checkSelfPermission(MainActivity.this,
-                    Manifest.permission.ACCESS_FINE_LOCATION)
-                    != android.content.pm.PackageManager
-                            .PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(MainActivity.this,
-                        new String[]{
-                                Manifest.permission.ACCESS_FINE_LOCATION},
-                        PERMISSION_REQUEST);
-            }
-            callback.invoke(origin, true, false);
+        public boolean onJsAlert(WebView wv, String url,
+                String message, JsResult result) {
+            // Let Capacitor's default AlertDialog handle it
+            return super.onJsAlert(wv, url, message, result);
+        }
+
+        @Override
+        public boolean onJsConfirm(WebView wv, String url,
+                String message, JsResult result) {
+            // Let Capacitor's default AlertDialog handle it
+            return super.onJsConfirm(wv, url, message, result);
         }
 
         @Override
@@ -588,15 +782,141 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    /* ══════════════════════════════════════════════════════════════
+    /* ════════════════════════════════════════════════════════
+       PDF BRIDGE — called by website jsPDF
+       ════════════════════════════════════════════════════════ */
+
+    /**
+     * JavaScript interface for the website to call when
+     * generating PDF files.
+     *
+     * Usage from website JavaScript:
+     *   var dataUrl = doc.output('datauristring');
+     *   window.AndroidBridge.savePdf(dataUrl, 'filename.pdf');
+     *
+     * This is NOT a monkey-patch of jsPDF. The website's
+     * existing PDF code continues to work exactly as before.
+     * This bridge simply provides a clean Android-native
+     * path for saving files that the browser can't download.
+     */
+    public class PdfBridge {
+
+        /**
+         * Save a PDF from a data URL to the device's
+         * Downloads folder.
+         *
+         * @param dataUrl  Base64-encoded PDF as data URL
+         * @param filename Target filename
+         */
+        @android.webkit.JavascriptInterface
+        public void savePdf(String dataUrl, String filename) {
+            Log.i(TAG, "[PdfBridge] savePdf called: "
+                    + filename);
+            try {
+                if (dataUrl == null || dataUrl.isEmpty()) {
+                    Log.e(TAG, "[PdfBridge] dataUrl is null/empty");
+                    return;
+                }
+
+                // Parse data URL
+                int commaIdx = dataUrl.indexOf(',');
+                if (commaIdx < 0) {
+                    Log.e(TAG, "[PdfBridge] Invalid data URL format");
+                    return;
+                }
+
+                String base64Data = dataUrl.substring(commaIdx + 1);
+                String safeName = sanitizeFilename(
+                        filename != null && !filename.isEmpty()
+                                ? filename : "document.pdf");
+
+                // Decode base64
+                byte[] pdfBytes = Base64.decode(base64Data,
+                        Base64.DEFAULT);
+                Log.i(TAG, "[PdfBridge] Decoded " + pdfBytes.length
+                        + " bytes for: " + safeName);
+
+                // Save to Downloads
+                if (Build.VERSION.SDK_INT
+                        >= Build.VERSION_CODES.Q) {
+                    saveWithMediaStore(safeName, pdfBytes);
+                } else {
+                    saveLegacy(safeName, pdfBytes);
+                }
+
+                Log.i(TAG, "[PdfBridge] PDF saved successfully: "
+                        + safeName);
+                runOnUiThread(() -> showPdfSavedToast(safeName));
+
+            } catch (Exception e) {
+                Log.e(TAG, "[PdfBridge] Save failed: "
+                        + e.getMessage(), e);
+                runOnUiThread(() -> Toast.makeText(
+                        getApplicationContext(),
+                        "PDF save failed: " + e.getMessage(),
+                        Toast.LENGTH_LONG).show());
+            }
+        }
+
+        private void saveWithMediaStore(String name, byte[] data)
+                throws Exception {
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Downloads.DISPLAY_NAME, name);
+            values.put(MediaStore.Downloads.MIME_TYPE,
+                    "application/pdf");
+            values.put(MediaStore.Downloads.RELATIVE_PATH,
+                    Environment.DIRECTORY_DOWNLOADS);
+
+            Uri uri = getContentResolver().insert(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    values);
+            if (uri == null) {
+                throw new RuntimeException(
+                        "MediaStore insert returned null");
+            }
+            try (OutputStream os =
+                    getContentResolver().openOutputStream(uri)) {
+                if (os == null) {
+                    throw new RuntimeException(
+                            "openOutputStream returned null");
+                }
+                os.write(data);
+                os.flush();
+            }
+        }
+
+        @SuppressWarnings("deprecation")
+        private void saveLegacy(String name, byte[] data)
+                throws Exception {
+            File downloads = Environment
+                    .getExternalStoragePublicDirectory(
+                            Environment.DIRECTORY_DOWNLOADS);
+            File file = new File(downloads, name);
+            try (FileOutputStream fos =
+                    new FileOutputStream(file)) {
+                fos.write(data);
+                fos.flush();
+            }
+        }
+    }
+
+    private void showPdfSavedToast(String filename) {
+        Toast.makeText(this,
+                "PDF saved: " + filename + "\n"
+                + "Downloads folder",
+                Toast.LENGTH_LONG).show();
+    }
+
+    /* ════════════════════════════════════════════════════════
        FILE UPLOAD
-       ══════════════════════════════════════════════════════════════ */
+       ════════════════════════════════════════════════════════ */
 
     private void launchFileChooser() {
         Intent cameraIntent = new Intent(
-                android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+                MediaStore.ACTION_IMAGE_CAPTURE);
 
-        Intent galleryIntent = new Intent(Intent.ACTION_GET_CONTENT);
+        Intent galleryIntent = new Intent(
+                Intent.ACTION_GET_CONTENT);
         galleryIntent.setType("*/*");
         galleryIntent.addCategory(Intent.CATEGORY_OPENABLE);
 
@@ -609,8 +929,8 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode,
-            Intent data) {
+    protected void onActivityResult(int requestCode,
+            int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (requestCode == FILE_CHOOSER_REQUEST
@@ -630,19 +950,20 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode,
             String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions,
-                grantResults);
+        super.onRequestPermissionsResult(requestCode,
+                permissions, grantResults);
         if (requestCode == PERMISSION_REQUEST
                 && grantResults.length > 0
-                && grantResults[0] == android.content.pm.PackageManager
-                        .PERMISSION_GRANTED) {
+                && grantResults[0]
+                        == android.content.pm.PackageManager
+                                .PERMISSION_GRANTED) {
             launchFileChooser();
         }
     }
 
-    /* ══════════════════════════════════════════════════════════════
+    /* ════════════════════════════════════════════════════════
        PERMISSIONS
-       ══════════════════════════════════════════════════════════════ */
+       ════════════════════════════════════════════════════════ */
 
     private void requestPermissionsIfNeeded() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -652,28 +973,25 @@ public class MainActivity extends BridgeActivity {
                             .PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this,
                         new String[]{
-                                Manifest.permission.POST_NOTIFICATIONS},
+                                Manifest.permission
+                                        .POST_NOTIFICATIONS},
                         PERMISSION_REQUEST);
             }
         }
     }
 
-    /* ══════════════════════════════════════════════════════════════
+    /* ════════════════════════════════════════════════════════
        THREE-DOT MENU
-       ══════════════════════════════════════════════════════════════ */
+       ════════════════════════════════════════════════════════ */
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         menu.add(0, 1, 0, "\uD83D\uDD04  Refresh");
         menu.add(0, 2, 1, "\u2B05\uFE0F  Back");
         menu.add(0, 3, 2, "\u27A1\uFE0F  Forward");
-        desktopToggle = menu.add(0, 4, 3,
-                desktopMode
-                        ? "\uD83D\uDDA5\uFE0F  Desktop Site: ON"
-                        : "\uD83D\uDCF1  Desktop Site: OFF");
-        menu.add(0, 5, 4, "\uD83D\uDD17  Share");
-        menu.add(0, 6, 5, "\uD83D\uDD0D  Find in Page");
-        menu.add(0, 7, 6, "\u2139\uFE0F  About");
+        menu.add(0, 4, 3, "\uD83D\uDD17  Share");
+        menu.add(0, 5, 4, "\uD83D\uDD0D  Find in Page");
+        menu.add(0, 6, 5, "\u2139\uFE0F  About");
         return true;
     }
 
@@ -693,25 +1011,12 @@ public class MainActivity extends BridgeActivity {
                 if (webView.canGoForward()) webView.goForward();
                 return true;
             case 4:
-                desktopMode = !desktopMode;
-                if (desktopToggle != null) {
-                    desktopToggle.setTitle(desktopMode
-                            ? "\uD83D\uDDA5\uFE0F  Desktop Site: ON"
-                            : "\uD83D\uDCF1  Desktop Site: OFF");
-                }
-                webView.reload();
-                Toast.makeText(this,
-                        desktopMode ? "Desktop Site ON"
-                                : "Mobile Site ON",
-                        Toast.LENGTH_SHORT).show();
-                return true;
-            case 5:
                 shareCurrentPage();
                 return true;
-            case 6:
+            case 5:
                 showFindInPage();
                 return true;
-            case 7:
+            case 6:
                 new AlertDialog.Builder(this)
                         .setTitle("Chhapola Agriculture")
                         .setMessage("Version 1.0\n\n"
@@ -743,7 +1048,8 @@ public class MainActivity extends BridgeActivity {
                 .setTitle("Find in Page")
                 .setView(input)
                 .setPositiveButton("Find", (d, w) -> {
-                    String query = input.getText().toString().trim();
+                    String query = input.getText().toString()
+                            .trim();
                     if (!query.isEmpty()) {
                         WebView webView = getWebView();
                         if (webView != null)
@@ -754,9 +1060,9 @@ public class MainActivity extends BridgeActivity {
                 .show();
     }
 
-    /* ══════════════════════════════════════════════════════════════
+    /* ════════════════════════════════════════════════════════
        BACK BUTTON
-       ══════════════════════════════════════════════════════════════ */
+       ════════════════════════════════════════════════════════ */
 
     private void handleBackNavigation() {
         WebView webView = getWebView();
@@ -773,16 +1079,17 @@ public class MainActivity extends BridgeActivity {
             } else {
                 lastBackTime = now;
                 Toast.makeText(this,
-                        "Back \u0926\u092C\u093E\u0915\u0930 app "
-                        + "\u092C\u0902\u0926 \u0915\u0930\u0947\u0902",
+                        "Back \u0926\u092C\u093E\u0915\u0930 "
+                        + "\u0905\u092B \u092C\u0902\u0926 "
+                        + "\u0915\u0930\u0947\u0902",
                         Toast.LENGTH_SHORT).show();
             }
         }
     }
 
-    /* ══════════════════════════════════════════════════════════════
+    /* ════════════════════════════════════════════════════════
        NETWORK MONITORING
-       ══════════════════════════════════════════════════════════════ */
+       ════════════════════════════════════════════════════════ */
 
     private ConnectivityManager.NetworkCallback networkCallback;
 
@@ -810,7 +1117,8 @@ public class MainActivity extends BridgeActivity {
 
         NetworkRequest request = new NetworkRequest.Builder()
                 .addCapability(
-                        NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        NetworkCapabilities
+                                .NET_CAPABILITY_INTERNET)
                 .build();
         cm.registerNetworkCallback(request, networkCallback);
 
@@ -822,8 +1130,9 @@ public class MainActivity extends BridgeActivity {
         if (networkCallback != null) {
             ConnectivityManager cm = (ConnectivityManager)
                     getSystemService(CONNECTIVITY_SERVICE);
-            if (cm != null)
+            if (cm != null) {
                 cm.unregisterNetworkCallback(networkCallback);
+            }
         }
     }
 
@@ -836,8 +1145,10 @@ public class MainActivity extends BridgeActivity {
                 errorPage.setVisibility(View.GONE);
             webView.getSettings().setCacheMode(
                     WebSettings.LOAD_DEFAULT);
+            // Auto-reload when network returns
             if (errorPage != null
-                    && errorPage.getVisibility() == View.VISIBLE) {
+                    && errorPage.getVisibility()
+                            == View.VISIBLE) {
                 webView.reload();
             }
         } else {
@@ -848,39 +1159,29 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    /* ══════════════════════════════════════════════════════════════
-       DESKTOP VIEWPORT INJECTION
-       ══════════════════════════════════════════════════════════════ */
-
-    /**
-     * Override viewport meta tag to force desktop CSS layout.
-     * Only applied in desktop mode with a delay to avoid
-     * interfering with the website's own JS.
-     */
-    private void applyDesktopViewport(WebView wv) {
-        try {
-            String js = "(function(){"
-                    + "try{"
-                    + "var vp=document.querySelector"
-                    + "('meta[name=viewport]');"
-                    + "if(vp){vp.setAttribute("
-                    + "'content','width=1200');}"
-                    + "else{var m=document.createElement('meta');"
-                    + "m.name='viewport';m.content='width=1200';"
-                    + "document.head.appendChild(m);}"
-                    + "}catch(e){}"
-                    + "})()";
-            wv.evaluateJavascript(js, null);
-        } catch (Exception e) {
-            // Silently ignore — don't break the page
-        }
-    }
-
-    /* ══════════════════════════════════════════════════════════════
+    /* ════════════════════════════════════════════════════════
        HELPERS
-       ══════════════════════════════════════════════════════════════ */
+       ════════════════════════════════════════════════════════ */
 
     private int dpToPx(int dp) {
-        return (int) (dp * getResources().getDisplayMetrics().density);
+        return (int) (dp * getResources().getDisplayMetrics()
+                .density);
+    }
+
+    /**
+     * Sanitize filename for safe storage.
+     * Removes path separators, null bytes, leading dots.
+     */
+    private static String sanitizeFilename(String name) {
+        if (name == null || name.isEmpty()) {
+            return "document.pdf";
+        }
+        // Remove path separators and dangerous chars
+        String safe = name
+                .replaceAll("[/\\\\:*?\"<>|]", "_")
+                .replaceAll("\\x00", "")
+                .replaceAll("^\\.+", "");
+        if (safe.isEmpty()) safe = "document.pdf";
+        return safe;
     }
 }
